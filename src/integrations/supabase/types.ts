@@ -14,16 +14,362 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      artists: {
+        Row: {
+          ativo: boolean
+          cor: string
+          created_at: string
+          foto_url: string | null
+          google_calendar_id: string | null
+          id: string
+          nome: string
+          rider_padrao: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string
+          created_at?: string
+          foto_url?: string | null
+          google_calendar_id?: string | null
+          id?: string
+          nome: string
+          rider_padrao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string
+          created_at?: string
+          foto_url?: string | null
+          google_calendar_id?: string | null
+          id?: string
+          nome?: string
+          rider_padrao?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          nome: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          nome?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          nome?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      show_calendar_events: {
+        Row: {
+          artist_id: string
+          created_at: string
+          google_calendar_id: string | null
+          google_event_id: string | null
+          id: string
+          last_synced_at: string | null
+          show_id: string
+          sync_error: string | null
+        }
+        Insert: {
+          artist_id: string
+          created_at?: string
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          show_id: string
+          sync_error?: string | null
+        }
+        Update: {
+          artist_id?: string
+          created_at?: string
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          show_id?: string
+          sync_error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_calendar_events_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "show_calendar_events_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: true
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      show_deposits: {
+        Row: {
+          created_at: string
+          data: string | null
+          id: string
+          observacao: string | null
+          responsavel: string | null
+          show_id: string
+          status: Database["public"]["Enums"]["deposito_status"]
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string | null
+          id?: string
+          observacao?: string | null
+          responsavel?: string | null
+          show_id: string
+          status?: Database["public"]["Enums"]["deposito_status"]
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string | null
+          id?: string
+          observacao?: string | null
+          responsavel?: string | null
+          show_id?: string
+          status?: Database["public"]["Enums"]["deposito_status"]
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_deposits_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      show_expenses: {
+        Row: {
+          categoria: string
+          created_at: string
+          data: string | null
+          descricao: string | null
+          id: string
+          show_id: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          data?: string | null
+          descricao?: string | null
+          id?: string
+          show_id: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data?: string | null
+          descricao?: string | null
+          id?: string
+          show_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_expenses_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shows: {
+        Row: {
+          artist_id: string
+          autorizado_por: string | null
+          cache_total: number
+          camarins_rider: string | null
+          capacidade: number | null
+          cidade: string | null
+          condicao_pagamento: string | null
+          contratante_cep: string | null
+          contratante_cidade: string | null
+          contratante_documento: string | null
+          contratante_email: string | null
+          contratante_endereco: string | null
+          contratante_nome: string | null
+          contratante_telefone: string | null
+          created_at: string
+          created_by: string | null
+          data_show: string
+          data_subida: string | null
+          encargos_extras: boolean
+          endereco: string | null
+          horario: string | null
+          hosp_diaria_alimentacao: boolean
+          hosp_hospedagem: boolean
+          hosp_traslado: boolean
+          id: string
+          local: string | null
+          tipo_estrutura: Database["public"]["Enums"]["estrutura_tipo"] | null
+          transp_aereo: boolean
+          transp_excesso_bagagem: boolean
+          transp_observacoes: string | null
+          transp_onibus: boolean
+          transp_van: boolean
+          updated_at: string
+          vendedor: string | null
+        }
+        Insert: {
+          artist_id: string
+          autorizado_por?: string | null
+          cache_total?: number
+          camarins_rider?: string | null
+          capacidade?: number | null
+          cidade?: string | null
+          condicao_pagamento?: string | null
+          contratante_cep?: string | null
+          contratante_cidade?: string | null
+          contratante_documento?: string | null
+          contratante_email?: string | null
+          contratante_endereco?: string | null
+          contratante_nome?: string | null
+          contratante_telefone?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_show: string
+          data_subida?: string | null
+          encargos_extras?: boolean
+          endereco?: string | null
+          horario?: string | null
+          hosp_diaria_alimentacao?: boolean
+          hosp_hospedagem?: boolean
+          hosp_traslado?: boolean
+          id?: string
+          local?: string | null
+          tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
+          transp_aereo?: boolean
+          transp_excesso_bagagem?: boolean
+          transp_observacoes?: string | null
+          transp_onibus?: boolean
+          transp_van?: boolean
+          updated_at?: string
+          vendedor?: string | null
+        }
+        Update: {
+          artist_id?: string
+          autorizado_por?: string | null
+          cache_total?: number
+          camarins_rider?: string | null
+          capacidade?: number | null
+          cidade?: string | null
+          condicao_pagamento?: string | null
+          contratante_cep?: string | null
+          contratante_cidade?: string | null
+          contratante_documento?: string | null
+          contratante_email?: string | null
+          contratante_endereco?: string | null
+          contratante_nome?: string | null
+          contratante_telefone?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_show?: string
+          data_subida?: string | null
+          encargos_extras?: boolean
+          endereco?: string | null
+          horario?: string | null
+          hosp_diaria_alimentacao?: boolean
+          hosp_hospedagem?: boolean
+          hosp_traslado?: boolean
+          id?: string
+          local?: string | null
+          tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
+          transp_aereo?: boolean
+          transp_excesso_bagagem?: boolean
+          transp_observacoes?: string | null
+          transp_onibus?: boolean
+          transp_van?: boolean
+          updated_at?: string
+          vendedor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shows_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          artist_id: string | null
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          artist_id?: string | null
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          artist_id?: string | null
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_artist_fk"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_my_artist_id: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "gerente" | "equipe" | "artista"
+      deposito_status: "ok" | "pendente"
+      estrutura_tipo: "aberta" | "fechada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +496,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["gerente", "equipe", "artista"],
+      deposito_status: ["ok", "pendente"],
+      estrutura_tipo: ["aberta", "fechada"],
+    },
   },
 } as const
