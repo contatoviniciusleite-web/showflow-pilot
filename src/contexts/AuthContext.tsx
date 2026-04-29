@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles([]);
       setArtistId(null);
     }
-  }, [loadRoles]);
+  }, []);
 
   useEffect(() => {
     // 1. Listener PRIMEIRO
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [loadRoles]);
 
   const refreshRoles = async () => {
     if (user) await loadRoles(user.id, true);
