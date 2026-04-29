@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles([]);
       setArtistId(null);
     }
-  }, []);
+  }, [loadRoles]);
 
   useEffect(() => {
     // 1. Listener PRIMEIRO
