@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // defer chamada do supabase para evitar deadlock no listener
         setTimeout(() => loadRoles(sess.user.id), 0);
       } else {
+        roleLoadId.current += 1;
         setRoles([]);
         setArtistId(null);
       }
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshRoles = async () => {
-    if (user) await loadRoles(user.id);
+    if (user) await loadRoles(user.id, true);
   };
 
   const signOut = async () => {
