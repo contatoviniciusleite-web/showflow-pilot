@@ -68,20 +68,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
+        setLoading(true);
         // defer chamada do supabase para evitar deadlock no listener
-        setTimeout(() => loadRoles(sess.user.id), 0);
+        setTimeout(async () => {
+          await loadRoles(sess.user.id);
+          setLoading(false);
+        }, 0);
       } else {
         roleLoadId.current += 1;
         setRoles([]);
         setArtistId(null);
+        setLoading(false);
       }
     });
 
     // 2. Depois pega sessão atual
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) loadRoles(sess.user.id);
+      if (sess?.user) await loadRoles(sess.user.id);
       setLoading(false);
     });
 
