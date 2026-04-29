@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,27 +16,51 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
+const ROLE_RETRY_DELAYS = [700, 1500, 3000, 5000];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [artistId, setArtistId] = useState<string | null>(null);
+  const roleLoadId = useRef(0);
 
-  const loadRoles = async (uid: string) => {
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("role, artist_id")
-      .eq("user_id", uid);
-    if (error) {
+  const loadRoles = useCallback(async (uid: string, clearBefore = false) => {
+    const requestId = ++roleLoadId.current;
+    let lastError: unknown = null;
+
+    if (clearBefore) {
       setRoles([]);
       setArtistId(null);
-      return;
     }
-    setRoles((data ?? []).map((r) => r.role as AppRole));
-    const artist = (data ?? []).find((r) => r.role === "artista");
-    setArtistId(artist?.artist_id ?? null);
-  };
+
+    for (let attempt = 0; attempt <= ROLE_RETRY_DELAYS.length; attempt += 1) {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role, artist_id")
+        .eq("user_id", uid);
+
+      if (!error) {
+        if (requestId === roleLoadId.current) {
+          setRoles((data ?? []).map((r) => r.role as AppRole));
+          const artist = (data ?? []).find((r) => r.role === "artista");
+          setArtistId(artist?.artist_id ?? null);
+        }
+        return;
+      }
+
+      lastError = error;
+      const delay = ROLE_RETRY_DELAYS[attempt];
+      if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay));
+    }
+
+    console.error("Falha ao carregar permissões do usuário", lastError);
+    if (requestId === roleLoadId.current) {
+      setRoles([]);
+      setArtistId(null);
+    }
+  }, []);
 
   useEffect(() => {
     // 1. Listener PRIMEIRO
