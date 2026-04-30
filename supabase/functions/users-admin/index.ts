@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     const callerId = authData.claims?.sub;
     if (authError || !callerId) return json({ error: "Sessão inválida" }, 401);
 
-    sql = postgres(databaseUrl, { prepare: false, max: 1 });
+    sql = postgres(databaseUrl, { prepare: false, max: 1, idle_timeout: 20, connect_timeout: 10, ssl: "require" });
     const managerRows = await sql`
       select 1 from public.user_roles where user_id = ${callerId} and role = 'gerente' limit 1
     `;
