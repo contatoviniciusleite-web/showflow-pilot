@@ -57,6 +57,20 @@ async function findUserByEmail(admin: ReturnType<typeof createClient>, email: st
   return null;
 }
 
+async function listAllAuthUsers(admin: ReturnType<typeof createClient>) {
+  const users: any[] = [];
+  const perPage = 1000;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await retry(`listar usuários página ${page}`, () =>
+      admin.auth.admin.listUsers({ page, perPage })
+    );
+    if (error) throw error;
+    users.push(...data.users);
+    if (data.users.length < perPage) break;
+  }
+  return users;
+}
+
 const FALLBACK_APP_ORIGIN = "https://id-preview--85509043-3457-4547-998e-38e63b8b67cc.lovable.app";
 
 function getAppOrigin(req: Request) {
@@ -107,29 +121,28 @@ Deno.serve(async (req) => {
     const action = body.action ?? "list";
 
     if (action === "list") {
-      const rows = await sql`
-        select
-          p.id,
-          p.nome,
-          coalesce(json_agg(
-            json_build_object('role', ur.role::text, 'artist_id', ur.artist_id)
-          ) filter (where ur.role is not null), '[]'::json) as roles
-        from public.profiles p
-        left join public.user_roles ur on ur.user_id = p.id
-        group by p.id, p.nome
-        order by p.nome nulls last
-      `;
-      // join email from auth.users using admin
-      const { data: usersData, error: usersError } = await admin.auth.admin.listUsers({ perPage: 1000 });
-      if (usersError) throw usersError;
-      const emailMap = new Map(usersData.users.map((u) => [u.id, { email: u.email, last_sign_in_at: u.last_sign_in_at, invited: !u.email_confirmed_at && !u.last_sign_in_at }]));
-      const users = rows.map((r: any) => ({
-        id: r.id,
-        nome: r.nome,
-        email: emailMap.get(r.id)?.email ?? null,
-        last_sign_in_at: emailMap.get(r.id)?.last_sign_in_at ?? null,
-        pendente: emailMap.get(r.id)?.invited ?? false,
-        roles: r.roles,
+      const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, authUsers] = await Promise.all([
+        retry("listar perfis", () => admin.from("profiles").select("id,nome").order("nome", { ascending: true, nullsFirst: false })),
+        retry("listar papéis", () => admin.from("user_roles").select("user_id,role,artist_id").order("created_at", { ascending: true })),
+        listAllAuthUsers(admin),
+      ]);
+      if (profilesError) throw profilesError;
+      if (rolesError) throw rolesError;
+
+      const roleMap = new Map<string, Array<{ role: string; artist_id: string | null }>>();
+      for (const r of roles ?? []) {
+        const list = roleMap.get(r.user_id) ?? [];
+        list.push({ role: r.role, artist_id: r.artist_id });
+        roleMap.set(r.user_id, list);
+      }
+      const emailMap = new Map(authUsers.map((u) => [u.id, { email: u.email, last_sign_in_at: u.last_sign_in_at, invited: !u.email_confirmed_at && !u.last_sign_in_at }]));
+      const users = (profiles ?? []).map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        email: emailMap.get(p.id)?.email ?? null,
+        last_sign_in_at: emailMap.get(p.id)?.last_sign_in_at ?? null,
+        pendente: emailMap.get(p.id)?.invited ?? false,
+        roles: roleMap.get(p.id) ?? [],
       }));
       return json({ users });
     }
