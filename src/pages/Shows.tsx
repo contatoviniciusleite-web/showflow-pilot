@@ -291,8 +291,14 @@ export default function Shows() {
                   <Input type="time" value={form.horario} onChange={(e) => set("horario", e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Data de subida/montagem</Label>
-                  <Input type="date" value={form.data_subida} onChange={(e) => set("data_subida", e.target.value)} />
+                  <Label className="text-muted-foreground">Data de subida</Label>
+                  <Input
+                    value={editing ? new Date(editing.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Será registrada automaticamente ao salvar"}
+                    readOnly
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Preenchida automaticamente no momento do cadastro — não editável.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Vendedor responsável</Label>
