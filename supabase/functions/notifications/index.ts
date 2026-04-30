@@ -19,16 +19,23 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!supabaseUrl || !anonKey) return json({ error: "Configuração incompleta" }, 500);
+    if (!supabaseUrl || !anonKey) {
+      console.error("notifications: missing env");
+      return json({ error: "Configuração incompleta" }, 500);
+    }
     if (!authHeader) return json({ error: "Sessão ausente" }, 401);
 
     const client = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false },
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: claims, error: aerr } = await client.auth.getClaims(authHeader.replace(/^Bearer\s+/i, ""));
-    const userId = claims?.claims?.sub;
-    if (aerr || !userId) return json({ error: "Sessão inválida" }, 401);
+
+    const { data: userData, error: userErr } = await client.auth.getUser();
+    if (userErr || !userData?.user) {
+      console.error("notifications: auth error", userErr);
+      return json({ error: "Sessão inválida" }, 401);
+    }
+    const userId = userData.user.id;
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
@@ -37,31 +44,45 @@ Deno.serve(async (req) => {
       const { data, error } = await client
         .from("notifications")
         .select("*")
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50);
-      if (error) return json({ error: error.message }, 500);
+      if (error) {
+        console.error("notifications.list error", error);
+        return json({ error: error.message || "Falha ao listar notificações" }, 500);
+      }
       return json({ notifications: data ?? [] });
     }
 
     if (action === "unread_count") {
       const { count, error } = await client
         .from("notifications")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
         .eq("lida", false);
-      if (error) return json({ error: error.message }, 500);
+      if (error) {
+        console.error("notifications.unread_count error", error);
+        return json({ error: error.message || "Falha ao contar notificações" }, 500);
+      }
       return json({ count: count ?? 0 });
     }
 
     if (action === "mark_read") {
       const id = typeof body.id === "string" ? body.id : null;
-      const q = client.from("notifications").update({ lida: true }).eq("user_id", userId);
-      const { error } = id ? await q.eq("id", id) : await q;
-      if (error) return json({ error: error.message }, 500);
+      let q = client.from("notifications").update({ lida: true }).eq("user_id", userId);
+      if (id) q = q.eq("id", id);
+      const { error } = await q;
+      if (error) {
+        console.error("notifications.mark_read error", error);
+        return json({ error: error.message || "Falha ao marcar como lida" }, 500);
+      }
       return json({ ok: true });
     }
 
     return json({ error: "Ação inválida" }, 400);
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : "Erro" }, 500);
+    console.error("notifications: unhandled", e);
+    const msg = e instanceof Error && e.message ? e.message : "Erro interno";
+    return json({ error: msg }, 500);
   }
 });
