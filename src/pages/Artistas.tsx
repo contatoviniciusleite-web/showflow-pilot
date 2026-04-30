@@ -68,9 +68,11 @@ export default function Artistas() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("artists").select("*").order("nome");
+    const { data, error } = await supabase.functions.invoke("artists-admin", {
+      body: { action: "list" },
+    });
     if (error) toast.error(error.message);
-    setArtists((data ?? []) as Artist[]);
+    setArtists((data?.artists ?? []) as Artist[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -125,11 +127,15 @@ export default function Artistas() {
         foto_url,
       };
       if (editing) {
-        const { error } = await supabase.from("artists").update(payload).eq("id", editing.id);
+        const { error } = await supabase.functions.invoke("artists-admin", {
+          body: { action: "update", id: editing.id, artist: payload },
+        });
         if (error) throw error;
         toast.success("Artista atualizado");
       } else {
-        const { error } = await supabase.from("artists").insert(payload);
+        const { error } = await supabase.functions.invoke("artists-admin", {
+          body: { action: "create", artist: payload },
+        });
         if (error) throw error;
         toast.success("Artista criado");
       }
@@ -144,7 +150,9 @@ export default function Artistas() {
 
   const remove = async (a: Artist) => {
     if (!confirm(`Remover ${a.nome}? Esta ação não pode ser desfeita.`)) return;
-    const { error } = await supabase.from("artists").delete().eq("id", a.id);
+    const { error } = await supabase.functions.invoke("artists-admin", {
+      body: { action: "delete", id: a.id },
+    });
     if (error) return toast.error(error.message);
     toast.success("Artista removido");
     load();
