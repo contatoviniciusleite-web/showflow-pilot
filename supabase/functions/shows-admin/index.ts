@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
           hosp_diaria_alimentacao, hosp_hospedagem, hosp_traslado,
           camarins_rider, autorizado_por, created_by, updated_at
         ) values (
-          ${s.artist_id}, ${s.data_show}, ${s.horario}, ${s.data_subida}, ${s.vendedor},
+          ${s.artist_id}, ${s.data_show}, ${s.horario}, current_date, ${s.vendedor},
           ${s.local}, ${s.tipo_estrutura}::estrutura_tipo, ${s.endereco}, ${s.cidade}, ${s.capacidade},
           ${s.contratante_nome}, ${s.contratante_documento}, ${s.contratante_endereco}, ${s.contratante_cidade},
           ${s.contratante_cep}, ${s.contratante_telefone}, ${s.contratante_email},
