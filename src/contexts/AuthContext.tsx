@@ -16,8 +16,9 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-const ROLE_RETRY_DELAYS = [700, 1500, 3000, 5000];
-const ROLE_QUERY_TIMEOUT_MS = 5000;
+const ROLE_RETRY_DELAYS = [700, 1500];
+const ROLE_QUERY_TIMEOUT_MS = 3000;
+const SESSION_TIMEOUT_MS = 5000;
 
 function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -87,15 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        setLoading(true);
+        setLoading(false);
         // defer chamada do supabase para evitar deadlock no listener
-        setTimeout(async () => {
-          try {
-            await loadRoles(sess.user.id);
-          } finally {
-            setLoading(false);
-          }
-        }, 0);
+        setTimeout(() => void loadRoles(sess.user.id), 0);
       } else {
         roleLoadId.current += 1;
         setRoles([]);
@@ -105,11 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // 2. Depois pega sessão atual
-    supabase.auth.getSession()
+    withTimeout(supabase.auth.getSession(), SESSION_TIMEOUT_MS)
       .then(async ({ data: { session: sess } }) => {
         setSession(sess);
         setUser(sess?.user ?? null);
-        if (sess?.user) await loadRoles(sess.user.id);
+        if (sess?.user) void loadRoles(sess.user.id);
       })
       .catch((error) => {
         console.error("Falha ao recuperar sessão", error);
