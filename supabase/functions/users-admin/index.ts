@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import postgres from "npm:postgres@3.4.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +24,39 @@ function isRole(v: unknown): v is Role {
   return typeof v === "string" && (ROLES as readonly string[]).includes(v);
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function messageFrom(error: unknown) {
+  return error instanceof Error ? error.message : String(error ?? "Erro interno");
+}
+
+async function retry<T>(label: string, operation: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      console.warn(`${label} falhou na tentativa ${attempt}`, error);
+      if (attempt < attempts) await delay(350 * attempt);
+    }
+  }
+  throw lastError;
+}
+
+async function findUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
+  const perPage = 1000;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await retry(`listUsers página ${page}`, () =>
+      admin.auth.admin.listUsers({ page, perPage })
+    );
+    if (error) throw error;
+    const found = data.users.find((u) => u.email?.toLowerCase() === email);
+    if (found || data.users.length < perPage) return found ?? null;
+  }
+  return null;
+}
+
 const FALLBACK_APP_ORIGIN = "https://id-preview--85509043-3457-4547-998e-38e63b8b67cc.lovable.app";
 
 function getAppOrigin(req: Request) {
@@ -43,17 +75,14 @@ function getAppOrigin(req: Request) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  let sql: postgres.Sql | null = null;
-
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    if (!supabaseUrl || !anonKey || !serviceKey || !databaseUrl) {
+    if (!supabaseUrl || !anonKey || !serviceKey) {
       return json({ error: "Configuração do backend incompleta" }, 500);
     }
     if (!token) return json({ error: "Sessão ausente" }, 401);
@@ -66,13 +95,13 @@ Deno.serve(async (req) => {
     const callerId = authData.claims?.sub;
     if (authError || !callerId) return json({ error: "Sessão inválida" }, 401);
 
-    sql = postgres(databaseUrl, { prepare: false, max: 1, idle_timeout: 20, connect_timeout: 10, ssl: "require" });
-    const managerRows = await sql`
-      select 1 from public.user_roles where user_id = ${callerId} and role = 'gerente' limit 1
-    `;
-    if (managerRows.length === 0) return json({ error: "Acesso negado" }, 403);
-
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    const { data: managerRows, error: managerError } = await retry("verificar gerente", () =>
+      admin.from("user_roles").select("id").eq("user_id", callerId).eq("role", "gerente").limit(1)
+    );
+    if (managerError) throw managerError;
+    if (!managerRows?.length) return json({ error: "Acesso negado" }, 403);
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
