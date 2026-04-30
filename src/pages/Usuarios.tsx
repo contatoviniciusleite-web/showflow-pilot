@@ -35,6 +35,20 @@ const ROLE_LABEL: Record<AppRole, string> = {
   vendedor: "Vendedor",
 };
 
+async function getFunctionErrorMessage(error: unknown, fallback = "Erro ao processar solicitação") {
+  const err = error as { message?: string; context?: unknown } | null;
+  const response = err?.context;
+  if (response instanceof Response) {
+    try {
+      const data = await response.clone().json();
+      if (typeof data?.error === "string" && data.error.trim()) return data.error;
+    } catch {
+      // Keep the generic message when the response body is not JSON.
+    }
+  }
+  return err?.message ?? fallback;
+}
+
 export default function Usuarios() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -53,8 +67,8 @@ export default function Usuarios() {
       supabase.functions.invoke("users-admin", { body: { action: "list" } }),
       supabase.functions.invoke("artists-admin", { body: { action: "list" } }),
     ]);
-    if (uErr) toast.error(uErr.message);
-    if (aErr) toast.error(aErr.message);
+    if (uErr) toast.error(await getFunctionErrorMessage(uErr));
+    if (aErr) toast.error(await getFunctionErrorMessage(aErr));
     setUsers((uData?.users ?? []) as AppUser[]);
     setArtists(((aData?.artists ?? []) as Artist[]).map((a) => ({ id: a.id, nome: a.nome })));
     setLoading(false);
@@ -78,7 +92,7 @@ export default function Usuarios() {
       },
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(await getFunctionErrorMessage(error, "Erro ao enviar convite"));
     toast.success("Convite enviado");
     setInviteOpen(false);
     setInviteForm({ nome: "", email: "", role: "vendedor", artist_id: "" });
@@ -125,7 +139,7 @@ export default function Usuarios() {
       setEditing(null);
       load();
     } catch (err: any) {
-      toast.error(err.message ?? "Erro ao salvar");
+      toast.error(await getFunctionErrorMessage(err, "Erro ao salvar"));
     } finally {
       setSaving(false);
     }
@@ -136,7 +150,7 @@ export default function Usuarios() {
     const { error } = await supabase.functions.invoke("users-admin", {
       body: { action: "resend_invite", email: u.email },
     });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(await getFunctionErrorMessage(error, "Erro ao reenviar convite"));
     toast.success("Convite reenviado");
   };
 
@@ -146,7 +160,7 @@ export default function Usuarios() {
     const { error } = await supabase.functions.invoke("users-admin", {
       body: { action: "delete", user_id: u.id },
     });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(await getFunctionErrorMessage(error, "Erro ao remover usuário"));
     toast.success("Usuário removido");
     load();
   };
