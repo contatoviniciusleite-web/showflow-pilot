@@ -25,6 +25,21 @@ function isRole(v: unknown): v is Role {
   return typeof v === "string" && (ROLES as readonly string[]).includes(v);
 }
 
+const FALLBACK_APP_ORIGIN = "https://id-preview--85509043-3457-4547-998e-38e63b8b67cc.lovable.app";
+
+function getAppOrigin(req: Request) {
+  const origin = req.headers.get("origin") ?? req.headers.get("referer") ?? "";
+  try {
+    const url = new URL(origin);
+    if (!["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname)) {
+      return url.origin;
+    }
+  } catch (_) {
+    // Ignore invalid or missing origin headers and use the hosted app URL.
+  }
+  return FALLBACK_APP_ORIGIN;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -102,8 +117,7 @@ Deno.serve(async (req) => {
       if (role === "artista" && !artistId) return json({ error: "Selecione o artista vinculado" }, 400);
       if (artistId && typeof artistId !== "string") return json({ error: "Artista inválido" }, 400);
 
-      const redirectTo = `${new URL(req.url).origin.replace(/\/functions\/v1.*/, "")}`;
-      const appOrigin = req.headers.get("origin") ?? redirectTo;
+      const appOrigin = getAppOrigin(req);
 
       const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
         data: { nome },
@@ -177,7 +191,7 @@ Deno.serve(async (req) => {
     if (action === "resend_invite") {
       const email = (body.email ?? "").toString().trim().toLowerCase();
       if (!isEmail(email)) return json({ error: "E-mail inválido" }, 400);
-      const appOrigin = req.headers.get("origin") ?? "";
+      const appOrigin = getAppOrigin(req);
       const { error } = await admin.auth.admin.inviteUserByEmail(email, {
         redirectTo: `${appOrigin}/aceitar-convite`,
       });
