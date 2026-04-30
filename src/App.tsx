@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Artistas from "./pages/Artistas";
+import Usuarios from "./pages/Usuarios";
 import Shows from "./pages/Shows";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
@@ -49,7 +50,7 @@ const App = () => (
                 path="/usuarios"
                 element={
                   <ProtectedRoute requireRoles={["gerente"]}>
-                    <Placeholder title="Usuários" description="Gestão de papéis e vínculos." />
+                    <Usuarios />
                   </ProtectedRoute>
                 }
               />
