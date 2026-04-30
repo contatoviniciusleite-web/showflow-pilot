@@ -18,8 +18,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!supabaseUrl || !anonKey) {
+    if (!supabaseUrl || !anonKey || !serviceKey) {
       console.error("notifications: missing env");
       return json({ error: "Configuração incompleta" }, 500);
     }
@@ -38,11 +39,13 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string;
 
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
 
     if (action === "list") {
-      const { data, error } = await client
+      const { data, error } = await admin
         .from("notifications")
         .select("*")
         .eq("user_id", userId)
@@ -56,7 +59,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "unread_count") {
-      const { count, error } = await client
+      const { count, error } = await admin
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
@@ -70,7 +73,7 @@ Deno.serve(async (req) => {
 
     if (action === "mark_read") {
       const id = typeof body.id === "string" ? body.id : null;
-      let q = client.from("notifications").update({ lida: true }).eq("user_id", userId);
+      let q = admin.from("notifications").update({ lida: true }).eq("user_id", userId);
       if (id) q = q.eq("id", id);
       const { error } = await q;
       if (error) {
