@@ -68,7 +68,6 @@ function validateShow(input: any) {
     artist_id,
     data_show,
     horario: timeOrNull(input.horario),
-    data_subida: dateOrNull(input.data_subida),
     vendedor: txt(input.vendedor, 200),
     local: txt(input.local, 200),
     tipo_estrutura: tipo,
@@ -160,8 +159,11 @@ Deno.serve(async (req) => {
 
     if (!canManage) return json({ error: "Acesso negado" }, 403);
 
+    const isEditor = roles.includes("gerente") || roles.includes("equipe");
+
     if (action === "create") {
       const s = validateShow(body.show ?? {});
+      // data_subida = momento exato de criação (data do timestamp created_at)
       const rows = await sql`
         insert into public.shows (
           artist_id, data_show, horario, data_subida, vendedor,
@@ -173,7 +175,7 @@ Deno.serve(async (req) => {
           hosp_diaria_alimentacao, hosp_hospedagem, hosp_traslado,
           camarins_rider, autorizado_por, created_by, updated_at
         ) values (
-          ${s.artist_id}, ${s.data_show}, ${s.horario}, ${s.data_subida}, ${s.vendedor},
+          ${s.artist_id}, ${s.data_show}, ${s.horario}, current_date, ${s.vendedor},
           ${s.local}, ${s.tipo_estrutura}::estrutura_tipo, ${s.endereco}, ${s.cidade}, ${s.capacidade},
           ${s.contratante_nome}, ${s.contratante_documento}, ${s.contratante_endereco}, ${s.contratante_cidade},
           ${s.contratante_cep}, ${s.contratante_telefone}, ${s.contratante_email},
@@ -188,6 +190,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update") {
+      if (!isEditor) return json({ error: "Apenas gerente ou equipe podem editar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
       const s = validateShow(body.show ?? {});
       const rows = await sql`
@@ -195,7 +198,6 @@ Deno.serve(async (req) => {
           artist_id = ${s.artist_id},
           data_show = ${s.data_show},
           horario = ${s.horario},
-          data_subida = ${s.data_subida},
           vendedor = ${s.vendedor},
           local = ${s.local},
           tipo_estrutura = ${s.tipo_estrutura}::estrutura_tipo,

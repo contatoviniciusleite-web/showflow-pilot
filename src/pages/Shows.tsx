@@ -22,6 +22,7 @@ interface Show {
   data_show: string;
   horario: string | null;
   data_subida: string | null;
+  created_at: string;
   vendedor: string | null;
   local: string | null;
   tipo_estrutura: "aberta" | "fechada" | null;
@@ -96,7 +97,8 @@ function fmtDate(d: string | null) {
 
 export default function Shows() {
   const { roles } = useAuth();
-  const canManage = roles.some((r) => ["gerente", "equipe", "vendedor"].includes(r));
+  const canCreate = roles.some((r) => ["gerente", "equipe", "vendedor"].includes(r));
+  const canEdit = roles.some((r) => ["gerente", "equipe"].includes(r));
   const isManager = roles.includes("gerente");
 
   const [shows, setShows] = useState<Show[]>([]);
@@ -208,7 +210,7 @@ export default function Shows() {
           <h1 className="text-2xl md:text-3xl font-semibold">Minutas de show</h1>
           <p className="text-muted-foreground mt-1">{shows.length} cadastrada(s) · {upcoming} futura(s)</p>
         </div>
-        {canManage && (
+        {canCreate && (
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" />
             Nova minuta
@@ -222,7 +224,7 @@ export default function Shows() {
         <Card className="p-12 text-center shadow-soft">
           <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground mb-4">Nenhuma minuta cadastrada ainda.</p>
-          {canManage && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Criar primeira minuta</Button>}
+          {canCreate && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Criar primeira minuta</Button>}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -241,9 +243,11 @@ export default function Shows() {
                   <p className="text-sm font-medium mt-2">{fmtBRL(Number(s.cache_total ?? 0))}</p>
                   {s.contratante_nome && <p className="text-xs text-muted-foreground mt-1 truncate">Contratante: {s.contratante_nome}</p>}
                 </div>
-                {canManage && (
+                {(canEdit || isManager) && (
                   <div className="flex flex-col gap-1">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    {canEdit && (
+                      <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    )}
                     {isManager && (
                       <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)}>
                         <Trash2 className="h-3.5 w-3.5" />
@@ -287,8 +291,14 @@ export default function Shows() {
                   <Input type="time" value={form.horario} onChange={(e) => set("horario", e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Data de subida/montagem</Label>
-                  <Input type="date" value={form.data_subida} onChange={(e) => set("data_subida", e.target.value)} />
+                  <Label className="text-muted-foreground">Data de subida</Label>
+                  <Input
+                    value={editing ? new Date(editing.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Será registrada automaticamente ao salvar"}
+                    readOnly
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Preenchida automaticamente no momento do cadastro — não editável.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Vendedor responsável</Label>
