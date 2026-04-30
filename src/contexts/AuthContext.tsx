@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             headers: { Authorization: `Bearer ${accessToken}` },
           }),
           ROLE_QUERY_TIMEOUT_MS
-        ).finally(() => window.clearTimeout(timeout));
+        );
 
         if (!error) {
           if (requestId === roleLoadId.current) {
