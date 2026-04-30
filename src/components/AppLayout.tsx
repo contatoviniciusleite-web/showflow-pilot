@@ -93,6 +93,9 @@ export function AppLayout() {
       </div>
 
       <main className="flex-1 md:pt-0 pt-14 pb-20 md:pb-0">
+        <div className="hidden md:flex items-center justify-end gap-2 px-6 py-3 border-b">
+          <NotificationBell />
+        </div>
         <Outlet />
       </main>
 
