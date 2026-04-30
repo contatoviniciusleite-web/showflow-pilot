@@ -175,22 +175,25 @@ Deno.serve(async (req) => {
       // Find user id (either from invite or existing)
       let userId = invited?.user?.id ?? null;
       if (!userId) {
-        const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
-        userId = list.users.find((u) => u.email?.toLowerCase() === email)?.id ?? null;
+        const existing = await findUserByEmail(admin, email);
+        if (existing?.last_sign_in_at || existing?.email_confirmed_at) {
+          return json({ error: "Este e-mail já tem acesso ativo. Use editar usuário ou remover antes de convidar novamente." }, 400);
+        }
+        userId = existing?.id ?? null;
       }
       if (!userId) return json({ error: "Não foi possível criar o convite" }, 500);
 
-      // ensure profile
-      await sql`
-        insert into public.profiles (id, nome) values (${userId}, ${nome})
-        on conflict (id) do update set nome = excluded.nome
-      `;
-      // assign role
-      await sql`
-        insert into public.user_roles (user_id, role, artist_id)
-        values (${userId}, ${role}::app_role, ${role === "artista" ? artistId : null})
-        on conflict (user_id, role) do update set artist_id = excluded.artist_id
-      `;
+      const { error: profileError } = await retry("salvar perfil", () =>
+        admin.from("profiles").upsert({ id: userId, nome }, { onConflict: "id" })
+      );
+      if (profileError) throw profileError;
+      const { error: roleError } = await retry("salvar papel", () =>
+        admin.from("user_roles").upsert(
+          { user_id: userId, role, artist_id: role === "artista" ? artistId : null },
+          { onConflict: "user_id,role" }
+        )
+      );
+      if (roleError) throw roleError;
 
       return json({ ok: true, user_id: userId });
     }
@@ -209,15 +212,18 @@ Deno.serve(async (req) => {
         return json({ error: "Você não pode remover seu próprio papel de gerente" }, 400);
       }
 
-      await sql.begin(async (tx) => {
-        await tx`delete from public.user_roles where user_id = ${userId}`;
-        for (const r of roles) {
-          await tx`
-            insert into public.user_roles (user_id, role, artist_id)
-            values (${userId}, ${r.role}::app_role, ${r.role === "artista" ? r.artist_id : null})
-          `;
-        }
-      });
+      const { error: deleteRolesError } = await retry("remover papéis", () =>
+        admin.from("user_roles").delete().eq("user_id", userId)
+      );
+      if (deleteRolesError) throw deleteRolesError;
+      if (roles.length) {
+        const { error: insertRolesError } = await retry("salvar papéis", () =>
+          admin.from("user_roles").insert(
+            roles.map((r) => ({ user_id: userId, role: r.role, artist_id: r.role === "artista" ? r.artist_id : null }))
+          )
+        );
+        if (insertRolesError) throw insertRolesError;
+      }
       return json({ ok: true });
     }
 
@@ -226,7 +232,10 @@ Deno.serve(async (req) => {
       const nome = (body.nome ?? "").toString().trim();
       if (typeof userId !== "string") return json({ error: "Usuário inválido" }, 400);
       if (!nome || nome.length > 120) return json({ error: "Nome inválido" }, 400);
-      await sql`update public.profiles set nome = ${nome}, updated_at = now() where id = ${userId}`;
+      const { error } = await retry("atualizar perfil", () =>
+        admin.from("profiles").update({ nome, updated_at: new Date().toISOString() }).eq("id", userId)
+      );
+      if (error) throw error;
       return json({ ok: true });
     }
 
@@ -254,8 +263,6 @@ Deno.serve(async (req) => {
     return json({ error: "Ação inválida" }, 400);
   } catch (error) {
     console.error("Erro em users-admin", error);
-    return json({ error: error instanceof Error ? error.message : "Falha ao gerenciar usuários" }, 500);
-  } finally {
-    if (sql) await sql.end({ timeout: 3 });
+    return json({ error: messageFrom(error) || "Falha ao gerenciar usuários" }, 500);
   }
 });
