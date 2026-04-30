@@ -59,13 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!error) {
           if (requestId === roleLoadId.current) {
-            setRoles((data ?? []).map((r) => r.role as AppRole));
+            const newRoles = (data ?? []).map((r) => r.role as AppRole);
+            console.log("[Auth] Papéis carregados:", newRoles);
+            setRoles(newRoles);
             const artist = (data ?? []).find((r) => r.role === "artista");
             setArtistId(artist?.artist_id ?? null);
           }
           return;
         }
 
+        console.warn("[Auth] Erro ao buscar papéis (tentativa " + attempt + "):", error);
         lastError = error;
       } catch (error) {
         lastError = error;
