@@ -16,9 +16,9 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-const ROLE_RETRY_DELAYS = [700, 1500];
-const ROLE_QUERY_TIMEOUT_MS = 3000;
-const SESSION_TIMEOUT_MS = 5000;
+const ROLE_RETRY_DELAYS = [800, 1600, 3000];
+const ROLE_QUERY_TIMEOUT_MS = 10000;
+const SESSION_TIMEOUT_MS = 8000;
 
 function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -59,13 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!error) {
           if (requestId === roleLoadId.current) {
-            setRoles((data ?? []).map((r) => r.role as AppRole));
+            const newRoles = (data ?? []).map((r) => r.role as AppRole);
+            console.log("[Auth] Papéis carregados:", newRoles);
+            setRoles(newRoles);
             const artist = (data ?? []).find((r) => r.role === "artista");
             setArtistId(artist?.artist_id ?? null);
           }
           return;
         }
 
+        console.warn("[Auth] Erro ao buscar papéis (tentativa " + attempt + "):", error);
         lastError = error;
       } catch (error) {
         lastError = error;
