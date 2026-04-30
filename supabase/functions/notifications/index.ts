@@ -23,19 +23,20 @@ Deno.serve(async (req) => {
       console.error("notifications: missing env");
       return json({ error: "Configuração incompleta" }, 500);
     }
-    if (!authHeader) return json({ error: "Sessão ausente" }, 401);
+    if (!authHeader.startsWith("Bearer ")) return json({ error: "Sessão ausente" }, 401);
+    const token = authHeader.replace("Bearer ", "");
 
     const client = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false },
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: userData, error: userErr } = await client.auth.getUser();
-    if (userErr || !userData?.user) {
-      console.error("notifications: auth error", userErr);
+    const { data: claimsData, error: claimsErr } = await client.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims?.sub) {
+      console.error("notifications: auth error", claimsErr);
       return json({ error: "Sessão inválida" }, 401);
     }
-    const userId = userData.user.id;
+    const userId = claimsData.claims.sub as string;
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
