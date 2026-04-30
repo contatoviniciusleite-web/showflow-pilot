@@ -12,12 +12,11 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return new Response(JSON.stringify({ error: "Configuração do backend incompleta" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -31,8 +30,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const authClient = createClient(supabaseUrl, publishableKey, { auth: { persistSession: false } });
-    const { data: authData, error: authError } = await authClient.auth.getUser(token);
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+    const { data: authData, error: authError } = await adminClient.auth.getUser(token);
 
     if (authError || !authData.user) {
       return new Response(JSON.stringify({ error: "Sessão inválida" }), {
@@ -41,7 +40,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
     const { data: roles, error: rolesError } = await adminClient
       .from("user_roles")
       .select("role, artist_id")
