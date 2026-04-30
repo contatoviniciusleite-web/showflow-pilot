@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import postgres from "npm:postgres@3.4.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,10 +14,11 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    if (!supabaseUrl || !anonKey) {
+    if (!supabaseUrl || !anonKey || !databaseUrl) {
       return new Response(JSON.stringify({ error: "Configuração do backend incompleta" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -43,12 +45,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: roles, error: rolesError } = await authenticatedClient
-      .from("user_roles")
-      .select("role, artist_id")
-      .eq("user_id", authData.claims.sub);
-
-    if (rolesError) throw rolesError;
+    const sql = postgres(databaseUrl, { prepare: false, max: 1 });
+    const roles = await sql`
+      select role::text as role, artist_id
+      from public.user_roles
+      where user_id = ${authData.claims.sub}
+      order by created_at asc
+    `;
+    await sql.end({ timeout: 3 });
 
     return new Response(JSON.stringify({ roles: roles ?? [] }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
