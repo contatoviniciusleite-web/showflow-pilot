@@ -190,6 +190,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update") {
+      if (!isEditor) return json({ error: "Apenas gerente ou equipe podem editar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
       const s = validateShow(body.show ?? {});
       const rows = await sql`
@@ -197,7 +198,6 @@ Deno.serve(async (req) => {
           artist_id = ${s.artist_id},
           data_show = ${s.data_show},
           horario = ${s.horario},
-          data_subida = ${s.data_subida},
           vendedor = ${s.vendedor},
           local = ${s.local},
           tipo_estrutura = ${s.tipo_estrutura}::estrutura_tipo,
