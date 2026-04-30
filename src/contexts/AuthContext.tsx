@@ -20,8 +20,6 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 const ROLE_RETRY_DELAYS = [800, 1600, 3000];
 const ROLE_QUERY_TIMEOUT_MS = 10000;
 const SESSION_TIMEOUT_MS = 8000;
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -54,28 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     for (let attempt = 0; attempt <= ROLE_RETRY_DELAYS.length; attempt += 1) {
       try {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), ROLE_QUERY_TIMEOUT_MS);
-        const response = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_roles?select=role,artist_id&user_id=eq.${encodeURIComponent(uid)}`,
-          {
-            headers: {
-              apikey: SUPABASE_KEY,
-              authorization: `Bearer ${accessToken}`,
-            },
-            signal: controller.signal,
-          }
+        const { data, error } = await withTimeout(
+          supabase.functions.invoke("my-roles", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }),
+          ROLE_QUERY_TIMEOUT_MS
         ).finally(() => window.clearTimeout(timeout));
-
-        const data = response.ok ? await response.json() : null;
-        const error = response.ok ? null : await response.text();
 
         if (!error) {
           if (requestId === roleLoadId.current) {
-            const newRoles = (data ?? []).map((r) => r.role as AppRole);
+            const roleRows = data?.roles ?? [];
+            const newRoles = roleRows.map((r) => r.role as AppRole);
             console.log("[Auth] Papéis carregados:", newRoles);
             setRoles(newRoles);
-            const artist = (data ?? []).find((r) => r.role === "artista");
+            const artist = roleRows.find((r) => r.role === "artista");
             setArtistId(artist?.artist_id ?? null);
             setRolesLoading(false);
           }
