@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, FileText, Check, X } from "lucide-react";
 
 interface ArtistLite { id: string; nome: string; cor: string; }
+type ShowStatus = "pendente" | "aprovada";
 interface Show {
   id: string;
   artist_id: string;
@@ -23,6 +25,8 @@ interface Show {
   horario: string | null;
   data_subida: string | null;
   created_at: string;
+  created_by: string | null;
+  status: ShowStatus;
   vendedor: string | null;
   local: string | null;
   tipo_estrutura: "aberta" | "fechada" | null;
@@ -49,6 +53,16 @@ interface Show {
   hosp_traslado: boolean;
   camarins_rider: string | null;
   autorizado_por: string | null;
+}
+interface ShowPublic {
+  id: string;
+  artist_id: string;
+  artist_nome: string | null;
+  artist_cor: string | null;
+  data_show: string;
+  horario: string | null;
+  local: string | null;
+  cidade: string | null;
 }
 
 const emptyForm = {
@@ -95,13 +109,24 @@ function fmtDate(d: string | null) {
   return `${day}/${m}/${y}`;
 }
 
+function StatusBadge({ status }: { status: ShowStatus }) {
+  if (status === "aprovada") {
+    return <Badge className="bg-green-600 hover:bg-green-600 text-white">Aprovada</Badge>;
+  }
+  return <Badge variant="secondary">Pendente</Badge>;
+}
+
 export default function Shows() {
   const { roles } = useAuth();
-  const canCreate = roles.some((r) => ["gerente", "equipe", "vendedor"].includes(r));
-  const canEdit = roles.some((r) => ["gerente", "equipe"].includes(r));
   const isManager = roles.includes("gerente");
+  const isStaff = roles.includes("equipe");
+  const isVendedor = roles.includes("vendedor");
+  const isArtista = roles.includes("artista");
+  const isEditor = isManager || isStaff;
+  const canCreate = isManager || isStaff || isVendedor;
 
   const [shows, setShows] = useState<Show[]>([]);
+  const [outras, setOutras] = useState<ShowPublic[]>([]);
   const [artists, setArtists] = useState<ArtistLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -109,15 +134,23 @@ export default function Shows() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
 
+  // Rejeição
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<Show | null>(null);
+  const [rejectMotivo, setRejectMotivo] = useState("");
+
   const load = async () => {
     setLoading(true);
     const [showsRes, artistsRes] = await Promise.all([
       supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
-      supabase.functions.invoke("shows-admin", { body: { action: "artists" } }),
+      canCreate
+        ? supabase.functions.invoke("shows-admin", { body: { action: "artists" } })
+        : Promise.resolve({ data: { artists: [] }, error: null } as any),
     ]);
     if (showsRes.error) toast.error(showsRes.error.message);
     if (artistsRes.error) toast.error(artistsRes.error.message);
     setShows((showsRes.data?.shows ?? []) as Show[]);
+    setOutras((showsRes.data?.outras_aprovadas ?? []) as ShowPublic[]);
     setArtists((artistsRes.data?.artists ?? []) as ArtistLite[]);
     setLoading(false);
   };
@@ -183,7 +216,7 @@ export default function Shows() {
         body: editing ? { action, id: editing.id, show: payload } : { action, show: payload },
       });
       if (error) throw error;
-      toast.success(editing ? "Minuta atualizada" : "Minuta cadastrada");
+      toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
       setOpen(false);
       load();
     } catch (err: any) {
@@ -201,13 +234,44 @@ export default function Shows() {
     load();
   };
 
-  const upcoming = useMemo(() => shows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length, [shows]);
+  const approve = async (s: Show) => {
+    if (!confirm(`Aprovar minuta de ${s.artist_nome ?? "show"}?`)) return;
+    const { error } = await supabase.functions.invoke("shows-admin", { body: { action: "approve", id: s.id } });
+    if (error) return toast.error(error.message);
+    toast.success("Minuta aprovada — vendedor notificado");
+    load();
+  };
+
+  const openReject = (s: Show) => {
+    setRejectTarget(s);
+    setRejectMotivo("");
+    setRejectOpen(true);
+  };
+  const confirmReject = async () => {
+    if (!rejectTarget) return;
+    if (!rejectMotivo.trim()) return toast.error("Informe o motivo da rejeição");
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "reject", id: rejectTarget.id, motivo: rejectMotivo.trim() },
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Minuta rejeitada — vendedor notificado");
+    setRejectOpen(false);
+    setRejectTarget(null);
+    load();
+  };
+
+  const upcoming = useMemo(
+    () => shows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
+    [shows],
+  );
+
+  const titulo = isVendedor && !isEditor ? "Minhas minutas" : "Minutas de show";
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Minutas de show</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold">{titulo}</h1>
           <p className="text-muted-foreground mt-1">{shows.length} cadastrada(s) · {upcoming} futura(s)</p>
         </div>
         {canCreate && (
@@ -231,10 +295,11 @@ export default function Shows() {
           {shows.map((s) => (
             <Card key={s.id} className="p-5 shadow-soft">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
                     <h3 className="font-semibold truncate">{s.artist_nome ?? "—"}</h3>
+                    <StatusBadge status={s.status} />
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {fmtDate(s.data_show)}{s.horario ? ` · ${s.horario.slice(0, 5)}` : ""}
@@ -242,24 +307,76 @@ export default function Shows() {
                   <p className="text-sm mt-1 truncate">{s.local ?? "Local não informado"}{s.cidade ? ` — ${s.cidade}` : ""}</p>
                   <p className="text-sm font-medium mt-2">{fmtBRL(Number(s.cache_total ?? 0))}</p>
                   {s.contratante_nome && <p className="text-xs text-muted-foreground mt-1 truncate">Contratante: {s.contratante_nome}</p>}
+                  {s.vendedor && <p className="text-xs text-muted-foreground mt-1 truncate">Vendedor: {s.vendedor}</p>}
                 </div>
-                {(canEdit || isManager) && (
-                  <div className="flex flex-col gap-1">
-                    {canEdit && (
-                      <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    )}
-                    {isManager && (
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                <div className="flex flex-col gap-1">
+                  {isManager && s.status === "pendente" && (
+                    <>
+                      <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => approve(s)}>
+                        <Check className="h-3.5 w-3.5" />
                       </Button>
-                    )}
-                  </div>
-                )}
+                      <Button size="sm" variant="destructive" onClick={() => openReject(s)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                  {isEditor && (
+                    <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                  )}
+                  {isManager && (
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Vendedor: shows aprovados de outros vendedores (apenas data/horário/local) */}
+      {isVendedor && !isEditor && outras.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold mb-3">Shows aprovados (outros vendedores)</h2>
+          <p className="text-xs text-muted-foreground mb-4">Apenas informações básicas: artista, data, horário e local.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {outras.map((s) => (
+              <Card key={s.id} className="p-4 shadow-soft">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
+                  <h3 className="font-medium truncate">{s.artist_nome ?? "—"}</h3>
+                  <Badge className="bg-green-600 text-white ml-auto">Aprovada</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {fmtDate(s.data_show)}{s.horario ? ` · ${s.horario.slice(0, 5)}` : ""}
+                </p>
+                <p className="text-sm mt-1 truncate">{s.local ?? "—"}{s.cidade ? ` — ${s.cidade}` : ""}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de rejeição */}
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rejeitar minuta</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Ao rejeitar, a minuta será excluída e o vendedor receberá uma notificação com o motivo.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Motivo *</Label>
+            <Textarea rows={4} value={rejectMotivo} onChange={(e) => setRejectMotivo(e.target.value)} placeholder="Explique por que esta minuta está sendo rejeitada..." />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmReject}>Rejeitar e excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -396,47 +513,47 @@ export default function Shows() {
 
             {/* 5. Transporte */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Transporte (por conta do contratante)</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {([
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Transporte</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
                   ["transp_onibus", "Ônibus"],
                   ["transp_van", "Van"],
                   ["transp_aereo", "Aéreo"],
                   ["transp_excesso_bagagem", "Excesso de bagagem"],
-                ] as const).map(([k, label]) => (
+                ].map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer">
-                    <Checkbox checked={form[k] as boolean} onCheckedChange={(v) => set(k, !!v as any)} />
+                    <Checkbox checked={(form as any)[k]} onCheckedChange={(v) => set(k as any, !!v)} />
                     <span className="text-sm">{label}</span>
                   </label>
                 ))}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Observações de transporte</Label>
-                <Textarea rows={2} value={form.transp_observacoes} onChange={(e) => set("transp_observacoes", e.target.value)} />
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Observações de transporte</Label>
+                  <Textarea rows={2} value={form.transp_observacoes} onChange={(e) => set("transp_observacoes", e.target.value)} />
+                </div>
               </div>
             </section>
 
             {/* 6. Hospedagem */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Hospedagem (por conta do contratante)</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {([
-                  ["hosp_diaria_alimentacao", "Diária de alimentação"],
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Hospedagem</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  ["hosp_diaria_alimentacao", "Diária + alimentação"],
                   ["hosp_hospedagem", "Hospedagem"],
                   ["hosp_traslado", "Traslado"],
-                ] as const).map(([k, label]) => (
+                ].map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer">
-                    <Checkbox checked={form[k] as boolean} onCheckedChange={(v) => set(k, !!v as any)} />
+                    <Checkbox checked={(form as any)[k]} onCheckedChange={(v) => set(k as any, !!v)} />
                     <span className="text-sm">{label}</span>
                   </label>
                 ))}
               </div>
             </section>
 
-            {/* 7. Camarins */}
+            {/* 7. Camarins / Rider */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Camarins / Rider</h3>
-              <Textarea rows={4} value={form.camarins_rider} onChange={(e) => set("camarins_rider", e.target.value)} placeholder="Observações específicas deste show (ex: itens extras solicitados pelo artista)" />
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Camarins / Rider técnico</h3>
+              <Textarea rows={4} value={form.camarins_rider} onChange={(e) => set("camarins_rider", e.target.value)} placeholder="Detalhes técnicos, exigências de camarim, alimentação, etc." />
             </section>
 
             {/* 8. Autorização */}
@@ -448,8 +565,8 @@ export default function Shows() {
               </div>
             </section>
 
-            <DialogFooter className="sticky bottom-0 bg-background pt-3 -mx-6 px-6 border-t">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {editing ? "Salvar alterações" : "Cadastrar minuta"}
