@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
 
       const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
         data: { nome },
-        redirectTo: `${appOrigin}/auth`,
+        redirectTo: `${appOrigin}/aceitar-convite`,
       });
       if (inviteError) {
         // If user already exists, try to fetch and continue
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
       if (!isEmail(email)) return json({ error: "E-mail inválido" }, 400);
       const appOrigin = req.headers.get("origin") ?? "";
       const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${appOrigin}/auth`,
+        redirectTo: `${appOrigin}/aceitar-convite`,
       });
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });

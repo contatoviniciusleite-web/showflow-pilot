@@ -24,6 +24,13 @@ export default function Auth() {
   const [nome, setNome] = useState("");
 
   useEffect(() => {
+    // Se chegou um link de convite/recovery aqui (#access_token=...&type=invite|recovery),
+    // redireciona para a tela de definição de senha preservando o hash.
+    const hash = window.location.hash;
+    if (hash && /type=(invite|recovery)/.test(hash)) {
+      navigate(`/aceitar-convite${hash}`, { replace: true });
+      return;
+    }
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) navigate("/", { replace: true });
     });

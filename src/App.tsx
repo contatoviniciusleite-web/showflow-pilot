@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import Auth from "./pages/Auth";
+import AceitarConvite from "./pages/AceitarConvite";
 import Dashboard from "./pages/Dashboard";
 import Artistas from "./pages/Artistas";
 import Usuarios from "./pages/Usuarios";
@@ -25,6 +26,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/aceitar-convite" element={<AceitarConvite />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/shows" element={<Shows />} />
