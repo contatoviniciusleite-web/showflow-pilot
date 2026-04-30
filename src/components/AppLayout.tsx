@@ -93,15 +93,15 @@ export function AppLayout() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-sidebar text-sidebar-foreground border-t border-sidebar-border flex justify-around py-2">
-        {visible.slice(0, 5).map((item) => (
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-sidebar text-sidebar-foreground border-t border-sidebar-border flex gap-1 overflow-x-auto px-2 py-2">
+        {visible.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === "/"}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium",
+                "flex min-w-16 flex-1 flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium",
                 isActive ? "text-accent" : "text-sidebar-foreground/70"
               )
             }
