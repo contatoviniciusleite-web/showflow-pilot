@@ -34,7 +34,11 @@ async function retry<T>(label: string, operation: () => Promise<T>, attempts = 3
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await operation();
+      const result = await operation();
+      if (result && typeof result === "object" && "error" in result && result.error) {
+        throw result.error;
+      }
+      return result;
     } catch (error) {
       lastError = error;
       console.warn(`${label} falhou na tentativa ${attempt}`, error);
@@ -165,10 +169,12 @@ Deno.serve(async (req) => {
         return json({ error: "Este e-mail já tem acesso ativo. Use editar usuário ou remover antes de convidar novamente." }, 400);
       }
 
-      const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { nome },
-        redirectTo: `${appOrigin}/aceitar-convite`,
-      });
+      const { data: invited, error: inviteError } = await retry("enviar convite", () =>
+        admin.auth.admin.inviteUserByEmail(email, {
+          data: { nome },
+          redirectTo: `${appOrigin}/aceitar-convite`,
+        })
+      ).catch((error) => ({ data: null, error }));
       if (inviteError) {
         // If user already exists, try to fetch and continue
         if (!/already/i.test(inviteError.message)) {
@@ -247,9 +253,11 @@ Deno.serve(async (req) => {
       if (existing?.last_sign_in_at || existing?.email_confirmed_at) {
         return json({ error: "Este usuário já está ativo." }, 400);
       }
-      const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${appOrigin}/aceitar-convite`,
-      });
+      const { error } = await retry("reenviar convite", () =>
+        admin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: `${appOrigin}/aceitar-convite`,
+        })
+      ).catch((error) => ({ data: null, error }));
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
     }
@@ -258,7 +266,7 @@ Deno.serve(async (req) => {
       const userId = body.user_id;
       if (typeof userId !== "string") return json({ error: "Usuário inválido" }, 400);
       if (userId === callerId) return json({ error: "Você não pode remover a si mesmo" }, 400);
-      const { error } = await admin.auth.admin.deleteUser(userId);
+      const { error } = await retry("remover usuário", () => admin.auth.admin.deleteUser(userId)).catch((error) => ({ data: null, error }));
       if (error) return json({ error: error.message }, 400);
       // profile and roles cascade via FK
       return json({ ok: true });
