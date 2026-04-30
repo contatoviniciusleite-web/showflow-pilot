@@ -3,10 +3,11 @@ import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut,
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["gerente", "equipe", "artista"] },
-  { to: "/shows", label: "Shows", icon: ListMusic, roles: ["gerente", "equipe", "artista"] },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["gerente", "equipe", "artista", "vendedor"] },
+  { to: "/shows", label: "Shows", icon: ListMusic, roles: ["gerente", "equipe", "artista", "vendedor"] },
   { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["gerente", "equipe", "artista"] },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["gerente", "equipe", "artista"] },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["gerente"] },
@@ -83,9 +84,12 @@ export function AppLayout() {
           </div>
           <span className="font-semibold">Stage</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/auth"); }}>
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/auth"); }}>
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <main className="flex-1 md:pt-0 pt-14 pb-20 md:pb-0">
