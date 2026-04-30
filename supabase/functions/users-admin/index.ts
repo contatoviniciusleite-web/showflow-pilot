@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import postgres from "npm:postgres@3.4.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +24,57 @@ function isRole(v: unknown): v is Role {
   return typeof v === "string" && (ROLES as readonly string[]).includes(v);
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function messageFrom(error: unknown) {
+  return error instanceof Error ? error.message : String(error ?? "Erro interno");
+}
+
+async function retry<T>(label: string, operation: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const result = await operation();
+      if (result && typeof result === "object" && "error" in result && result.error) {
+        throw result.error;
+      }
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.warn(`${label} falhou na tentativa ${attempt}`, error);
+      if (attempt < attempts) await delay(350 * attempt);
+    }
+  }
+  throw lastError;
+}
+
+async function findUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
+  const perPage = 1000;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await retry(`listUsers página ${page}`, () =>
+      admin.auth.admin.listUsers({ page, perPage })
+    );
+    if (error) throw error;
+    const found = data.users.find((u) => u.email?.toLowerCase() === email);
+    if (found || data.users.length < perPage) return found ?? null;
+  }
+  return null;
+}
+
+async function listAllAuthUsers(admin: ReturnType<typeof createClient>) {
+  const users: any[] = [];
+  const perPage = 1000;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await retry(`listar usuários página ${page}`, () =>
+      admin.auth.admin.listUsers({ page, perPage })
+    );
+    if (error) throw error;
+    users.push(...data.users);
+    if (data.users.length < perPage) break;
+  }
+  return users;
+}
+
 const FALLBACK_APP_ORIGIN = "https://id-preview--85509043-3457-4547-998e-38e63b8b67cc.lovable.app";
 
 function getAppOrigin(req: Request) {
@@ -43,17 +93,14 @@ function getAppOrigin(req: Request) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  let sql: postgres.Sql | null = null;
-
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    if (!supabaseUrl || !anonKey || !serviceKey || !databaseUrl) {
+    if (!supabaseUrl || !anonKey || !serviceKey) {
       return json({ error: "Configuração do backend incompleta" }, 500);
     }
     if (!token) return json({ error: "Sessão ausente" }, 401);
@@ -66,41 +113,40 @@ Deno.serve(async (req) => {
     const callerId = authData.claims?.sub;
     if (authError || !callerId) return json({ error: "Sessão inválida" }, 401);
 
-    sql = postgres(databaseUrl, { prepare: false, max: 1, idle_timeout: 20, connect_timeout: 10, ssl: "require" });
-    const managerRows = await sql`
-      select 1 from public.user_roles where user_id = ${callerId} and role = 'gerente' limit 1
-    `;
-    if (managerRows.length === 0) return json({ error: "Acesso negado" }, 403);
-
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    const { data: managerRows, error: managerError } = await retry("verificar gerente", () =>
+      admin.from("user_roles").select("id").eq("user_id", callerId).eq("role", "gerente").limit(1)
+    );
+    if (managerError) throw managerError;
+    if (!managerRows?.length) return json({ error: "Acesso negado" }, 403);
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
 
     if (action === "list") {
-      const rows = await sql`
-        select
-          p.id,
-          p.nome,
-          coalesce(json_agg(
-            json_build_object('role', ur.role::text, 'artist_id', ur.artist_id)
-          ) filter (where ur.role is not null), '[]'::json) as roles
-        from public.profiles p
-        left join public.user_roles ur on ur.user_id = p.id
-        group by p.id, p.nome
-        order by p.nome nulls last
-      `;
-      // join email from auth.users using admin
-      const { data: usersData, error: usersError } = await admin.auth.admin.listUsers({ perPage: 1000 });
-      if (usersError) throw usersError;
-      const emailMap = new Map(usersData.users.map((u) => [u.id, { email: u.email, last_sign_in_at: u.last_sign_in_at, invited: !u.email_confirmed_at && !u.last_sign_in_at }]));
-      const users = rows.map((r: any) => ({
-        id: r.id,
-        nome: r.nome,
-        email: emailMap.get(r.id)?.email ?? null,
-        last_sign_in_at: emailMap.get(r.id)?.last_sign_in_at ?? null,
-        pendente: emailMap.get(r.id)?.invited ?? false,
-        roles: r.roles,
+      const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, authUsers] = await Promise.all([
+        retry("listar perfis", () => admin.from("profiles").select("id,nome").order("nome", { ascending: true, nullsFirst: false })),
+        retry("listar papéis", () => admin.from("user_roles").select("user_id,role,artist_id").order("created_at", { ascending: true })),
+        listAllAuthUsers(admin),
+      ]);
+      if (profilesError) throw profilesError;
+      if (rolesError) throw rolesError;
+
+      const roleMap = new Map<string, Array<{ role: string; artist_id: string | null }>>();
+      for (const r of roles ?? []) {
+        const list = roleMap.get(r.user_id) ?? [];
+        list.push({ role: r.role, artist_id: r.artist_id });
+        roleMap.set(r.user_id, list);
+      }
+      const emailMap = new Map(authUsers.map((u) => [u.id, { email: u.email, last_sign_in_at: u.last_sign_in_at, invited: !u.email_confirmed_at && !u.last_sign_in_at }]));
+      const users = (profiles ?? []).map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        email: emailMap.get(p.id)?.email ?? null,
+        last_sign_in_at: emailMap.get(p.id)?.last_sign_in_at ?? null,
+        pendente: emailMap.get(p.id)?.invited ?? false,
+        roles: roleMap.get(p.id) ?? [],
       }));
       return json({ users });
     }
@@ -118,11 +164,17 @@ Deno.serve(async (req) => {
       if (artistId && typeof artistId !== "string") return json({ error: "Artista inválido" }, 400);
 
       const appOrigin = getAppOrigin(req);
+      const existingBeforeInvite = await findUserByEmail(admin, email);
+      if (existingBeforeInvite?.last_sign_in_at || existingBeforeInvite?.email_confirmed_at) {
+        return json({ error: "Este e-mail já tem acesso ativo. Use editar usuário ou remover antes de convidar novamente." }, 400);
+      }
 
-      const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { nome },
-        redirectTo: `${appOrigin}/aceitar-convite`,
-      });
+      const { data: invited, error: inviteError } = await retry("enviar convite", () =>
+        admin.auth.admin.inviteUserByEmail(email, {
+          data: { nome },
+          redirectTo: `${appOrigin}/aceitar-convite`,
+        })
+      ).catch((error) => ({ data: null, error }));
       if (inviteError) {
         // If user already exists, try to fetch and continue
         if (!/already/i.test(inviteError.message)) {
@@ -133,22 +185,21 @@ Deno.serve(async (req) => {
       // Find user id (either from invite or existing)
       let userId = invited?.user?.id ?? null;
       if (!userId) {
-        const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
-        userId = list.users.find((u) => u.email?.toLowerCase() === email)?.id ?? null;
+        userId = existingBeforeInvite?.id ?? (await findUserByEmail(admin, email))?.id ?? null;
       }
       if (!userId) return json({ error: "Não foi possível criar o convite" }, 500);
 
-      // ensure profile
-      await sql`
-        insert into public.profiles (id, nome) values (${userId}, ${nome})
-        on conflict (id) do update set nome = excluded.nome
-      `;
-      // assign role
-      await sql`
-        insert into public.user_roles (user_id, role, artist_id)
-        values (${userId}, ${role}::app_role, ${role === "artista" ? artistId : null})
-        on conflict (user_id, role) do update set artist_id = excluded.artist_id
-      `;
+      const { error: profileError } = await retry("salvar perfil", () =>
+        admin.from("profiles").upsert({ id: userId, nome }, { onConflict: "id" })
+      );
+      if (profileError) throw profileError;
+      const { error: roleError } = await retry("salvar papel", () =>
+        admin.from("user_roles").upsert(
+          { user_id: userId, role, artist_id: role === "artista" ? artistId : null },
+          { onConflict: "user_id,role" }
+        )
+      );
+      if (roleError) throw roleError;
 
       return json({ ok: true, user_id: userId });
     }
@@ -167,15 +218,18 @@ Deno.serve(async (req) => {
         return json({ error: "Você não pode remover seu próprio papel de gerente" }, 400);
       }
 
-      await sql.begin(async (tx) => {
-        await tx`delete from public.user_roles where user_id = ${userId}`;
-        for (const r of roles) {
-          await tx`
-            insert into public.user_roles (user_id, role, artist_id)
-            values (${userId}, ${r.role}::app_role, ${r.role === "artista" ? r.artist_id : null})
-          `;
-        }
-      });
+      const { error: deleteRolesError } = await retry("remover papéis", () =>
+        admin.from("user_roles").delete().eq("user_id", userId)
+      );
+      if (deleteRolesError) throw deleteRolesError;
+      if (roles.length) {
+        const { error: insertRolesError } = await retry("salvar papéis", () =>
+          admin.from("user_roles").insert(
+            roles.map((r) => ({ user_id: userId, role: r.role, artist_id: r.role === "artista" ? r.artist_id : null }))
+          )
+        );
+        if (insertRolesError) throw insertRolesError;
+      }
       return json({ ok: true });
     }
 
@@ -184,7 +238,10 @@ Deno.serve(async (req) => {
       const nome = (body.nome ?? "").toString().trim();
       if (typeof userId !== "string") return json({ error: "Usuário inválido" }, 400);
       if (!nome || nome.length > 120) return json({ error: "Nome inválido" }, 400);
-      await sql`update public.profiles set nome = ${nome}, updated_at = now() where id = ${userId}`;
+      const { error } = await retry("atualizar perfil", () =>
+        admin.from("profiles").update({ nome, updated_at: new Date().toISOString() }).eq("id", userId)
+      );
+      if (error) throw error;
       return json({ ok: true });
     }
 
@@ -192,9 +249,15 @@ Deno.serve(async (req) => {
       const email = (body.email ?? "").toString().trim().toLowerCase();
       if (!isEmail(email)) return json({ error: "E-mail inválido" }, 400);
       const appOrigin = getAppOrigin(req);
-      const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${appOrigin}/aceitar-convite`,
-      });
+      const existing = await findUserByEmail(admin, email);
+      if (existing?.last_sign_in_at || existing?.email_confirmed_at) {
+        return json({ error: "Este usuário já está ativo." }, 400);
+      }
+      const { error } = await retry("reenviar convite", () =>
+        admin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: `${appOrigin}/aceitar-convite`,
+        })
+      ).catch((error) => ({ data: null, error }));
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
     }
@@ -203,7 +266,7 @@ Deno.serve(async (req) => {
       const userId = body.user_id;
       if (typeof userId !== "string") return json({ error: "Usuário inválido" }, 400);
       if (userId === callerId) return json({ error: "Você não pode remover a si mesmo" }, 400);
-      const { error } = await admin.auth.admin.deleteUser(userId);
+      const { error } = await retry("remover usuário", () => admin.auth.admin.deleteUser(userId)).catch((error) => ({ data: null, error }));
       if (error) return json({ error: error.message }, 400);
       // profile and roles cascade via FK
       return json({ ok: true });
@@ -212,8 +275,6 @@ Deno.serve(async (req) => {
     return json({ error: "Ação inválida" }, 400);
   } catch (error) {
     console.error("Erro em users-admin", error);
-    return json({ error: error instanceof Error ? error.message : "Falha ao gerenciar usuários" }, 500);
-  } finally {
-    if (sql) await sql.end({ timeout: 3 });
+    return json({ error: messageFrom(error) || "Falha ao gerenciar usuários" }, 500);
   }
 });
