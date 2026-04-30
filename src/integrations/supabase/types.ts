@@ -50,6 +50,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          lida: boolean
+          mensagem: string
+          show_id: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          show_id?: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          show_id?: string | null
+          tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -120,6 +153,13 @@ export type Database = {
             referencedRelation: "shows"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "show_calendar_events_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: true
+            referencedRelation: "shows_public_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       show_deposits: {
@@ -161,6 +201,13 @@ export type Database = {
             referencedRelation: "shows"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "show_deposits_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows_public_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       show_expenses: {
@@ -199,10 +246,19 @@ export type Database = {
             referencedRelation: "shows"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "show_expenses_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows_public_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       shows: {
         Row: {
+          aprovado_em: string | null
+          aprovado_por: string | null
           artist_id: string
           autorizado_por: string | null
           cache_total: number
@@ -229,6 +285,7 @@ export type Database = {
           hosp_traslado: boolean
           id: string
           local: string | null
+          status: Database["public"]["Enums"]["show_status"]
           tipo_estrutura: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo: boolean
           transp_excesso_bagagem: boolean
@@ -239,6 +296,8 @@ export type Database = {
           vendedor: string | null
         }
         Insert: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
           artist_id: string
           autorizado_por?: string | null
           cache_total?: number
@@ -265,6 +324,7 @@ export type Database = {
           hosp_traslado?: boolean
           id?: string
           local?: string | null
+          status?: Database["public"]["Enums"]["show_status"]
           tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo?: boolean
           transp_excesso_bagagem?: boolean
@@ -275,6 +335,8 @@ export type Database = {
           vendedor?: string | null
         }
         Update: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
           artist_id?: string
           autorizado_por?: string | null
           cache_total?: number
@@ -301,6 +363,7 @@ export type Database = {
           hosp_traslado?: boolean
           id?: string
           local?: string | null
+          status?: Database["public"]["Enums"]["show_status"]
           tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo?: boolean
           transp_excesso_bagagem?: boolean
@@ -354,7 +417,29 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      shows_public_view: {
+        Row: {
+          artist_cor: string | null
+          artist_id: string | null
+          artist_nome: string | null
+          cidade: string | null
+          created_by: string | null
+          data_show: string | null
+          horario: string | null
+          id: string | null
+          local: string | null
+          status: Database["public"]["Enums"]["show_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shows_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_my_artist_id: { Args: never; Returns: string }
@@ -370,6 +455,7 @@ export type Database = {
       app_role: "gerente" | "equipe" | "artista" | "vendedor"
       deposito_status: "ok" | "pendente"
       estrutura_tipo: "aberta" | "fechada"
+      show_status: "pendente" | "aprovada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -500,6 +586,7 @@ export const Constants = {
       app_role: ["gerente", "equipe", "artista", "vendedor"],
       deposito_status: ["ok", "pendente"],
       estrutura_tipo: ["aberta", "fechada"],
+      show_status: ["pendente", "aprovada"],
     },
   },
 } as const

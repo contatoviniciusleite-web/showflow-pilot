@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ALLOWED_ROLES = new Set(["gerente", "equipe", "vendedor"]);
+const ALLOWED_CREATE_ROLES = new Set(["gerente", "equipe", "vendedor"]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -122,34 +122,53 @@ Deno.serve(async (req) => {
     sql = postgres(databaseUrl, { prepare: false, max: 1 });
     const roleRows = await sql`select role::text as role from public.user_roles where user_id = ${userId}`;
     const roles = roleRows.map((r: any) => r.role);
-    const canManage = roles.some((r: string) => ALLOWED_ROLES.has(r));
     const isManager = roles.includes("gerente");
+    const isStaff = roles.includes("equipe");
+    const isVendedor = roles.includes("vendedor");
+    const isArtista = roles.includes("artista");
+    const canCreate = roles.some((r: string) => ALLOWED_CREATE_ROLES.has(r));
+    const isEditor = isManager || isStaff;
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
 
     if (action === "list") {
-      // gerente/equipe/vendedor veem todos; artista vê só os seus
-      let rows;
-      if (canManage) {
-        rows = await sql`
+      if (isManager || isStaff) {
+        const rows = await sql`
           select s.*, a.nome as artist_nome, a.cor as artist_cor
           from public.shows s
           left join public.artists a on a.id = s.artist_id
           order by s.data_show desc nulls last, s.created_at desc
         `;
-      } else if (roles.includes("artista")) {
-        rows = await sql`
+        return json({ shows: rows, scope: "all" });
+      }
+      if (isVendedor) {
+        const minhas = await sql`
+          select s.*, a.nome as artist_nome, a.cor as artist_cor
+          from public.shows s
+          left join public.artists a on a.id = s.artist_id
+          where s.created_by = ${userId}
+          order by s.data_show desc nulls last, s.created_at desc
+        `;
+        const outras = await sql`
+          select id, artist_id, artist_nome, artist_cor, data_show, horario, local, cidade
+          from public.shows_public_view
+          where created_by is distinct from ${userId}
+          order by data_show desc nulls last
+        `;
+        return json({ shows: minhas, outras_aprovadas: outras, scope: "vendedor" });
+      }
+      if (isArtista) {
+        const rows = await sql`
           select s.*, a.nome as artist_nome, a.cor as artist_cor
           from public.shows s
           left join public.artists a on a.id = s.artist_id
           where s.artist_id in (select artist_id from public.user_roles where user_id = ${userId} and role = 'artista')
           order by s.data_show desc nulls last
         `;
-      } else {
-        return json({ error: "Acesso negado" }, 403);
+        return json({ shows: rows, scope: "artista" });
       }
-      return json({ shows: rows });
+      return json({ error: "Acesso negado" }, 403);
     }
 
     if (action === "artists") {
@@ -157,13 +176,9 @@ Deno.serve(async (req) => {
       return json({ artists: rows });
     }
 
-    if (!canManage) return json({ error: "Acesso negado" }, 403);
-
-    const isEditor = roles.includes("gerente") || roles.includes("equipe");
-
     if (action === "create") {
+      if (!canCreate) return json({ error: "Acesso negado" }, 403);
       const s = validateShow(body.show ?? {});
-      // data_subida = momento exato de criação (data do timestamp created_at)
       const rows = await sql`
         insert into public.shows (
           artist_id, data_show, horario, data_subida, vendedor,
@@ -173,7 +188,7 @@ Deno.serve(async (req) => {
           cache_total, condicao_pagamento, encargos_extras,
           transp_onibus, transp_van, transp_aereo, transp_excesso_bagagem, transp_observacoes,
           hosp_diaria_alimentacao, hosp_hospedagem, hosp_traslado,
-          camarins_rider, autorizado_por, created_by, updated_at
+          camarins_rider, autorizado_por, created_by, status, updated_at
         ) values (
           ${s.artist_id}, ${s.data_show}, ${s.horario}, current_date, ${s.vendedor},
           ${s.local}, ${s.tipo_estrutura}::estrutura_tipo, ${s.endereco}, ${s.cidade}, ${s.capacidade},
@@ -182,7 +197,7 @@ Deno.serve(async (req) => {
           ${s.cache_total}, ${s.condicao_pagamento}, ${s.encargos_extras},
           ${s.transp_onibus}, ${s.transp_van}, ${s.transp_aereo}, ${s.transp_excesso_bagagem}, ${s.transp_observacoes},
           ${s.hosp_diaria_alimentacao}, ${s.hosp_hospedagem}, ${s.hosp_traslado},
-          ${s.camarins_rider}, ${s.autorizado_por}, ${userId}, now()
+          ${s.camarins_rider}, ${s.autorizado_por}, ${userId}, 'pendente'::show_status, now()
         )
         returning *
       `;
@@ -230,6 +245,63 @@ Deno.serve(async (req) => {
       `;
       if (rows.length === 0) return json({ error: "Show não encontrado" }, 404);
       return json({ show: rows[0] });
+    }
+
+    if (action === "approve") {
+      if (!isManager) return json({ error: "Apenas gerente pode aprovar minutas" }, 403);
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      const rows = await sql`
+        update public.shows
+          set status = 'aprovada'::show_status,
+              aprovado_por = ${userId},
+              aprovado_em = now(),
+              updated_at = now()
+        where id = ${body.id}
+        returning *, (select nome from public.artists where id = artist_id) as artist_nome
+      `;
+      if (rows.length === 0) return json({ error: "Show não encontrado" }, 404);
+      const show = rows[0];
+      if (show.created_by) {
+        await sql`
+          insert into public.notifications (user_id, tipo, titulo, mensagem, show_id)
+          values (
+            ${show.created_by},
+            'minuta_aprovada',
+            'Minuta aprovada',
+            ${"Sua minuta de " + (show.artist_nome ?? "show") + " em " + show.data_show + " foi aprovada."},
+            ${show.id}
+          )
+        `;
+      }
+      return json({ show });
+    }
+
+    if (action === "reject") {
+      if (!isManager) return json({ error: "Apenas gerente pode rejeitar minutas" }, 403);
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      const motivo = txt(body.motivo, 1000);
+      if (!motivo) return json({ error: "Motivo da rejeição é obrigatório" }, 400);
+      const found = await sql`
+        select s.*, a.nome as artist_nome
+        from public.shows s left join public.artists a on a.id = s.artist_id
+        where s.id = ${body.id}
+      `;
+      if (found.length === 0) return json({ error: "Show não encontrado" }, 404);
+      const show = found[0];
+      if (show.created_by) {
+        await sql`
+          insert into public.notifications (user_id, tipo, titulo, mensagem, show_id)
+          values (
+            ${show.created_by},
+            'minuta_rejeitada',
+            'Minuta rejeitada',
+            ${"Sua minuta de " + (show.artist_nome ?? "show") + " em " + show.data_show + " foi rejeitada. Motivo: " + motivo},
+            null
+          )
+        `;
+      }
+      await sql`delete from public.shows where id = ${body.id}`;
+      return json({ ok: true });
     }
 
     if (action === "delete") {
