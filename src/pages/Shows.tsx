@@ -209,7 +209,7 @@ export default function Shows() {
           <h1 className="text-2xl md:text-3xl font-semibold">Minutas de show</h1>
           <p className="text-muted-foreground mt-1">{shows.length} cadastrada(s) · {upcoming} futura(s)</p>
         </div>
-        {canManage && (
+        {canCreate && (
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" />
             Nova minuta
@@ -223,7 +223,7 @@ export default function Shows() {
         <Card className="p-12 text-center shadow-soft">
           <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground mb-4">Nenhuma minuta cadastrada ainda.</p>
-          {canManage && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Criar primeira minuta</Button>}
+          {canCreate && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Criar primeira minuta</Button>}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -242,9 +242,11 @@ export default function Shows() {
                   <p className="text-sm font-medium mt-2">{fmtBRL(Number(s.cache_total ?? 0))}</p>
                   {s.contratante_nome && <p className="text-xs text-muted-foreground mt-1 truncate">Contratante: {s.contratante_nome}</p>}
                 </div>
-                {canManage && (
+                {(canEdit || isManager) && (
                   <div className="flex flex-col gap-1">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    {canEdit && (
+                      <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    )}
                     {isManager && (
                       <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)}>
                         <Trash2 className="h-3.5 w-3.5" />
