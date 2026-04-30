@@ -160,6 +160,10 @@ Deno.serve(async (req) => {
       if (artistId && typeof artistId !== "string") return json({ error: "Artista inválido" }, 400);
 
       const appOrigin = getAppOrigin(req);
+      const existingBeforeInvite = await findUserByEmail(admin, email);
+      if (existingBeforeInvite?.last_sign_in_at || existingBeforeInvite?.email_confirmed_at) {
+        return json({ error: "Este e-mail já tem acesso ativo. Use editar usuário ou remover antes de convidar novamente." }, 400);
+      }
 
       const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
         data: { nome },
@@ -175,11 +179,7 @@ Deno.serve(async (req) => {
       // Find user id (either from invite or existing)
       let userId = invited?.user?.id ?? null;
       if (!userId) {
-        const existing = await findUserByEmail(admin, email);
-        if (existing?.last_sign_in_at || existing?.email_confirmed_at) {
-          return json({ error: "Este e-mail já tem acesso ativo. Use editar usuário ou remover antes de convidar novamente." }, 400);
-        }
-        userId = existing?.id ?? null;
+        userId = existingBeforeInvite?.id ?? (await findUserByEmail(admin, email))?.id ?? null;
       }
       if (!userId) return json({ error: "Não foi possível criar o convite" }, 500);
 
@@ -243,6 +243,10 @@ Deno.serve(async (req) => {
       const email = (body.email ?? "").toString().trim().toLowerCase();
       if (!isEmail(email)) return json({ error: "E-mail inválido" }, 400);
       const appOrigin = getAppOrigin(req);
+      const existing = await findUserByEmail(admin, email);
+      if (existing?.last_sign_in_at || existing?.email_confirmed_at) {
+        return json({ error: "Este usuário já está ativo." }, 400);
+      }
       const { error } = await admin.auth.admin.inviteUserByEmail(email, {
         redirectTo: `${appOrigin}/aceitar-convite`,
       });
