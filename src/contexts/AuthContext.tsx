@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  rolesLoading: boolean;
   roles: AppRole[];
   artistId: string | null;
   refreshRoles: () => Promise<void>;
@@ -34,13 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(false);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [artistId, setArtistId] = useState<string | null>(null);
   const roleLoadId = useRef(0);
 
-  const loadRoles = useCallback(async (uid: string, clearBefore = false) => {
+  const loadRoles = useCallback(async (uid: string, accessToken: string, clearBefore = false) => {
     const requestId = ++roleLoadId.current;
     let lastError: unknown = null;
+    setRolesLoading(true);
 
     if (clearBefore) {
       setRoles([]);
@@ -50,20 +53,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (let attempt = 0; attempt <= ROLE_RETRY_DELAYS.length; attempt += 1) {
       try {
         const { data, error } = await withTimeout(
-          supabase
-            .from("user_roles")
-            .select("role, artist_id")
-            .eq("user_id", uid),
+          supabase.functions.invoke("my-roles", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }),
           ROLE_QUERY_TIMEOUT_MS
         );
 
         if (!error) {
           if (requestId === roleLoadId.current) {
-            const newRoles = (data ?? []).map((r) => r.role as AppRole);
+            const roleRows = data?.roles ?? [];
+            const newRoles = roleRows.map((r) => r.role as AppRole);
             console.log("[Auth] Papéis carregados:", newRoles);
             setRoles(newRoles);
-            const artist = (data ?? []).find((r) => r.role === "artista");
+            const artist = roleRows.find((r) => r.role === "artista");
             setArtistId(artist?.artist_id ?? null);
+            setRolesLoading(false);
           }
           return;
         }
@@ -82,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (requestId === roleLoadId.current) {
       setRoles([]);
       setArtistId(null);
+      setRolesLoading(false);
     }
   }, []);
 
@@ -93,11 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (sess?.user) {
         setLoading(false);
         // defer chamada do supabase para evitar deadlock no listener
-        setTimeout(() => void loadRoles(sess.user.id), 0);
+        setTimeout(() => void loadRoles(sess.user.id, sess.access_token), 0);
       } else {
         roleLoadId.current += 1;
         setRoles([]);
         setArtistId(null);
+        setRolesLoading(false);
         setLoading(false);
       }
     });
@@ -107,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ data: { session: sess } }) => {
         setSession(sess);
         setUser(sess?.user ?? null);
-        if (sess?.user) void loadRoles(sess.user.id);
+        if (sess?.user) void loadRoles(sess.user.id, sess.access_token);
       })
       .catch((error) => {
         console.error("Falha ao recuperar sessão", error);
@@ -120,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadRoles]);
 
   const refreshRoles = async () => {
-    if (user) await loadRoles(user.id, true);
+    if (user && session) await loadRoles(user.id, session.access_token, true);
   };
 
   const signOut = async () => {
@@ -128,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, roles, artistId, refreshRoles, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, rolesLoading, roles, artistId, refreshRoles, signOut }}>
       {children}
     </AuthContext.Provider>
   );
