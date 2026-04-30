@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Artistas from "./pages/Artistas";
+import Shows from "./pages/Shows";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
@@ -25,7 +26,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/shows" element={<Placeholder title="Shows" description="Listagem e cadastro de minutas." />} />
+              <Route path="/shows" element={<Shows />} />
               <Route path="/agenda" element={<Placeholder title="Agenda" description="Calendário unificado dos artistas." />} />
               <Route path="/financeiro" element={<Placeholder title="Financeiro" description="Ficha financeira e despesas por show." />} />
               <Route
