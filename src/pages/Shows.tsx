@@ -22,6 +22,7 @@ interface Show {
   data_show: string;
   horario: string | null;
   data_subida: string | null;
+  created_at: string;
   vendedor: string | null;
   local: string | null;
   tipo_estrutura: "aberta" | "fechada" | null;
