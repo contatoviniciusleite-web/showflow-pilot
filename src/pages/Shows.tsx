@@ -96,7 +96,8 @@ function fmtDate(d: string | null) {
 
 export default function Shows() {
   const { roles } = useAuth();
-  const canManage = roles.some((r) => ["gerente", "equipe", "vendedor"].includes(r));
+  const canCreate = roles.some((r) => ["gerente", "equipe", "vendedor"].includes(r));
+  const canEdit = roles.some((r) => ["gerente", "equipe"].includes(r));
   const isManager = roles.includes("gerente");
 
   const [shows, setShows] = useState<Show[]>([]);
