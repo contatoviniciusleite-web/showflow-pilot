@@ -17,6 +17,17 @@ interface AuthState {
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 const ROLE_RETRY_DELAYS = [700, 1500, 3000, 5000];
+const ROLE_QUERY_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("Tempo limite ao carregar permissões")), timeoutMs);
+    Promise.resolve(promise)
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timeout));
+  });
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -36,21 +47,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     for (let attempt = 0; attempt <= ROLE_RETRY_DELAYS.length; attempt += 1) {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role, artist_id")
-        .eq("user_id", uid);
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from("user_roles")
+            .select("role, artist_id")
+            .eq("user_id", uid),
+          ROLE_QUERY_TIMEOUT_MS
+        );
 
-      if (!error) {
-        if (requestId === roleLoadId.current) {
-          setRoles((data ?? []).map((r) => r.role as AppRole));
-          const artist = (data ?? []).find((r) => r.role === "artista");
-          setArtistId(artist?.artist_id ?? null);
+        if (!error) {
+          if (requestId === roleLoadId.current) {
+            setRoles((data ?? []).map((r) => r.role as AppRole));
+            const artist = (data ?? []).find((r) => r.role === "artista");
+            setArtistId(artist?.artist_id ?? null);
+          }
+          return;
         }
-        return;
+
+        lastError = error;
+      } catch (error) {
+        lastError = error;
       }
 
-      lastError = error;
       const delay = ROLE_RETRY_DELAYS[attempt];
       if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay));
     }
@@ -71,8 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         // defer chamada do supabase para evitar deadlock no listener
         setTimeout(async () => {
-          await loadRoles(sess.user.id);
-          setLoading(false);
+          try {
+            await loadRoles(sess.user.id);
+          } finally {
+            setLoading(false);
+          }
         }, 0);
       } else {
         roleLoadId.current += 1;
@@ -83,12 +105,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // 2. Depois pega sessão atual
-    supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) await loadRoles(sess.user.id);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(async ({ data: { session: sess } }) => {
+        setSession(sess);
+        setUser(sess?.user ?? null);
+        if (sess?.user) await loadRoles(sess.user.id);
+      })
+      .catch((error) => {
+        console.error("Falha ao recuperar sessão", error);
+        setSession(null);
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
 
     return () => sub.subscription.unsubscribe();
   }, [loadRoles]);
