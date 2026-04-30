@@ -68,7 +68,6 @@ function validateShow(input: any) {
     artist_id,
     data_show,
     horario: timeOrNull(input.horario),
-    data_subida: dateOrNull(input.data_subida),
     vendedor: txt(input.vendedor, 200),
     local: txt(input.local, 200),
     tipo_estrutura: tipo,
@@ -160,8 +159,11 @@ Deno.serve(async (req) => {
 
     if (!canManage) return json({ error: "Acesso negado" }, 403);
 
+    const isEditor = roles.includes("gerente") || roles.includes("equipe");
+
     if (action === "create") {
       const s = validateShow(body.show ?? {});
+      // data_subida = momento exato de criação (data do timestamp created_at)
       const rows = await sql`
         insert into public.shows (
           artist_id, data_show, horario, data_subida, vendedor,
