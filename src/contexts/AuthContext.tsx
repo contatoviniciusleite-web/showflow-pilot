@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  rolesLoading: boolean;
   roles: AppRole[];
   artistId: string | null;
   refreshRoles: () => Promise<void>;
@@ -19,6 +20,8 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 const ROLE_RETRY_DELAYS = [800, 1600, 3000];
 const ROLE_QUERY_TIMEOUT_MS = 10000;
 const SESSION_TIMEOUT_MS = 8000;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -34,13 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(false);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [artistId, setArtistId] = useState<string | null>(null);
   const roleLoadId = useRef(0);
 
-  const loadRoles = useCallback(async (uid: string, clearBefore = false) => {
+  const loadRoles = useCallback(async (uid: string, accessToken: string, clearBefore = false) => {
     const requestId = ++roleLoadId.current;
     let lastError: unknown = null;
+    setRolesLoading(true);
 
     if (clearBefore) {
       setRoles([]);
@@ -49,13 +54,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     for (let attempt = 0; attempt <= ROLE_RETRY_DELAYS.length; attempt += 1) {
       try {
-        const { data, error } = await withTimeout(
-          supabase
-            .from("user_roles")
-            .select("role, artist_id")
-            .eq("user_id", uid),
-          ROLE_QUERY_TIMEOUT_MS
-        );
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), ROLE_QUERY_TIMEOUT_MS);
+        const response = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_roles?select=role,artist_id&user_id=eq.${encodeURIComponent(uid)}`,
+          {
+            headers: {
+              apikey: SUPABASE_KEY,
+              authorization: `Bearer ${accessToken}`,
+            },
+            signal: controller.signal,
+          }
+        ).finally(() => window.clearTimeout(timeout));
+
+        const data = response.ok ? await response.json() : null;
+        const error = response.ok ? null : await response.text();
 
         if (!error) {
           if (requestId === roleLoadId.current) {
@@ -82,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (requestId === roleLoadId.current) {
       setRoles([]);
       setArtistId(null);
+      setRolesLoading(false);
     }
   }, []);
 
