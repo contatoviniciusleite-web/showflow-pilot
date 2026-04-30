@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setRoles(newRoles);
             const artist = (data ?? []).find((r) => r.role === "artista");
             setArtistId(artist?.artist_id ?? null);
+            setRolesLoading(false);
           }
           return;
         }
@@ -107,11 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (sess?.user) {
         setLoading(false);
         // defer chamada do supabase para evitar deadlock no listener
-        setTimeout(() => void loadRoles(sess.user.id), 0);
+        setTimeout(() => void loadRoles(sess.user.id, sess.access_token), 0);
       } else {
         roleLoadId.current += 1;
         setRoles([]);
         setArtistId(null);
+        setRolesLoading(false);
         setLoading(false);
       }
     });
@@ -121,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ data: { session: sess } }) => {
         setSession(sess);
         setUser(sess?.user ?? null);
-        if (sess?.user) void loadRoles(sess.user.id);
+        if (sess?.user) void loadRoles(sess.user.id, sess.access_token);
       })
       .catch((error) => {
         console.error("Falha ao recuperar sessão", error);
@@ -134,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadRoles]);
 
   const refreshRoles = async () => {
-    if (user) await loadRoles(user.id, true);
+    if (user && session) await loadRoles(user.id, session.access_token, true);
   };
 
   const signOut = async () => {
@@ -142,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, roles, artistId, refreshRoles, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, rolesLoading, roles, artistId, refreshRoles, signOut }}>
       {children}
     </AuthContext.Provider>
   );
