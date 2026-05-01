@@ -89,6 +89,7 @@ export function AppLayout() {
           <span className="font-semibold">Stage</span>
         </div>
         <div className="flex items-center gap-1">
+          <ManagerModeToggle compact />
           <NotificationBell />
           <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/auth"); }}>
             <LogOut className="h-4 w-4" />
@@ -97,7 +98,8 @@ export function AppLayout() {
       </div>
 
       <main className="flex-1 md:pt-0 pt-14 pb-20 md:pb-0">
-        <div className="hidden md:flex items-center justify-end gap-2 px-6 py-3 border-b">
+        <div className="hidden md:flex items-center justify-between gap-2 px-6 py-3 border-b">
+          <ManagerModeToggle />
           <NotificationBell />
         </div>
         <Outlet />
