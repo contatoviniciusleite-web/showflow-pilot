@@ -257,7 +257,8 @@ export function VendedorAgenda() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
                     {s.horario && <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{s.horario.slice(0,5)}</span>}
-                    {s.local && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{s.local}</span>}
+                    {s.local && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{s.local}{s.cidade ? ` · ${s.cidade}` : ""}</span>}
+                    {s.vendedor && <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />Vendedor: {s.vendedor}</span>}
                   </p>
                 </li>
               );
