@@ -34,7 +34,12 @@ interface ShowFull {
   created_by: string | null;
   created_at: string;
   prazo_comprovante_em: string | null;
+  auto_aprovado?: boolean | null;
+  auto_aprovado_em?: string | null;
+  aprovado_por?: string | null;
 }
+
+const AUTO_BADGE = "bg-yellow-500/15 text-yellow-700 border border-yellow-500/30 hover:bg-yellow-500/20";
 
 export function GerenciaDashboard() {
   const { user, roles } = useAuth();
