@@ -65,6 +65,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/bloqueios"
+                element={
+                  <ProtectedRoute requireRoles={["gerente"]}>
+                    <Bloqueios />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/usuarios"
                 element={
                   <ProtectedRoute requireRoles={["gerente"]}>
