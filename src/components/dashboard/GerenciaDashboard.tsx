@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  AlertTriangle, Clock, FileText, XCircle, CalendarDays, Wallet, TrendingUp, Trophy,
+  AlertTriangle, Clock, FileText, XCircle, CalendarDays, Wallet, TrendingUp, Trophy, ShieldCheck,
 } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
@@ -34,7 +34,12 @@ interface ShowFull {
   created_by: string | null;
   created_at: string;
   prazo_comprovante_em: string | null;
+  auto_aprovado?: boolean | null;
+  auto_aprovado_em?: string | null;
+  aprovado_por?: string | null;
 }
+
+const AUTO_BADGE = "bg-yellow-500/15 text-yellow-700 border border-yellow-500/30 hover:bg-yellow-500/20";
 
 export function GerenciaDashboard() {
   const { user, roles } = useAuth();
@@ -44,13 +49,29 @@ export function GerenciaDashboard() {
   const [filterArtist, setFilterArtist] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [chartScale, setChartScale] = useState<"mes" | "ano">("mes");
+  const [auditPeriod, setAuditPeriod] = useState<Period>("mes");
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
 
   const isFinanceiro = roles.includes("financeiro") && !roles.includes("gerente");
 
   const refetch = async () => {
     const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
-    setShows((r.data?.shows ?? []) as ShowFull[]);
+    const list = (r.data?.shows ?? []) as ShowFull[];
+    setShows(list);
     setLoading(false);
+
+    // Busca nomes dos gerentes que aprovaram (para auditoria).
+    const ids = Array.from(
+      new Set(list.filter((s) => s.auto_aprovado && s.aprovado_por).map((s) => s.aprovado_por as string)),
+    );
+    if (ids.length > 0) {
+      const { data: profs } = await supabase.from("profiles").select("id,nome").in("id", ids);
+      const map: Record<string, string> = {};
+      (profs ?? []).forEach((p: { id: string; nome: string | null }) => {
+        map[p.id] = p.nome ?? p.id.slice(0, 8);
+      });
+      setProfileMap(map);
+    }
   };
 
   useEffect(() => {
@@ -222,6 +243,50 @@ export function GerenciaDashboard() {
         )}
       </Card>
 
+      {/* ===== Auditoria de auto-aprovações ===== */}
+      {(() => {
+        const auditRange = getRangeFor(auditPeriod);
+        const auditList = shows
+          .filter((s) => s.auto_aprovado && inRange(s.data_show, auditRange.start, auditRange.end))
+          .sort((a, b) => (b.auto_aprovado_em ?? "").localeCompare(a.auto_aprovado_em ?? ""));
+        const auditTotal = sumCache(auditList);
+        return (
+          <>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+              <h2 className="text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-yellow-600" /> Auto-aprovações ({PERIOD_LABEL[auditPeriod].toLowerCase()})
+              </h2>
+              <PeriodFilter value={auditPeriod} onChange={setAuditPeriod} />
+            </div>
+            <Card className="p-6 shadow-soft mb-8">
+              <div className="flex items-center justify-between mb-3 text-sm">
+                <span className="text-muted-foreground">{auditList.length} minuta(s) auto-aprovada(s)</span>
+                <span className="font-semibold">{fmtBRL(auditTotal)}</span>
+              </div>
+              {auditList.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma auto-aprovação no período.</p>
+              ) : (
+                <ul className="divide-y">
+                  {auditList.map((s) => (
+                    <li key={s.id} className="py-3 flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{s.artist_nome ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Gerente: {s.aprovado_por ? (profileMap[s.aprovado_por] ?? s.aprovado_por.slice(0, 8)) : "—"}
+                          {" · "}Show: {fmtDate(s.data_show)}
+                          {s.auto_aprovado_em && ` · em ${new Date(s.auto_aprovado_em).toLocaleString("pt-BR")}`}
+                        </p>
+                      </div>
+                      <span className="font-semibold shrink-0">{fmtBRL(Number(s.cache_total ?? 0))}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </>
+        );
+      })()}
+
       {/* ===== Shows do mês ===== */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
         <h2 className="text-sm uppercase tracking-wider text-muted-foreground">Shows do mês</h2>
@@ -262,7 +327,14 @@ export function GerenciaDashboard() {
                     {fmtDate(s.data_show)}{s.cidade ? ` · ${s.cidade}` : ""} · {fmtBRL(Number(s.cache_total ?? 0))}
                   </p>
                 </div>
-                <Badge className={STATUS_CLASS[s.status] ?? ""}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  {s.auto_aprovado && (
+                    <Badge className={AUTO_BADGE} title="Minuta aprovada pelo próprio criador (gerente)">
+                      <ShieldCheck className="h-3 w-3 mr-1" /> Auto aprovado
+                    </Badge>
+                  )}
+                  <Badge className={STATUS_CLASS[s.status] ?? ""}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
+                </div>
               </li>
             ))}
           </ul>

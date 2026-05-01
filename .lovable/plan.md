@@ -1,72 +1,76 @@
+## Objetivo
 
-# Dashboards personalizados por perfil
+Permitir que o usuário com perfil **Gerente** alterne, a qualquer momento, entre dois modos de trabalho — **Gerência** (padrão) e **Vendedor** — refletindo imediatamente o dashboard, navegação e regras de criação. Quando o gerente cria uma minuta no Modo Vendedor e ele mesmo aprova depois (no Modo Gerência), o sistema marca a minuta como **auto-aprovada**, mantendo todas as travas de negócio existentes.
 
-Reescrever `src/pages/Dashboard.tsx` para entregar três experiências distintas, cada usuário cai automaticamente no painel do seu papel após login. Filtro de período (Semanal / Mensal / Anual) presente em todos os dashboards. Semana = segunda a domingo. Dados em tempo real via Supabase Realtime na tabela `shows`.
+## O que será entregue
 
-## 1. Dashboard do Vendedor
-
-Mostra apenas minutas criadas pelo próprio usuário (a edge function `shows-admin` já filtra por `created_by` quando o papel é vendedor).
-
-- **Cards de resumo** (sensíveis ao filtro de período pela `data_show`):
-  - Total de minutas criadas
-  - Pendentes / Aprovadas / Rejeitadas / Canceladas
-  - Volume financeiro = soma de `cache_total` das minutas aprovadas (`status` ∈ {aprovada, aguardando_pagamento, comprovante_enviado, confirmado})
-- **Filtros**: Semana atual (seg–dom) / Mês atual / Ano atual
-- **Lista de minutas**: data do show, artista, cidade, valor, badge colorido por `STATUS_CLASS`
-- "Rejeitadas" inferido pelas notificações `minuta_rejeitada` no período (já existe esse tipo no fluxo).
-
-## 2. Dashboard do Artista
-
-Mostra apenas shows do artista logado (já filtrado por `get_my_artist_id()` no backend).
-
-- **Cards**:
-  - Próximos shows da semana atual (seg–dom)
-  - Quantidade de shows na semana
-  - Faturamento total da semana
-  - Cachê total recebido no mês (status `confirmado`)
-- **Agenda pessoal**: lista cronológica de próximos shows com destaque visual nos da semana corrente.
-- **Financeiro pessoal**: para cada show da semana/mês — status de pagamento (badge) + valor; abaixo, histórico dos shows passados com valores.
-
-## 3. Dashboard Gerência / Financeiro
-
-Visão consolidada da operação. Filtro de período aplicado a cards/listas/gráficos.
-
-- **Alertas no topo (cards destacados)**:
-  - Shows com pagamento atrasado (vermelho): `aguardando_pagamento` com `prazo_comprovante_em < now()`
-  - Contratos pendentes há +7 dias: `pendente` com `created_at < now() - 7d`
-  - Shows cancelados no mês
-  - Minutas aguardando aprovação (`pendente`)
-- **Visão por artista**: card individual com shows confirmados no mês, faturamento do mês e próximo show.
-- **Performance de vendedores**: ranking por volume financeiro, total de minutas, taxa de aprovação (aprovadas vs rejeitadas no período).
-- **Shows do mês**: lista com filtros por artista e status; totais "a receber", "recebido" e "em aberto".
-- **Gráficos** (Recharts, já disponível via `@/components/ui/chart`):
-  - Linha: evolução mensal de faturamento
-  - Barras: shows por artista no período
-  - Linha: comparativo mensal vs ano anterior
+1. **Toggle de modo** no topo do app (visível apenas para Gerente), com destaque visual do modo ativo.
+2. **Modo Vendedor** para Gerente: dashboard idêntico ao do Vendedor (apenas suas próprias minutas), navegação reduzida, criação normal.
+3. **Auto-aprovação registrada**: quando o aprovador é o mesmo usuário que criou a minuta, marcamos um flag e exibimos um badge amarelo "Auto aprovado" na lista da Gerência.
+4. **Painel de auditoria** dentro do Dashboard de Gerência listando todas as minutas auto-aprovadas com filtro de período (Semanal/Mensal/Anual) — gerente, artista, data do show e valor.
+5. **Travas mantidas**: cachê mínimo, limite de 3 shows/dia/artista, datas bloqueadas e fluxo de pagamento continuam idênticos.
 
 ## Detalhes técnicos
 
-- **Sem alterações no schema** — toda a lógica é client-side em cima de `shows-admin.list` (já respeita papéis via RLS).
-- **Componentização**: criar `src/components/dashboard/` com:
-  - `PeriodFilter.tsx` (toggle Semana/Mês/Ano)
-  - `VendedorDashboard.tsx`
-  - `ArtistaDashboard.tsx`
-  - `GerenciaDashboard.tsx`
-  - `StatCard.tsx` (extraído do atual)
-  - Helpers `lib/dashboard.ts` para `getWeekRange` (segunda–domingo), `getMonthRange`, `getYearRange`, agregadores e formatters.
-- **Realtime**: `supabase.channel('shows-dash').on('postgres_changes', { schema: 'public', table: 'shows' }, refetch).subscribe()`. Habilitar replicação na tabela `shows` via migração:
-  ```sql
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.shows;
-  ALTER TABLE public.shows REPLICA IDENTITY FULL;
-  ```
-- **Roteamento**: `Dashboard.tsx` continua sendo o componente da rota `/`; ele detecta o papel (preferência: gerente/financeiro > artista > vendedor > equipe) e renderiza o dashboard correspondente.
-- **Configurabilidade futura**: cores e thresholds (dias de contrato pendente, etc.) ficam em constantes em `lib/dashboard.ts` para fácil ajuste — alinhado com a observação de "piloto em fase de testes".
+### Banco de dados (migração)
 
-## Ordem de implementação
+Adicionar duas colunas em `public.shows`:
 
-1. Migração realtime (`shows`).
-2. Helpers + componentes compartilhados (`PeriodFilter`, `StatCard`, `lib/dashboard.ts`).
-3. `VendedorDashboard`.
-4. `ArtistaDashboard`.
-5. `GerenciaDashboard` (cards de alerta → artistas → vendedores → lista → gráficos).
-6. Reescrever `Dashboard.tsx` como roteador por papel + assinatura realtime.
+- `auto_aprovado boolean not null default false`
+- `auto_aprovado_em timestamptz null`
+
+Não muda RLS — segue regra atual.
+
+### Backend (`supabase/functions/shows-admin/index.ts`)
+
+- Na ação `approve`: se `show.created_by === userId` (gerente aprovando a própria minuta), gravar `auto_aprovado = true`, `auto_aprovado_em = now()`. Caso contrário, gravar `false` (já é o default).
+- Retornar as novas colunas no `select *` existente (já incluído).
+- Nenhuma trava de negócio é afetada — `cache_total`, blocos de data e limite de 3 shows/dia continuam aplicados em `create`/`update`.
+
+### Frontend
+
+**Estado global do modo** (`src/contexts/ManagerModeContext.tsx`):
+
+- Provider que expõe `mode: "gerencia" | "vendedor"` e `setMode()`.
+- Persistência em `localStorage` (`stage.manager_mode`); padrão = `"gerencia"`.
+- Só tem efeito quando `roles.includes("gerente")`. Para outros perfis, o valor efetivo é ignorado.
+- Hook `useEffectiveRoles()` que devolve os papéis "vistos" pelo app: se gerente em modo Vendedor → `["vendedor"]`; senão → roles reais.
+
+**Toggle visual** (`src/components/ManagerModeToggle.tsx`):
+
+- Pill com dois botões: "👑 Gerência | 🤝 Vendedor".
+- Renderizado em `AppLayout` (topo desktop + barra mobile) somente para gerente.
+- Modo ativo destacado com `bg-accent text-accent-foreground`.
+
+**Navegação e roteamento** (`AppLayout.tsx`, `ProtectedRoute.tsx`):
+
+- Filtro do menu lateral passa a usar `useEffectiveRoles()` em vez de `roles`.
+- Em Modo Vendedor, gerente vê apenas: Dashboard, Shows, Agenda (opcional manter), Financeiro removido do menu.
+- `ProtectedRoute` continua usando os papéis reais (segurança), apenas a UI de navegação respeita o modo.
+
+**Dashboard** (`src/pages/Dashboard.tsx`):
+
+- Passa a checar primeiro o modo: se gerente em modo vendedor → renderiza `<VendedorDashboard />`. Senão, mantém a lógica atual.
+
+**Lista de Shows** (`src/pages/Shows.tsx`):
+
+- O backend já filtra corretamente por `created_by` para vendedor. Para gerente em modo vendedor, vamos enviar um parâmetro `as_role: "vendedor"` na chamada `list` para forçar o filtro como vendedor (alternativa: filtrar no cliente). Implementação escolhida: **filtrar no cliente** quando `mode === "vendedor"` para evitar mudar o backend; o gerente já recebe todas as shows, basta filtrar `created_by === user.id`. Mais simples e mantém RLS intacto.
+
+**Badge "Auto aprovado"**:
+
+- Em qualquer lista da Gerência (Shows, Dashboard de Gerência), quando `show.auto_aprovado === true`, renderizar `<Badge className="bg-yellow-500/15 text-yellow-700 border-yellow-500/30">Auto aprovado</Badge>` ao lado do status.
+
+**Painel de auditoria** (novo bloco em `GerenciaDashboard.tsx`):
+
+- Card "Auto-aprovações" com filtro de período (Semanal/Mensal/Anual reaproveitando `PeriodFilter`).
+- Tabela: Gerente (nome via `profiles`), Artista, Data do show, Valor (`fmtBRL`).
+- Fonte: shows com `auto_aprovado = true` e `data_show` no range; nomes de gerente buscados em batch via `profiles` (já permitido pela RLS para gerente).
+
+### Tipos
+
+`src/integrations/supabase/types.ts` é regenerado automaticamente após a migração — não editar manualmente.
+
+## Fora de escopo
+
+- Mudanças nas regras de cachê mínimo, limite de 3 shows/dia ou bloqueios de data (já implementadas e mantidas).
+- Reescrever o fluxo de aprovação para outros papéis.

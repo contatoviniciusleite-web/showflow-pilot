@@ -1,12 +1,14 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
 import { VendedorDashboard } from "@/components/dashboard/VendedorDashboard";
 import { ArtistaDashboard } from "@/components/dashboard/ArtistaDashboard";
 import { GerenciaDashboard } from "@/components/dashboard/GerenciaDashboard";
 
 export default function Dashboard() {
-  const { roles } = useAuth();
+  // Usa "effective roles" para que o gerente em Modo Vendedor veja o dashboard de vendedor.
+  const roles = useEffectiveRoles();
+  const { roles: realRoles } = useAuth();
 
-  // Prioridade: gerência/financeiro/equipe → artista → vendedor.
   if (roles.includes("gerente") || roles.includes("equipe") || roles.includes("financeiro")) {
     return <GerenciaDashboard />;
   }
@@ -17,6 +19,8 @@ export default function Dashboard() {
     return <VendedorDashboard />;
   }
 
+  // Fallback: usuário sem papel atribuído. Usa realRoles para evitar tela vazia em casos extremos.
+  void realRoles;
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <h1 className="text-2xl font-semibold">Bem-vindo</h1>

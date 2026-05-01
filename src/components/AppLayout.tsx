@@ -1,6 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
+import { ManagerModeToggle } from "@/components/ManagerModeToggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -18,9 +20,10 @@ const nav = [
 
 export function AppLayout() {
   const { user, roles, signOut } = useAuth();
+  const effectiveRoles = useEffectiveRoles();
   const navigate = useNavigate();
 
-  const visible = nav.filter((n) => n.roles.some((r) => roles.includes(r)));
+  const visible = nav.filter((n) => n.roles.some((r) => effectiveRoles.includes(r)));
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -86,6 +89,7 @@ export function AppLayout() {
           <span className="font-semibold">Stage</span>
         </div>
         <div className="flex items-center gap-1">
+          <ManagerModeToggle compact />
           <NotificationBell />
           <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/auth"); }}>
             <LogOut className="h-4 w-4" />
@@ -94,7 +98,8 @@ export function AppLayout() {
       </div>
 
       <main className="flex-1 md:pt-0 pt-14 pb-20 md:pb-0">
-        <div className="hidden md:flex items-center justify-end gap-2 px-6 py-3 border-b">
+        <div className="hidden md:flex items-center justify-between gap-2 px-6 py-3 border-b">
+          <ManagerModeToggle />
           <NotificationBell />
         </div>
         <Outlet />
