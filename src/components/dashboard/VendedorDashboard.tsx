@@ -3,12 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Clock, FileText, Wallet, XCircle, ListMusic } from "lucide-react";
+import { CheckCircle2, Clock, FileText, Wallet, XCircle } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { PeriodFilter } from "./PeriodFilter";
 import { Period, fmtBRL, fmtDate, getRangeFor, inRange, isApprovedStatus, sumCache, PERIOD_LABEL } from "@/lib/dashboard";
 import { STATUS_CLASS, STATUS_LABEL, ShowStatus } from "@/lib/showStatus";
+import { VendedorAgenda } from "./VendedorAgenda";
 
 interface ShowLite {
   id: string;
