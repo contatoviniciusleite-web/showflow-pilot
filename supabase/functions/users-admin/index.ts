@@ -125,19 +125,27 @@ Deno.serve(async (req) => {
     const action = body.action ?? "list";
 
     if (action === "list") {
-      const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, authUsers] = await Promise.all([
+      const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, authUsers, { data: vendArt, error: vendArtError }] = await Promise.all([
         retry("listar perfis", () => admin.from("profiles").select("id,nome").order("nome", { ascending: true, nullsFirst: false })),
         retry("listar papéis", () => admin.from("user_roles").select("user_id,role,artist_id").order("created_at", { ascending: true })),
         listAllAuthUsers(admin),
+        retry("listar permissões vendedor", () => admin.from("vendedor_artists").select("vendedor_id,artist_id")),
       ]);
       if (profilesError) throw profilesError;
       if (rolesError) throw rolesError;
+      if (vendArtError) throw vendArtError;
 
       const roleMap = new Map<string, Array<{ role: string; artist_id: string | null }>>();
       for (const r of roles ?? []) {
         const list = roleMap.get(r.user_id) ?? [];
         list.push({ role: r.role, artist_id: r.artist_id });
         roleMap.set(r.user_id, list);
+      }
+      const vendMap = new Map<string, string[]>();
+      for (const v of (vendArt ?? []) as Array<{ vendedor_id: string; artist_id: string }>) {
+        const list = vendMap.get(v.vendedor_id) ?? [];
+        list.push(v.artist_id);
+        vendMap.set(v.vendedor_id, list);
       }
       const emailMap = new Map(authUsers.map((u) => [u.id, { email: u.email, last_sign_in_at: u.last_sign_in_at, invited: !u.email_confirmed_at && !u.last_sign_in_at }]));
       const users = (profiles ?? []).map((p) => ({
@@ -147,6 +155,7 @@ Deno.serve(async (req) => {
         last_sign_in_at: emailMap.get(p.id)?.last_sign_in_at ?? null,
         pendente: emailMap.get(p.id)?.invited ?? false,
         roles: roleMap.get(p.id) ?? [],
+        vendedor_artist_ids: vendMap.get(p.id) ?? [],
       }));
       return json({ users });
     }
@@ -197,6 +206,24 @@ Deno.serve(async (req) => {
       );
       if (roleError) throw roleError;
 
+      // Permissões de artistas (vendedor)
+      const vendArtIds = Array.isArray(body.vendedor_artist_ids)
+        ? body.vendedor_artist_ids.filter((s: unknown): s is string => typeof s === "string")
+        : null;
+      if (role === "vendedor" && vendArtIds) {
+        await retry("limpar permissões vendedor", () =>
+          admin.from("vendedor_artists").delete().eq("vendedor_id", userId)
+        );
+        if (vendArtIds.length) {
+          const { error: vErr } = await retry("salvar permissões vendedor", () =>
+            admin.from("vendedor_artists").insert(
+              vendArtIds.map((a) => ({ vendedor_id: userId, artist_id: a }))
+            )
+          );
+          if (vErr) throw vErr;
+        }
+      }
+
       return json({ ok: true, user_id: userId });
     }
 
@@ -226,6 +253,30 @@ Deno.serve(async (req) => {
         );
         if (insertRolesError) throw insertRolesError;
       }
+
+      // Sincroniza permissões de artistas (vendedor)
+      const isVendedor = roles.some((r) => r.role === "vendedor");
+      const vendArtIds = Array.isArray(body.vendedor_artist_ids)
+        ? body.vendedor_artist_ids.filter((s: unknown): s is string => typeof s === "string")
+        : null;
+      if (!isVendedor) {
+        await retry("limpar permissões vendedor", () =>
+          admin.from("vendedor_artists").delete().eq("vendedor_id", userId)
+        );
+      } else if (vendArtIds) {
+        await retry("limpar permissões vendedor", () =>
+          admin.from("vendedor_artists").delete().eq("vendedor_id", userId)
+        );
+        if (vendArtIds.length) {
+          const { error: vErr } = await retry("salvar permissões vendedor", () =>
+            admin.from("vendedor_artists").insert(
+              vendArtIds.map((a) => ({ vendedor_id: userId, artist_id: a }))
+            )
+          );
+          if (vErr) throw vErr;
+        }
+      }
+
       return json({ ok: true });
     }
 

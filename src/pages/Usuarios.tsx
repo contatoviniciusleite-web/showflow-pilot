@@ -22,6 +22,7 @@ interface AppUser {
   last_sign_in_at: string | null;
   pendente: boolean;
   roles: RoleEntry[];
+  vendedor_artist_ids: string[];
 }
 interface Artist {
   id: string;
@@ -57,11 +58,11 @@ export default function Usuarios() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ nome: "", email: "", role: "vendedor" as AppRole, artist_id: "" });
+  const [inviteForm, setInviteForm] = useState({ nome: "", email: "", role: "vendedor" as AppRole, artist_id: "", vendedor_artist_ids: [] as string[] });
   const [saving, setSaving] = useState(false);
 
   const [editing, setEditing] = useState<AppUser | null>(null);
-  const [editForm, setEditForm] = useState({ nome: "", roles: [] as RoleEntry[] });
+  const [editForm, setEditForm] = useState({ nome: "", roles: [] as RoleEntry[], vendedor_artist_ids: [] as string[] });
 
   const load = async () => {
     setLoading(true);
@@ -91,19 +92,20 @@ export default function Usuarios() {
         email: inviteForm.email.trim().toLowerCase(),
         role: inviteForm.role,
         artist_id: inviteForm.role === "artista" ? inviteForm.artist_id : null,
+        vendedor_artist_ids: inviteForm.role === "vendedor" ? inviteForm.vendedor_artist_ids : [],
       },
     });
     setSaving(false);
     if (error) return toast.error(await getFunctionErrorMessage(error, "Erro ao enviar convite"));
     toast.success("Convite enviado");
     setInviteOpen(false);
-    setInviteForm({ nome: "", email: "", role: "vendedor", artist_id: "" });
+    setInviteForm({ nome: "", email: "", role: "vendedor", artist_id: "", vendedor_artist_ids: [] });
     load();
   };
 
   const openEdit = (u: AppUser) => {
     setEditing(u);
-    setEditForm({ nome: u.nome ?? "", roles: u.roles.length ? [...u.roles] : [] });
+    setEditForm({ nome: u.nome ?? "", roles: u.roles.length ? [...u.roles] : [], vendedor_artist_ids: [...(u.vendedor_artist_ids ?? [])] });
   };
 
   const addRole = () => {
@@ -134,7 +136,12 @@ export default function Usuarios() {
       });
       if (e1) throw e1;
       const { error: e2 } = await supabase.functions.invoke("users-admin", {
-        body: { action: "set_roles", user_id: editing.id, roles: editForm.roles },
+        body: {
+          action: "set_roles",
+          user_id: editing.id,
+          roles: editForm.roles,
+          vendedor_artist_ids: editForm.roles.some((r) => r.role === "vendedor") ? editForm.vendedor_artist_ids : [],
+        },
       });
       if (e2) throw e2;
       toast.success("Usuário atualizado");
@@ -287,6 +294,33 @@ export default function Usuarios() {
                 </Select>
               </div>
             )}
+            {inviteForm.role === "vendedor" && (
+              <div className="space-y-1.5">
+                <Label>Artistas que pode vender</Label>
+                <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
+                  {artists.length === 0 && <p className="text-xs text-muted-foreground">Nenhum artista cadastrado.</p>}
+                  {artists.map((a) => {
+                    const checked = inviteForm.vendedor_artist_ids.includes(a.id);
+                    return (
+                      <label key={a.id} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...inviteForm.vendedor_artist_ids, a.id]
+                              : inviteForm.vendedor_artist_ids.filter((x) => x !== a.id);
+                            setInviteForm({ ...inviteForm, vendedor_artist_ids: next });
+                          }}
+                        />
+                        {a.nome}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">O vendedor só verá a agenda e poderá vender shows dos artistas marcados.</p>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
               Um e-mail será enviado com um link para a pessoa definir a própria senha.
             </p>
@@ -345,6 +379,33 @@ export default function Usuarios() {
                   </div>
                 ))}
               </div>
+              {editForm.roles.some((r) => r.role === "vendedor") && (
+                <div className="space-y-1.5">
+                  <Label>Artistas que pode vender</Label>
+                  <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
+                    {artists.length === 0 && <p className="text-xs text-muted-foreground">Nenhum artista cadastrado.</p>}
+                    {artists.map((a) => {
+                      const checked = editForm.vendedor_artist_ids.includes(a.id);
+                      return (
+                        <label key={a.id} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...editForm.vendedor_artist_ids, a.id]
+                                : editForm.vendedor_artist_ids.filter((x) => x !== a.id);
+                              setEditForm({ ...editForm, vendedor_artist_ids: next });
+                            }}
+                          />
+                          {a.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">O vendedor só verá a agenda e poderá vender shows dos artistas marcados.</p>
+                </div>
+              )}
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
                 <Button onClick={saveEdit} disabled={saving}>

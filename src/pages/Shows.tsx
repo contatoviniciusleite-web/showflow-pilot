@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -196,6 +197,21 @@ export default function Shows() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
+  // Pré-popula nova minuta a partir da agenda (?new=1&artist=...&data=...)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    if (!artists.length) return; // espera carregar
+    const artistId = searchParams.get("artist") ?? "";
+    const data = searchParams.get("data") ?? "";
+    setEditing(null);
+    setForm({ ...emptyForm, artist_id: artistId, data_show: data });
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new"); next.delete("artist"); next.delete("data");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, artists.length]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
 
