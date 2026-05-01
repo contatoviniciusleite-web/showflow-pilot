@@ -339,11 +339,17 @@ Deno.serve(async (req) => {
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
 
       const prazoHoras = await getSetting(sql, "prazo_comprovante_horas_uteis", 48);
+      // Detecta auto-aprovação: gerente aprovando minuta criada por ele mesmo.
+      const existing = await sql`select created_by from public.shows where id = ${body.id}`;
+      if (existing.length === 0) return json({ error: "Show não encontrado" }, 404);
+      const isAuto = existing[0].created_by === userId;
       const rows = await sql`
         update public.shows
           set status = 'aguardando_pagamento'::show_status,
               aprovado_por = ${userId},
               aprovado_em = now(),
+              auto_aprovado = ${isAuto},
+              auto_aprovado_em = ${isAuto ? sql`now()` : null},
               prazo_comprovante_em = public.add_business_hours(now(), ${prazoHoras}),
               aviso_12h_enviado_em = null,
               updated_at = now()
