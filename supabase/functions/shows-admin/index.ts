@@ -166,6 +166,8 @@ Deno.serve(async (req) => {
         return json({ shows: rows, scope: canSeeAll && !isEditor ? "financeiro" : "all" });
       }
       if (isVendedor) {
+        const allowedRows = await sql`select artist_id from public.vendedor_artists where vendedor_id = ${userId}`;
+        const allowed = (allowedRows as any[]).map((r) => r.artist_id);
         const minhas = await sql`
           select s.*, a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
           from public.shows s
@@ -173,13 +175,16 @@ Deno.serve(async (req) => {
           where s.created_by = ${userId}
           order by s.data_show desc nulls last, s.created_at desc
         `;
-        const outras = await sql`
-          select id, artist_id, artist_nome, artist_cor, data_show, horario, local, cidade, status
-          from public.shows_public_view
-          where created_by is distinct from ${userId}
-          order by data_show desc nulls last
-        `;
-        return json({ shows: minhas, outras_aprovadas: outras, scope: "vendedor" });
+        const outras = allowed.length
+          ? await sql`
+              select id, artist_id, artist_nome, artist_cor, data_show, horario, local, cidade, status
+              from public.shows_public_view
+              where created_by is distinct from ${userId}
+                and artist_id = any(${allowed}::uuid[])
+              order by data_show desc nulls last
+            `
+          : [];
+        return json({ shows: minhas, outras_aprovadas: outras, allowed_artist_ids: allowed, scope: "vendedor" });
       }
       if (isArtista) {
         const rows = await sql`
