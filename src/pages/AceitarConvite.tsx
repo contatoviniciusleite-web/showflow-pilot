@@ -26,8 +26,6 @@ export default function AceitarConvite() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Supabase processa o hash (#access_token=...&type=invite|recovery) automaticamente
-    // e dispara onAuthStateChange. Vamos esperar a sessão.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setHasSession(true);
@@ -36,13 +34,38 @@ export default function AceitarConvite() {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    (async () => {
+      // 1) Tenta ler tokens do hash (#access_token=...&refresh_token=...&type=invite)
+      const hash = window.location.hash.startsWith("#")
+        ? window.location.hash.substring(1)
+        : window.location.hash;
+      const hashParams = new URLSearchParams(hash);
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        // Limpa o hash da URL
+        window.history.replaceState(null, "", window.location.pathname);
+        if (!error && data.session?.user) {
+          setHasSession(true);
+          setEmail(data.session.user.email ?? null);
+          setChecking(false);
+          return;
+        }
+      }
+
+      // 2) Fallback: sessão já existente
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setHasSession(true);
         setEmail(session.user.email ?? null);
       }
       setChecking(false);
-    });
+    })();
 
     return () => sub.subscription.unsubscribe();
   }, []);
