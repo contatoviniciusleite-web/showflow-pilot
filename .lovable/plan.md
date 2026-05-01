@@ -1,76 +1,91 @@
+# Vendedor: agenda do artista + permissões por artista
+
 ## Objetivo
 
-Permitir que o usuário com perfil **Gerente** alterne, a qualquer momento, entre dois modos de trabalho — **Gerência** (padrão) e **Vendedor** — refletindo imediatamente o dashboard, navegação e regras de criação. Quando o gerente cria uma minuta no Modo Vendedor e ele mesmo aprova depois (no Modo Gerência), o sistema marca a minuta como **auto-aprovada**, mantendo todas as travas de negócio existentes.
+- O Gerente define quais artistas cada Vendedor pode visualizar/vender.
+- Vendedor passa a ter uma Agenda no dashboard, com calendário dos artistas liberados.
+- Vendedor vê todos os shows ocupando a data; minutas dos outros vendedores aparecem só com **local + horário** (sem cachê, contratante, vendedor, etc.).
+- Criar minuta direto do calendário, com artista pré-selecionado e respeitando o limite de 3 shows/dia.
 
-## O que será entregue
+## Mudanças no banco (migração)
 
-1. **Toggle de modo** no topo do app (visível apenas para Gerente), com destaque visual do modo ativo.
-2. **Modo Vendedor** para Gerente: dashboard idêntico ao do Vendedor (apenas suas próprias minutas), navegação reduzida, criação normal.
-3. **Auto-aprovação registrada**: quando o aprovador é o mesmo usuário que criou a minuta, marcamos um flag e exibimos um badge amarelo "Auto aprovado" na lista da Gerência.
-4. **Painel de auditoria** dentro do Dashboard de Gerência listando todas as minutas auto-aprovadas com filtro de período (Semanal/Mensal/Anual) — gerente, artista, data do show e valor.
-5. **Travas mantidas**: cachê mínimo, limite de 3 shows/dia/artista, datas bloqueadas e fluxo de pagamento continuam idênticos.
+Nova tabela `public.vendedor_artists`:
+
+- `vendedor_id uuid` (auth.users.id)
+- `artist_id uuid` (artists.id)
+- `created_at timestamptz default now()`
+- PK composta `(vendedor_id, artist_id)`
+
+RLS:
+- SELECT: o próprio vendedor vê suas permissões; gerente vê todas.
+- ALL: somente gerente.
+
+Atualizar a view `public.shows_public_view` para também expor:
+- `tipo_estrutura` (continua sem cachê / contratante / vendedor — apenas data, horário, local, cidade).
+
+A view permanece com `security_invoker = true` (RLS de `shows` controla a visibilidade), e ganha um filtro adicional para mostrar todos os status exceto `cancelada` (assim a agenda mostra dias ocupados também por shows pendentes/aprovados, não só os já confirmados).
+
+## Backend (edge functions)
+
+### `users-admin`
+
+- Em `list`: incluir `vendedor_artist_ids: string[]` para cada usuário (consulta em `vendedor_artists`).
+- Em `invite` e `set_roles`: aceitar parâmetro opcional `vendedor_artist_ids: string[]` e fazer replace completo das permissões em `vendedor_artists` quando o usuário tem papel `vendedor`. Se o usuário deixa de ser vendedor, limpa permissões.
+
+### `shows-admin`
+
+Em `action: list`, no ramo `isVendedor`:
+- Buscar `allowedArtistIds` do vendedor em `vendedor_artists`.
+- `minhas`: apenas onde `created_by = userId` E `artist_id` está em `allowedArtistIds`.
+- `outras_aprovadas`: ler de `shows_public_view` filtrando por `artist_id in (allowedArtistIds)` e `created_by <> userId`.
+
+Em `action: artists` (lista de artistas para criação): se o caller for **apenas** vendedor (sem gerente/equipe), filtrar pelos artistas liberados.
+
+Em `action: create`: se for vendedor, validar que o `artist_id` está em `allowedArtistIds`; senão 403.
+
+A regra existente do limite de 3 shows/dia continua funcionando.
+
+## Frontend
+
+### `src/pages/Usuarios.tsx`
+
+- No diálogo "Convidar usuário": quando `role === "vendedor"`, mostrar lista de artistas com checkboxes para selecionar quais o vendedor pode vender. Enviar `vendedor_artist_ids` no `invite`.
+- No diálogo "Editar usuário": se houver papel `vendedor`, mostrar a mesma lista de checkboxes carregada de `u.vendedor_artist_ids`. Enviar junto no `set_roles`.
+
+### Novo `src/components/dashboard/VendedorAgenda.tsx`
+
+- Calendário mensal (`react-day-picker` via `Calendar` do shadcn).
+- Filtro por artista (apenas os liberados, vindos de `shows-admin/artists`).
+- Carrega dados do mês visível via `shows-admin/list` (combina `shows` próprios + `outras_aprovadas`).
+- Marca dias ocupados com bolinha colorida (cor do artista) e badge com a contagem.
+- Clique em um dia abre um popover/sheet listando os shows daquele dia:
+  - **Próprios**: cartão completo (artista, local, cidade, horário, cachê, status) com link para editar em `/shows`.
+  - **De outros vendedores**: somente `Show — [Local] — [Horário]`.
+- Botão "Novo Show" no popover (e no topo) que navega para `/shows?new=1&artist=<id>&data=<yyyy-mm-dd>`.
+  - Se a data já tiver atingido o limite (3 shows não cancelados), o botão fica desabilitado com tooltip: "Data indisponível para este artista. Limite máximo de shows atingido."
+
+### `src/components/dashboard/VendedorDashboard.tsx`
+
+- Adicionar tabs no topo: **Resumo** (atual) | **Agenda** (novo componente).
+- Na tab Resumo, mantém o que já existe.
+
+### `src/pages/Shows.tsx`
+
+- Ler `?new=1&artist=...&data=...` e abrir o diálogo de criação já preenchido (alteração mínima — só pré-popular o estado inicial). Sem mudar regras de validação.
 
 ## Detalhes técnicos
 
-### Banco de dados (migração)
+- Fonte da verdade da permissão é o backend (RLS + edge functions). O front só esconde UI; quem tenta burlar via API recebe 403.
+- Para o vendedor, o calendário usa as cores do artista (`artists.cor`) já presentes no payload.
+- Semana segue ISO (segunda a domingo) — já é o padrão do `react-day-picker` configurado no projeto.
+- Estrutura preparada para futuras adaptações: as permissões ficam em tabela própria, fáceis de expandir (ex.: permissões de financeiro por artista).
 
-Adicionar duas colunas em `public.shows`:
+## Arquivos afetados
 
-- `auto_aprovado boolean not null default false`
-- `auto_aprovado_em timestamptz null`
-
-Não muda RLS — segue regra atual.
-
-### Backend (`supabase/functions/shows-admin/index.ts`)
-
-- Na ação `approve`: se `show.created_by === userId` (gerente aprovando a própria minuta), gravar `auto_aprovado = true`, `auto_aprovado_em = now()`. Caso contrário, gravar `false` (já é o default).
-- Retornar as novas colunas no `select *` existente (já incluído).
-- Nenhuma trava de negócio é afetada — `cache_total`, blocos de data e limite de 3 shows/dia continuam aplicados em `create`/`update`.
-
-### Frontend
-
-**Estado global do modo** (`src/contexts/ManagerModeContext.tsx`):
-
-- Provider que expõe `mode: "gerencia" | "vendedor"` e `setMode()`.
-- Persistência em `localStorage` (`stage.manager_mode`); padrão = `"gerencia"`.
-- Só tem efeito quando `roles.includes("gerente")`. Para outros perfis, o valor efetivo é ignorado.
-- Hook `useEffectiveRoles()` que devolve os papéis "vistos" pelo app: se gerente em modo Vendedor → `["vendedor"]`; senão → roles reais.
-
-**Toggle visual** (`src/components/ManagerModeToggle.tsx`):
-
-- Pill com dois botões: "👑 Gerência | 🤝 Vendedor".
-- Renderizado em `AppLayout` (topo desktop + barra mobile) somente para gerente.
-- Modo ativo destacado com `bg-accent text-accent-foreground`.
-
-**Navegação e roteamento** (`AppLayout.tsx`, `ProtectedRoute.tsx`):
-
-- Filtro do menu lateral passa a usar `useEffectiveRoles()` em vez de `roles`.
-- Em Modo Vendedor, gerente vê apenas: Dashboard, Shows, Agenda (opcional manter), Financeiro removido do menu.
-- `ProtectedRoute` continua usando os papéis reais (segurança), apenas a UI de navegação respeita o modo.
-
-**Dashboard** (`src/pages/Dashboard.tsx`):
-
-- Passa a checar primeiro o modo: se gerente em modo vendedor → renderiza `<VendedorDashboard />`. Senão, mantém a lógica atual.
-
-**Lista de Shows** (`src/pages/Shows.tsx`):
-
-- O backend já filtra corretamente por `created_by` para vendedor. Para gerente em modo vendedor, vamos enviar um parâmetro `as_role: "vendedor"` na chamada `list` para forçar o filtro como vendedor (alternativa: filtrar no cliente). Implementação escolhida: **filtrar no cliente** quando `mode === "vendedor"` para evitar mudar o backend; o gerente já recebe todas as shows, basta filtrar `created_by === user.id`. Mais simples e mantém RLS intacto.
-
-**Badge "Auto aprovado"**:
-
-- Em qualquer lista da Gerência (Shows, Dashboard de Gerência), quando `show.auto_aprovado === true`, renderizar `<Badge className="bg-yellow-500/15 text-yellow-700 border-yellow-500/30">Auto aprovado</Badge>` ao lado do status.
-
-**Painel de auditoria** (novo bloco em `GerenciaDashboard.tsx`):
-
-- Card "Auto-aprovações" com filtro de período (Semanal/Mensal/Anual reaproveitando `PeriodFilter`).
-- Tabela: Gerente (nome via `profiles`), Artista, Data do show, Valor (`fmtBRL`).
-- Fonte: shows com `auto_aprovado = true` e `data_show` no range; nomes de gerente buscados em batch via `profiles` (já permitido pela RLS para gerente).
-
-### Tipos
-
-`src/integrations/supabase/types.ts` é regenerado automaticamente após a migração — não editar manualmente.
-
-## Fora de escopo
-
-- Mudanças nas regras de cachê mínimo, limite de 3 shows/dia ou bloqueios de data (já implementadas e mantidas).
-- Reescrever o fluxo de aprovação para outros papéis.
+- Migração SQL nova (tabela `vendedor_artists`, RLS, view atualizada).
+- `supabase/functions/users-admin/index.ts`
+- `supabase/functions/shows-admin/index.ts`
+- `src/pages/Usuarios.tsx`
+- `src/pages/Shows.tsx` (apenas pré-popular novo show via querystring)
+- `src/components/dashboard/VendedorDashboard.tsx`
+- `src/components/dashboard/VendedorAgenda.tsx` (novo)
