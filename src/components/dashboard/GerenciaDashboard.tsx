@@ -243,6 +243,50 @@ export function GerenciaDashboard() {
         )}
       </Card>
 
+      {/* ===== Auditoria de auto-aprovações ===== */}
+      {(() => {
+        const auditRange = getRangeFor(auditPeriod);
+        const auditList = shows
+          .filter((s) => s.auto_aprovado && inRange(s.data_show, auditRange.start, auditRange.end))
+          .sort((a, b) => (b.auto_aprovado_em ?? "").localeCompare(a.auto_aprovado_em ?? ""));
+        const auditTotal = sumCache(auditList);
+        return (
+          <>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+              <h2 className="text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-yellow-600" /> Auto-aprovações ({PERIOD_LABEL[auditPeriod].toLowerCase()})
+              </h2>
+              <PeriodFilter value={auditPeriod} onChange={setAuditPeriod} />
+            </div>
+            <Card className="p-6 shadow-soft mb-8">
+              <div className="flex items-center justify-between mb-3 text-sm">
+                <span className="text-muted-foreground">{auditList.length} minuta(s) auto-aprovada(s)</span>
+                <span className="font-semibold">{fmtBRL(auditTotal)}</span>
+              </div>
+              {auditList.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma auto-aprovação no período.</p>
+              ) : (
+                <ul className="divide-y">
+                  {auditList.map((s) => (
+                    <li key={s.id} className="py-3 flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{s.artist_nome ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Gerente: {s.aprovado_por ? (profileMap[s.aprovado_por] ?? s.aprovado_por.slice(0, 8)) : "—"}
+                          {" · "}Show: {fmtDate(s.data_show)}
+                          {s.auto_aprovado_em && ` · em ${new Date(s.auto_aprovado_em).toLocaleString("pt-BR")}`}
+                        </p>
+                      </div>
+                      <span className="font-semibold shrink-0">{fmtBRL(Number(s.cache_total ?? 0))}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </>
+        );
+      })()}
+
       {/* ===== Shows do mês ===== */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
         <h2 className="text-sm uppercase tracking-wider text-muted-foreground">Shows do mês</h2>
