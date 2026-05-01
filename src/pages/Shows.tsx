@@ -175,6 +175,21 @@ export default function Shows() {
   const [editing, setEditing] = useState<Show | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [myName, setMyName] = useState<string>("");
+
+  // Carrega o nome do usuário logado para autopreencher "Vendedor responsável"
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("nome")
+        .eq("id", user.id)
+        .maybeSingle();
+      const fallback = user.email?.split("@")[0] ?? "";
+      setMyName((data?.nome && data.nome.trim()) || fallback);
+    })();
+  }, [user?.id, user?.email]);
 
   // Rejeição
   const [rejectOpen, setRejectOpen] = useState(false);
