@@ -1,6 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
+import { ManagerModeToggle } from "@/components/ManagerModeToggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/NotificationBell";
