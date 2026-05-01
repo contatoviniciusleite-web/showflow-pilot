@@ -175,6 +175,21 @@ export default function Shows() {
   const [editing, setEditing] = useState<Show | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [myName, setMyName] = useState<string>("");
+
+  // Carrega o nome do usuário logado para autopreencher "Vendedor responsável"
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("nome")
+        .eq("id", user.id)
+        .maybeSingle();
+      const fallback = user.email?.split("@")[0] ?? "";
+      setMyName((data?.nome && data.nome.trim()) || fallback);
+    })();
+  }, [user?.id, user?.email]);
 
   // Rejeição
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -265,6 +280,7 @@ export default function Shows() {
     try {
       const payload = {
         ...form,
+        vendedor: myName || form.vendedor, // sempre identificado como o usuário logado
         capacidade: form.capacidade === "" ? null : Number(form.capacidade),
         cache_total: form.cache_total === "" ? 0 : Number(form.cache_total),
       };
@@ -491,7 +507,13 @@ export default function Shows() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Vendedor responsável</Label>
-                  <Input value={form.vendedor} onChange={(e) => set("vendedor", e.target.value)} />
+                  <Input
+                    value={myName || form.vendedor || "—"}
+                    readOnly
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Identificado automaticamente pelo usuário logado — não editável.</p>
                 </div>
               </div>
             </section>
