@@ -319,6 +319,8 @@ export type Database = {
           aprovado_em: string | null
           aprovado_por: string | null
           artist_id: string
+          auto_aprovado: boolean
+          auto_aprovado_em: string | null
           autorizado_por: string | null
           aviso_12h_enviado_em: string | null
           cache_total: number
@@ -367,6 +369,8 @@ export type Database = {
           aprovado_em?: string | null
           aprovado_por?: string | null
           artist_id: string
+          auto_aprovado?: boolean
+          auto_aprovado_em?: string | null
           autorizado_por?: string | null
           aviso_12h_enviado_em?: string | null
           cache_total?: number
@@ -415,6 +419,8 @@ export type Database = {
           aprovado_em?: string | null
           aprovado_por?: string | null
           artist_id?: string
+          auto_aprovado?: boolean
+          auto_aprovado_em?: string | null
           autorizado_por?: string | null
           aviso_12h_enviado_em?: string | null
           cache_total?: number
