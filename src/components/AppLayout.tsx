@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const nav = [
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["gerente", "equipe", "artista", "financeiro"] },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["gerente"] },
   { to: "/artistas", label: "Artistas", icon: Music2, roles: ["gerente"] },
+  { to: "/bloqueios", label: "Bloqueios", icon: Ban, roles: ["gerente"] },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["gerente"] },
 ] as const;
 
