@@ -200,6 +200,17 @@ Deno.serve(async (req) => {
     }
 
     if (action === "artists") {
+      const onlyVendedor = isVendedor && !isManager && !isStaff;
+      if (onlyVendedor) {
+        const rows = await sql`
+          select a.id, a.nome, a.cor, a.cache_minimo
+          from public.artists a
+          join public.vendedor_artists va on va.artist_id = a.id
+          where a.ativo = true and va.vendedor_id = ${userId}
+          order by a.nome
+        `;
+        return json({ artists: rows });
+      }
       const rows = await sql`select id, nome, cor, cache_minimo from public.artists where ativo = true order by nome`;
       return json({ artists: rows });
     }
@@ -207,6 +218,12 @@ Deno.serve(async (req) => {
     if (action === "create") {
       if (!canCreate) return json({ error: "Acesso negado" }, 403);
       const s = validateShow(body.show ?? {});
+
+      // Vendedor só pode criar para artistas liberados
+      if (isVendedor && !isManager && !isStaff) {
+        const ok = await sql`select 1 from public.vendedor_artists where vendedor_id = ${userId} and artist_id = ${s.artist_id} limit 1`;
+        if (!ok.length) return json({ error: "Você não tem permissão para vender shows deste artista." }, 403);
+      }
 
       // TRAVA 0: data bloqueada (gerente bypassa)
       if (!isManager) {
