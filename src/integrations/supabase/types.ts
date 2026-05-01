@@ -452,10 +452,16 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "gerente" | "equipe" | "artista" | "vendedor"
+      app_role: "gerente" | "equipe" | "artista" | "vendedor" | "financeiro"
       deposito_status: "ok" | "pendente"
       estrutura_tipo: "aberta" | "fechada"
-      show_status: "pendente" | "aprovada"
+      show_status:
+        | "pendente"
+        | "aprovada"
+        | "aguardando_pagamento"
+        | "comprovante_enviado"
+        | "confirmado"
+        | "cancelada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -583,10 +589,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["gerente", "equipe", "artista", "vendedor"],
+      app_role: ["gerente", "equipe", "artista", "vendedor", "financeiro"],
       deposito_status: ["ok", "pendente"],
       estrutura_tipo: ["aberta", "fechada"],
-      show_status: ["pendente", "aprovada"],
+      show_status: [
+        "pendente",
+        "aprovada",
+        "aguardando_pagamento",
+        "comprovante_enviado",
+        "confirmado",
+        "cancelada",
+      ],
     },
   },
 } as const
