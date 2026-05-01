@@ -79,55 +79,71 @@ export function VendedorDashboard() {
       <div className="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold">Olá{user?.email ? `, ${user.email.split("@")[0]}` : ""}</h1>
-          <p className="text-muted-foreground mt-1">Suas minutas — {PERIOD_LABEL[period].toLowerCase()}.</p>
+          <p className="text-muted-foreground mt-1">Suas minutas e a agenda dos artistas liberados.</p>
         </div>
-        <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total de minutas" value={String(total)} icon={FileText} />
-        <StatCard label="Pendentes" value={String(pendentes)} icon={Clock} tone="amber" />
-        <StatCard label="Aprovadas" value={String(aprovadas)} icon={CheckCircle2} tone="green" />
-        <StatCard label="Rejeitadas" value={String(rejeitadasPeriodo)} icon={XCircle} tone="red" />
-      </div>
+      <Tabs defaultValue="resumo" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="resumo">Resumo</TabsTrigger>
+          <TabsTrigger value="agenda">Agenda</TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <StatCard label="Canceladas" value={String(canceladas)} icon={XCircle} tone="red" />
-        <StatCard label="Volume financeiro (aprovadas)" value={fmtBRL(volume)} icon={Wallet} tone="green" />
-      </div>
+        <TabsContent value="resumo">
+          <div className="mb-6 flex justify-end">
+            <PeriodFilter value={period} onChange={setPeriod} />
+          </div>
 
-      <Card className="p-6 shadow-soft">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Minhas minutas no período</h2>
-          <Link to="/shows" className="text-sm text-accent hover:underline">Ver todas</Link>
-        </div>
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Carregando...</p>
-        ) : showsPeriodo.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma minuta neste período. <Link to="/shows" className="text-accent underline">Criar nova</Link>.
-          </p>
-        ) : (
-          <ul className="divide-y">
-            {showsPeriodo
-              .slice()
-              .sort((a, b) => b.data_show.localeCompare(a.data_show))
-              .map((s) => (
-                <li key={s.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{s.artist_nome ?? "—"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fmtDate(s.data_show)}
-                      {s.cidade ? ` · ${s.cidade}` : ""}
-                      {" · "}{fmtBRL(Number(s.cache_total ?? 0))}
-                    </p>
-                  </div>
-                  <Badge className={STATUS_CLASS[s.status] ?? ""}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
-                </li>
-              ))}
-          </ul>
-        )}
-      </Card>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Total de minutas" value={String(total)} icon={FileText} />
+            <StatCard label="Pendentes" value={String(pendentes)} icon={Clock} tone="amber" />
+            <StatCard label="Aprovadas" value={String(aprovadas)} icon={CheckCircle2} tone="green" />
+            <StatCard label="Rejeitadas" value={String(rejeitadasPeriodo)} icon={XCircle} tone="red" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <StatCard label="Canceladas" value={String(canceladas)} icon={XCircle} tone="red" />
+            <StatCard label="Volume financeiro (aprovadas)" value={fmtBRL(volume)} icon={Wallet} tone="green" />
+          </div>
+
+          <Card className="p-6 shadow-soft">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Minhas minutas — {PERIOD_LABEL[period].toLowerCase()}</h2>
+              <Link to="/shows" className="text-sm text-accent hover:underline">Ver todas</Link>
+            </div>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Carregando...</p>
+            ) : showsPeriodo.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma minuta neste período. <Link to="/shows" className="text-accent underline">Criar nova</Link>.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {showsPeriodo
+                  .slice()
+                  .sort((a, b) => b.data_show.localeCompare(a.data_show))
+                  .map((s) => (
+                    <li key={s.id} className="py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{s.artist_nome ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {fmtDate(s.data_show)}
+                          {s.cidade ? ` · ${s.cidade}` : ""}
+                          {" · "}{fmtBRL(Number(s.cache_total ?? 0))}
+                        </p>
+                      </div>
+                      <Badge className={STATUS_CLASS[s.status] ?? ""}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="agenda">
+          <VendedorAgenda />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
