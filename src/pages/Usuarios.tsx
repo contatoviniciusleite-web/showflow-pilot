@@ -22,6 +22,7 @@ interface AppUser {
   last_sign_in_at: string | null;
   pendente: boolean;
   roles: RoleEntry[];
+  vendedor_artist_ids: string[];
 }
 interface Artist {
   id: string;
