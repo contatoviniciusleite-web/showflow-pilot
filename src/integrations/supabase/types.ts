@@ -547,6 +547,7 @@ export type Database = {
           id: string | null
           local: string | null
           status: Database["public"]["Enums"]["show_status"] | null
+          vendedor: string | null
         }
         Relationships: [
           {
