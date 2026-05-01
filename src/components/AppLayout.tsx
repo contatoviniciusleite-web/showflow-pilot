@@ -20,9 +20,10 @@ const nav = [
 
 export function AppLayout() {
   const { user, roles, signOut } = useAuth();
+  const effectiveRoles = useEffectiveRoles();
   const navigate = useNavigate();
 
-  const visible = nav.filter((n) => n.roles.some((r) => roles.includes(r)));
+  const visible = nav.filter((n) => n.roles.some((r) => effectiveRoles.includes(r)));
 
   return (
     <div className="flex min-h-screen bg-background">
