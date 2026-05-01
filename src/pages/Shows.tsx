@@ -507,7 +507,13 @@ export default function Shows() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Vendedor responsável</Label>
-                  <Input value={form.vendedor} onChange={(e) => set("vendedor", e.target.value)} />
+                  <Input
+                    value={myName || form.vendedor || "—"}
+                    readOnly
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Identificado automaticamente pelo usuário logado — não editável.</p>
                 </div>
               </div>
             </section>
