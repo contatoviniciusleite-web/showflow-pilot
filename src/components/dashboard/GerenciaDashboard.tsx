@@ -49,13 +49,29 @@ export function GerenciaDashboard() {
   const [filterArtist, setFilterArtist] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [chartScale, setChartScale] = useState<"mes" | "ano">("mes");
+  const [auditPeriod, setAuditPeriod] = useState<Period>("mes");
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
 
   const isFinanceiro = roles.includes("financeiro") && !roles.includes("gerente");
 
   const refetch = async () => {
     const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
-    setShows((r.data?.shows ?? []) as ShowFull[]);
+    const list = (r.data?.shows ?? []) as ShowFull[];
+    setShows(list);
     setLoading(false);
+
+    // Busca nomes dos gerentes que aprovaram (para auditoria).
+    const ids = Array.from(
+      new Set(list.filter((s) => s.auto_aprovado && s.aprovado_por).map((s) => s.aprovado_por as string)),
+    );
+    if (ids.length > 0) {
+      const { data: profs } = await supabase.from("profiles").select("id,nome").in("id", ids);
+      const map: Record<string, string> = {};
+      (profs ?? []).forEach((p: { id: string; nome: string | null }) => {
+        map[p.id] = p.nome ?? p.id.slice(0, 8);
+      });
+      setProfileMap(map);
+    }
   };
 
   useEffect(() => {
