@@ -41,6 +41,7 @@ interface PublicShow {
   horario: string | null;
   local: string | null;
   cidade: string | null;
+  vendedor: string | null;
   status: ShowStatus;
 }
 
