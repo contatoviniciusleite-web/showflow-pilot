@@ -428,7 +428,7 @@ export default function Shows() {
       {isVendedor && !isEditor && outras.length > 0 && (
         <div className="mt-10">
           <h2 className="text-lg font-semibold mb-3">Shows aprovados (outros vendedores)</h2>
-          <p className="text-xs text-muted-foreground mb-4">Apenas informações básicas: artista, data, horário e local.</p>
+          <p className="text-xs text-muted-foreground mb-4">Apenas informações básicas: artista, data, horário, local, cidade e vendedor responsável.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {outras.map((s) => (
               <Card key={s.id} className="p-4 shadow-soft">
@@ -441,6 +441,7 @@ export default function Shows() {
                   {fmtDate(s.data_show)}{s.horario ? ` · ${s.horario.slice(0, 5)}` : ""}
                 </p>
                 <p className="text-sm mt-1 truncate">{s.local ?? "—"}{s.cidade ? ` — ${s.cidade}` : ""}</p>
+                {s.vendedor && <p className="text-xs text-muted-foreground mt-1">Vendedor: {s.vendedor}</p>}
               </Card>
             ))}
           </div>
