@@ -165,28 +165,24 @@ Deno.serve(async (req) => {
 
       const appOrigin = getAppOrigin(req);
       const existingBeforeInvite = await findUserByEmail(admin, email);
-      if (existingBeforeInvite?.last_sign_in_at || existingBeforeInvite?.email_confirmed_at) {
-        return json({ error: "Este e-mail já tem acesso ativo. Use editar usuário ou remover antes de convidar novamente." }, 400);
-      }
+      const isActive = !!(existingBeforeInvite?.last_sign_in_at || existingBeforeInvite?.email_confirmed_at);
 
-      const { data: invited, error: inviteError } = await retry("enviar convite", () =>
-        admin.auth.admin.inviteUserByEmail(email, {
-          data: { nome },
-          redirectTo: `${appOrigin}/aceitar-convite`,
-        })
-      ).catch((error) => ({ data: null, error }));
-      if (inviteError) {
-        // If user already exists, try to fetch and continue
-        if (!/already/i.test(inviteError.message)) {
+      let userId = existingBeforeInvite?.id ?? null;
+
+      // Só dispara o convite se o usuário ainda não tem acesso ativo
+      if (!isActive) {
+        const { data: invited, error: inviteError } = await retry("enviar convite", () =>
+          admin.auth.admin.inviteUserByEmail(email, {
+            data: { nome },
+            redirectTo: `${appOrigin}/aceitar-convite`,
+          })
+        ).catch((error) => ({ data: null, error }));
+        if (inviteError && !/already/i.test(inviteError.message)) {
           return json({ error: inviteError.message }, 400);
         }
+        userId = invited?.user?.id ?? userId ?? (await findUserByEmail(admin, email))?.id ?? null;
       }
 
-      // Find user id (either from invite or existing)
-      let userId = invited?.user?.id ?? null;
-      if (!userId) {
-        userId = existingBeforeInvite?.id ?? (await findUserByEmail(admin, email))?.id ?? null;
-      }
       if (!userId) return json({ error: "Não foi possível criar o convite" }, 500);
 
       const { error: profileError } = await retry("salvar perfil", () =>
