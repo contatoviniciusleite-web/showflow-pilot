@@ -203,6 +203,22 @@ Deno.serve(async (req) => {
       if (!canCreate) return json({ error: "Acesso negado" }, 403);
       const s = validateShow(body.show ?? {});
 
+      // TRAVA 0: data bloqueada (gerente bypassa)
+      if (!isManager) {
+        const blockRows = await sql`
+          select artist_id, motivo from public.blocked_dates
+          where data = ${s.data_show}
+            and (artist_id = ${s.artist_id} or artist_id is null)
+          limit 1
+        `;
+        if (blockRows.length) {
+          const b: any = blockRows[0];
+          const escopo = b.artist_id ? "para este artista" : "para todos os artistas";
+          const motivo = b.motivo ? ` (motivo: ${b.motivo})` : "";
+          return json({ error: `Esta data está bloqueada ${escopo}${motivo}. Fale com a gerência.` }, 409);
+        }
+      }
+
       // TRAVA 1: limite de shows por artista no dia
       const maxPerDay = await getSetting(sql, "max_shows_per_artist_per_day", 3);
       const countRows = await sql`
@@ -467,6 +483,64 @@ Deno.serve(async (req) => {
     if (action === "settings") {
       const rows = await sql`select key, value from public.app_settings`;
       return json({ settings: rows });
+    }
+
+    if (action === "list_blocks") {
+      const rows = await sql`
+        select b.id, b.artist_id, a.nome as artist_nome, a.cor as artist_cor,
+               b.data, b.motivo, b.created_at, b.created_by,
+               p.nome as created_by_nome
+        from public.blocked_dates b
+        left join public.artists a on a.id = b.artist_id
+        left join public.profiles p on p.id = b.created_by
+        order by b.data desc
+      `;
+      return json({ blocks: rows });
+    }
+
+    if (action === "create_block") {
+      if (!isManager) return json({ error: "Apenas o gerente pode bloquear datas" }, 403);
+      const data = dateOrNull(body.data);
+      if (!data) return json({ error: "Data é obrigatória" }, 400);
+      const artist_id = body.artist_id ? txt(body.artist_id, 64) : null;
+      const motivo = txt(body.motivo, 500);
+      try {
+        const rows = await sql`
+          insert into public.blocked_dates (artist_id, data, motivo, created_by)
+          values (${artist_id}, ${data}, ${motivo}, ${userId})
+          returning *
+        `;
+        // Notifica o artista (se for bloqueio específico)
+        if (artist_id) {
+          const userRows = await sql`
+            select user_id from public.user_roles
+            where role = 'artista' and artist_id = ${artist_id}
+          `;
+          for (const u of userRows as any[]) {
+            await notify(
+              sql,
+              u.user_id,
+              "data_bloqueada",
+              "Sua agenda foi bloqueada",
+              `Sua agenda foi bloqueada em ${data}${motivo ? ` — motivo: ${motivo}` : ""}.`,
+              null,
+            );
+          }
+        }
+        return json({ block: rows[0] });
+      } catch (e: any) {
+        if (String(e?.message ?? "").includes("duplicate")) {
+          return json({ error: "Já existe um bloqueio para esta data e artista." }, 409);
+        }
+        throw e;
+      }
+    }
+
+    if (action === "delete_block") {
+      if (!isManager) return json({ error: "Apenas o gerente pode remover bloqueios" }, 403);
+      if (typeof body.id !== "string") return json({ error: "Bloqueio inválido" }, 400);
+      await sql`delete from public.blocked_dates where id = ${body.id}`;
+      return json({ ok: true });
     }
 
     return json({ error: "Ação inválida" }, 400);

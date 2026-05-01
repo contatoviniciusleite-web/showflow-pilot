@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Artistas from "./pages/Artistas";
 import Usuarios from "./pages/Usuarios";
 import Shows from "./pages/Shows";
+import Bloqueios from "./pages/Bloqueios";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
@@ -60,6 +61,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requireRoles={["gerente"]}>
                     <Artistas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/bloqueios"
+                element={
+                  <ProtectedRoute requireRoles={["gerente"]}>
+                    <Bloqueios />
                   </ProtectedRoute>
                 }
               />

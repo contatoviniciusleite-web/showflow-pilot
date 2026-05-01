@@ -74,6 +74,41 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_dates: {
+        Row: {
+          artist_id: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          artist_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          artist_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocked_dates_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
