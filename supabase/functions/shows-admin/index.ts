@@ -158,7 +158,10 @@ Deno.serve(async (req) => {
     if (action === "list") {
       if (canSeeAll) {
         const rows = await sql`
-          select s.*, a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
+          select s.*,
+            to_char(s.data_show, 'YYYY-MM-DD') as data_show,
+            to_char(s.data_subida, 'YYYY-MM-DD') as data_subida,
+            a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
           from public.shows s
           left join public.artists a on a.id = s.artist_id
           order by s.data_show desc nulls last, s.created_at desc
@@ -169,7 +172,10 @@ Deno.serve(async (req) => {
         const allowedRows = await sql`select artist_id from public.vendedor_artists where vendedor_id = ${userId}`;
         const allowed = (allowedRows as any[]).map((r) => r.artist_id);
         const minhas = await sql`
-          select s.*, a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
+          select s.*,
+            to_char(s.data_show, 'YYYY-MM-DD') as data_show,
+            to_char(s.data_subida, 'YYYY-MM-DD') as data_subida,
+            a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
           from public.shows s
           left join public.artists a on a.id = s.artist_id
           where s.created_by = ${userId}
@@ -177,7 +183,9 @@ Deno.serve(async (req) => {
         `;
         const outras = allowed.length
           ? await sql`
-              select id, artist_id, artist_nome, artist_cor, data_show, horario, local, cidade, status
+              select id, artist_id, artist_nome, artist_cor,
+                to_char(data_show, 'YYYY-MM-DD') as data_show,
+                horario, local, cidade, status
               from public.shows_public_view
               where created_by is distinct from ${userId}
                 and artist_id = any(${allowed}::uuid[])
@@ -188,7 +196,10 @@ Deno.serve(async (req) => {
       }
       if (isArtista) {
         const rows = await sql`
-          select s.*, a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
+          select s.*,
+            to_char(s.data_show, 'YYYY-MM-DD') as data_show,
+            to_char(s.data_subida, 'YYYY-MM-DD') as data_subida,
+            a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
           from public.shows s
           left join public.artists a on a.id = s.artist_id
           where s.artist_id in (select artist_id from public.user_roles where user_id = ${userId} and role = 'artista')
