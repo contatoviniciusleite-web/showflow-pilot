@@ -65,6 +65,7 @@ interface ShowPublic {
   horario: string | null;
   local: string | null;
   cidade: string | null;
+  vendedor: string | null;
 }
 
 const emptyForm = {
