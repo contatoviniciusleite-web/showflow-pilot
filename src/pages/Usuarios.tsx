@@ -379,6 +379,33 @@ export default function Usuarios() {
                   </div>
                 ))}
               </div>
+              {editForm.roles.some((r) => r.role === "vendedor") && (
+                <div className="space-y-1.5">
+                  <Label>Artistas que pode vender</Label>
+                  <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
+                    {artists.length === 0 && <p className="text-xs text-muted-foreground">Nenhum artista cadastrado.</p>}
+                    {artists.map((a) => {
+                      const checked = editForm.vendedor_artist_ids.includes(a.id);
+                      return (
+                        <label key={a.id} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...editForm.vendedor_artist_ids, a.id]
+                                : editForm.vendedor_artist_ids.filter((x) => x !== a.id);
+                              setEditForm({ ...editForm, vendedor_artist_ids: next });
+                            }}
+                          />
+                          {a.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">O vendedor só verá a agenda e poderá vender shows dos artistas marcados.</p>
+                </div>
+              )}
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
                 <Button onClick={saveEdit} disabled={saving}>
