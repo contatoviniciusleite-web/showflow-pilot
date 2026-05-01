@@ -117,13 +117,54 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Shows() {
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
   const isManager = roles.includes("gerente");
   const isStaff = roles.includes("equipe");
   const isVendedor = roles.includes("vendedor");
   const isArtista = roles.includes("artista");
+  const isFinanceiro = roles.includes("financeiro");
   const isEditor = isManager || isStaff;
   const canCreate = isManager || isStaff || isVendedor;
+
+  const uploadComprovante = async (s: Show) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*,application/pdf";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const ext = file.name.split(".").pop() ?? "bin";
+      const path = `${s.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("comprovantes").upload(path, file);
+      if (upErr) return toast.error(upErr.message);
+      const { error } = await supabase.functions.invoke("shows-admin", {
+        body: { action: "upload_comprovante", id: s.id, path },
+      });
+      if (error) return toast.error(error.message);
+      toast.success("Comprovante enviado");
+      load();
+    };
+    input.click();
+  };
+
+  const viewComprovante = async (s: Show) => {
+    const { data, error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "comprovante_signed_url", id: s.id },
+    });
+    if (error) return toast.error(error.message);
+    if (data?.url) window.open(data.url, "_blank");
+  };
+
+  const confirmPayment = async (s: Show) => {
+    if (!confirm("Confirmar o pagamento do sinal deste show?")) return;
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "confirm_payment", id: s.id },
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Pagamento confirmado");
+    load();
+  };
+
 
   const [shows, setShows] = useState<Show[]>([]);
   const [outras, setOutras] = useState<ShowPublic[]>([]);
@@ -312,19 +353,34 @@ export default function Shows() {
                 <div className="flex flex-col gap-1">
                   {isManager && s.status === "pendente" && (
                     <>
-                      <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => approve(s)}>
+                      <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => approve(s)} title="Aprovar">
                         <Check className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => openReject(s)}>
+                      <Button size="sm" variant="destructive" onClick={() => openReject(s)} title="Rejeitar">
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </>
                   )}
+                  {(s.status === "aguardando_pagamento") && (s.created_by === user?.id || isEditor) && (
+                    <Button size="sm" variant="outline" onClick={() => uploadComprovante(s)} title="Anexar comprovante">
+                      <Upload className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {(s.status === "comprovante_enviado" || s.status === "confirmado") && (
+                    <Button size="sm" variant="outline" onClick={() => viewComprovante(s)} title="Ver comprovante">
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {s.status === "comprovante_enviado" && (isManager || isFinanceiro) && (
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => confirmPayment(s)} title="Confirmar pagamento">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   {isEditor && (
-                    <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                   )}
                   {isManager && (
-                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)}>
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)} title="Excluir">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
