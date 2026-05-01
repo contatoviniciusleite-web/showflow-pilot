@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  AlertTriangle, Clock, FileText, XCircle, CalendarDays, Wallet, TrendingUp, Trophy,
+  AlertTriangle, Clock, FileText, XCircle, CalendarDays, Wallet, TrendingUp, Trophy, ShieldCheck,
 } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
