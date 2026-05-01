@@ -206,6 +206,24 @@ Deno.serve(async (req) => {
       );
       if (roleError) throw roleError;
 
+      // Permissões de artistas (vendedor)
+      const vendArtIds = Array.isArray(body.vendedor_artist_ids)
+        ? body.vendedor_artist_ids.filter((s: unknown): s is string => typeof s === "string")
+        : null;
+      if (role === "vendedor" && vendArtIds) {
+        await retry("limpar permissões vendedor", () =>
+          admin.from("vendedor_artists").delete().eq("vendedor_id", userId)
+        );
+        if (vendArtIds.length) {
+          const { error: vErr } = await retry("salvar permissões vendedor", () =>
+            admin.from("vendedor_artists").insert(
+              vendArtIds.map((a) => ({ vendedor_id: userId, artist_id: a }))
+            )
+          );
+          if (vErr) throw vErr;
+        }
+      }
+
       return json({ ok: true, user_id: userId });
     }
 
