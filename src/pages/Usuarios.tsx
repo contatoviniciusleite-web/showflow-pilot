@@ -58,11 +58,11 @@ export default function Usuarios() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ nome: "", email: "", role: "vendedor" as AppRole, artist_id: "" });
+  const [inviteForm, setInviteForm] = useState({ nome: "", email: "", role: "vendedor" as AppRole, artist_id: "", vendedor_artist_ids: [] as string[] });
   const [saving, setSaving] = useState(false);
 
   const [editing, setEditing] = useState<AppUser | null>(null);
-  const [editForm, setEditForm] = useState({ nome: "", roles: [] as RoleEntry[] });
+  const [editForm, setEditForm] = useState({ nome: "", roles: [] as RoleEntry[], vendedor_artist_ids: [] as string[] });
 
   const load = async () => {
     setLoading(true);
