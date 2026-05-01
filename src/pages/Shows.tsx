@@ -280,6 +280,7 @@ export default function Shows() {
     try {
       const payload = {
         ...form,
+        vendedor: myName || form.vendedor, // sempre identificado como o usuário logado
         capacidade: form.capacidade === "" ? null : Number(form.capacidade),
         cache_total: form.cache_total === "" ? 0 : Number(form.cache_total),
       };
