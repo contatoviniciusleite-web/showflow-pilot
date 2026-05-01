@@ -40,7 +40,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <InviteHashRedirect />
+          <ManagerModeProvider>
+            <InviteHashRedirect />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/aceitar-convite" element={<AceitarConvite />} />
