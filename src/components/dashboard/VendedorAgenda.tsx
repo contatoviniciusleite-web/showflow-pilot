@@ -101,11 +101,11 @@ export function VendedorAgenda() {
     for (const s of own) {
       if (s.status === "cancelada") continue;
       if (!pass(s.artist_id)) continue;
-      push(s.data_show, { kind: "own", data: s });
+      push(toDateKey(s.data_show), { kind: "own", data: s });
     }
     for (const s of outras) {
       if (!pass(s.artist_id)) continue;
-      push(s.data_show, { kind: "other", data: s });
+      push(toDateKey(s.data_show), { kind: "other", data: s });
     }
     return map;
   }, [own, outras, filterArtist]);
