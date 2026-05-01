@@ -50,6 +50,13 @@ function ymd(d: Date) {
   return format(d, "yyyy-MM-dd");
 }
 
+// Normaliza valores de data vindos do backend (podem chegar como "YYYY-MM-DD"
+// ou ISO timestamp "YYYY-MM-DDTHH:mm:ss.sssZ"). Sempre devolve "YYYY-MM-DD".
+function toDateKey(v: string | null | undefined): string {
+  if (!v) return "";
+  return v.length >= 10 ? v.slice(0, 10) : v;
+}
+
 export function VendedorAgenda() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -94,11 +101,11 @@ export function VendedorAgenda() {
     for (const s of own) {
       if (s.status === "cancelada") continue;
       if (!pass(s.artist_id)) continue;
-      push(s.data_show, { kind: "own", data: s });
+      push(toDateKey(s.data_show), { kind: "own", data: s });
     }
     for (const s of outras) {
       if (!pass(s.artist_id)) continue;
-      push(s.data_show, { kind: "other", data: s });
+      push(toDateKey(s.data_show), { kind: "other", data: s });
     }
     return map;
   }, [own, outras, filterArtist]);
