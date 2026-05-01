@@ -203,6 +203,22 @@ Deno.serve(async (req) => {
       if (!canCreate) return json({ error: "Acesso negado" }, 403);
       const s = validateShow(body.show ?? {});
 
+      // TRAVA 0: data bloqueada (gerente bypassa)
+      if (!isManager) {
+        const blockRows = await sql`
+          select artist_id, motivo from public.blocked_dates
+          where data = ${s.data_show}
+            and (artist_id = ${s.artist_id} or artist_id is null)
+          limit 1
+        `;
+        if (blockRows.length) {
+          const b: any = blockRows[0];
+          const escopo = b.artist_id ? "para este artista" : "para todos os artistas";
+          const motivo = b.motivo ? ` (motivo: ${b.motivo})` : "";
+          return json({ error: `Esta data está bloqueada ${escopo}${motivo}. Fale com a gerência.` }, 409);
+        }
+      }
+
       // TRAVA 1: limite de shows por artista no dia
       const maxPerDay = await getSetting(sql, "max_shows_per_artist_per_day", 3);
       const countRows = await sql`
