@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, FileText, Check, X } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2 } from "lucide-react";
+import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 
-interface ArtistLite { id: string; nome: string; cor: string; }
-type ShowStatus = "pendente" | "aprovada";
+interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
+type ShowStatus = "pendente" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
 interface Show {
   id: string;
   artist_id: string;
@@ -109,11 +110,10 @@ function fmtDate(d: string | null) {
   return `${day}/${m}/${y}`;
 }
 
-function StatusBadge({ status }: { status: ShowStatus }) {
-  if (status === "aprovada") {
-    return <Badge className="bg-green-600 hover:bg-green-600 text-white">Aprovada</Badge>;
-  }
-  return <Badge variant="secondary">Pendente</Badge>;
+function StatusBadge({ status }: { status: string }) {
+  const cls = (STATUS_CLASS as any)[status] ?? "bg-muted text-muted-foreground";
+  const label = (STATUS_LABEL as any)[status] ?? status;
+  return <Badge className={cls}>{label}</Badge>;
 }
 
 export default function Shows() {
