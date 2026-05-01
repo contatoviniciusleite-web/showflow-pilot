@@ -1,74 +1,72 @@
-# Bloqueio de datas por artista
 
-Permitir que o **gerente** trave datas em que um artista não pode ter shows criados — por opção do artista, férias, compromissos pessoais, manutenção etc. Vendedores e equipe ficam impedidos de cadastrar shows nessa data para o artista bloqueado.
+# Dashboards personalizados por perfil
 
-## 1. Escopo do bloqueio
+Reescrever `src/pages/Dashboard.tsx` para entregar três experiências distintas, cada usuário cai automaticamente no painel do seu papel após login. Filtro de período (Semanal / Mensal / Anual) presente em todos os dashboards. Semana = segunda a domingo. Dados em tempo real via Supabase Realtime na tabela `shows`.
 
-- Bloqueio é **por artista + data** (um artista pode estar bloqueado num dia e outro livre).
-- Opção extra: bloqueio **global** (todos os artistas) — útil para feriados internos da casa. Implementado como `artist_id NULL`.
-- Apenas **gerente** cria, edita ou remove bloqueios.
-- Bloqueio impede **criar** novo show; shows já existentes naquela data continuam válidos (gerente decide se cancela manualmente).
+## 1. Dashboard do Vendedor
 
-## 2. Banco
+Mostra apenas minutas criadas pelo próprio usuário (a edge function `shows-admin` já filtra por `created_by` quando o papel é vendedor).
 
-Nova tabela `blocked_dates`:
+- **Cards de resumo** (sensíveis ao filtro de período pela `data_show`):
+  - Total de minutas criadas
+  - Pendentes / Aprovadas / Rejeitadas / Canceladas
+  - Volume financeiro = soma de `cache_total` das minutas aprovadas (`status` ∈ {aprovada, aguardando_pagamento, comprovante_enviado, confirmado})
+- **Filtros**: Semana atual (seg–dom) / Mês atual / Ano atual
+- **Lista de minutas**: data do show, artista, cidade, valor, badge colorido por `STATUS_CLASS`
+- "Rejeitadas" inferido pelas notificações `minuta_rejeitada` no período (já existe esse tipo no fluxo).
 
-| campo | tipo | obs |
-|---|---|---|
-| id | uuid PK | |
-| artist_id | uuid NULL | NULL = bloqueio global |
-| data | date NOT NULL | |
-| motivo | text | livre, ex.: "Férias", "Folga do artista" |
-| created_by | uuid | gerente que criou |
-| created_at | timestamptz | |
+## 2. Dashboard do Artista
 
-- Índice único `(artist_id, data)` (NULLs distintos permitidos — só um bloqueio global por dia).
-- RLS:
-  - SELECT: qualquer autenticado (vendedor precisa enxergar para feedback no formulário).
-  - INSERT/UPDATE/DELETE: apenas gerente.
+Mostra apenas shows do artista logado (já filtrado por `get_my_artist_id()` no backend).
 
-## 3. Validação na criação de show
+- **Cards**:
+  - Próximos shows da semana atual (seg–dom)
+  - Quantidade de shows na semana
+  - Faturamento total da semana
+  - Cachê total recebido no mês (status `confirmado`)
+- **Agenda pessoal**: lista cronológica de próximos shows com destaque visual nos da semana corrente.
+- **Financeiro pessoal**: para cada show da semana/mês — status de pagamento (badge) + valor; abaixo, histórico dos shows passados com valores.
 
-Na edge function `shows-admin` action `create`, **antes** das outras travas:
+## 3. Dashboard Gerência / Financeiro
 
-1. Buscar em `blocked_dates` onde `data = data_show` e (`artist_id = $artist_id` OR `artist_id IS NULL`).
-2. Se encontrar:
-   - 409 com mensagem: `"Esta data está bloqueada para este artista (motivo: {motivo}). Fale com a gerência."` (ou variante para bloqueio global).
-3. Gerente **bypassa** a trava (pode forçar criação se necessário), igual ao padrão das outras travas.
+Visão consolidada da operação. Filtro de período aplicado a cards/listas/gráficos.
 
-Mesma checagem replicada no frontend (`Shows.tsx`) para feedback antes do submit.
+- **Alertas no topo (cards destacados)**:
+  - Shows com pagamento atrasado (vermelho): `aguardando_pagamento` com `prazo_comprovante_em < now()`
+  - Contratos pendentes há +7 dias: `pendente` com `created_at < now() - 7d`
+  - Shows cancelados no mês
+  - Minutas aguardando aprovação (`pendente`)
+- **Visão por artista**: card individual com shows confirmados no mês, faturamento do mês e próximo show.
+- **Performance de vendedores**: ranking por volume financeiro, total de minutas, taxa de aprovação (aprovadas vs rejeitadas no período).
+- **Shows do mês**: lista com filtros por artista e status; totais "a receber", "recebido" e "em aberto".
+- **Gráficos** (Recharts, já disponível via `@/components/ui/chart`):
+  - Linha: evolução mensal de faturamento
+  - Barras: shows por artista no período
+  - Linha: comparativo mensal vs ano anterior
 
-## 4. Frontend
+## Detalhes técnicos
 
-### 4.1 Nova página `Bloqueios` (gerente)
+- **Sem alterações no schema** — toda a lógica é client-side em cima de `shows-admin.list` (já respeita papéis via RLS).
+- **Componentização**: criar `src/components/dashboard/` com:
+  - `PeriodFilter.tsx` (toggle Semana/Mês/Ano)
+  - `VendedorDashboard.tsx`
+  - `ArtistaDashboard.tsx`
+  - `GerenciaDashboard.tsx`
+  - `StatCard.tsx` (extraído do atual)
+  - Helpers `lib/dashboard.ts` para `getWeekRange` (segunda–domingo), `getMonthRange`, `getYearRange`, agregadores e formatters.
+- **Realtime**: `supabase.channel('shows-dash').on('postgres_changes', { schema: 'public', table: 'shows' }, refetch).subscribe()`. Habilitar replicação na tabela `shows` via migração:
+  ```sql
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.shows;
+  ALTER TABLE public.shows REPLICA IDENTITY FULL;
+  ```
+- **Roteamento**: `Dashboard.tsx` continua sendo o componente da rota `/`; ele detecta o papel (preferência: gerente/financeiro > artista > vendedor > equipe) e renderiza o dashboard correspondente.
+- **Configurabilidade futura**: cores e thresholds (dias de contrato pendente, etc.) ficam em constantes em `lib/dashboard.ts` para fácil ajuste — alinhado com a observação de "piloto em fase de testes".
 
-- Rota `/bloqueios`, item na sidebar visível só para gerente.
-- Lista paginada por mês: artista (ou "TODOS"), data, motivo, ações (editar / remover).
-- Botão "Bloquear data" abre dialog com:
-  - Seletor de artista (com opção "Todos os artistas").
-  - Datepicker (single ou intervalo — começo simples, single date; se quiserem intervalo, gero N registros).
-  - Campo motivo (texto curto).
-- Filtros: por artista e por mês.
+## Ordem de implementação
 
-### 4.2 Indicador no formulário de Show
-
-- Em `Shows.tsx`, ao escolher artista + data, se houver bloqueio: badge vermelho "Data bloqueada — {motivo}" e botão Salvar desabilitado (gerente vê um aviso amarelo mas pode salvar).
-
-### 4.3 Agenda / Dashboard
-
-- Marcar visualmente os dias bloqueados (faixa cinza listrada). Fora do escopo se não pedirem — incluo só o aviso "X bloqueio(s) este mês" no Dashboard do gerente.
-
-## 5. Notificações
-
-- Ao criar bloqueio: notificar o **artista** correspondente in-app ("Sua agenda foi bloqueada em {data} — motivo: {motivo}").
-- Bloqueio global: não notifica artistas individualmente.
-
-## 6. Fora desta entrega
-
-- Bloqueio recorrente (toda segunda, etc.).
-- Bloqueio por intervalo de horas (apenas dia inteiro).
-- Sincronização do bloqueio com Google Calendar.
-
----
-
-Se aprovar, sigo: migração da tabela `blocked_dates` → atualizar `shows-admin` → criar página `Bloqueios` + entrada na sidebar → indicador no formulário de show.
+1. Migração realtime (`shows`).
+2. Helpers + componentes compartilhados (`PeriodFilter`, `StatCard`, `lib/dashboard.ts`).
+3. `VendedorDashboard`.
+4. `ArtistaDashboard`.
+5. `GerenciaDashboard` (cards de alerta → artistas → vendedores → lista → gráficos).
+6. Reescrever `Dashboard.tsx` como roteador por papel + assinatura realtime.
