@@ -7,15 +7,32 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+type NotifTipo =
+  | "minuta_aprovada"
+  | "minuta_rejeitada"
+  | "comprovante_enviado"
+  | "pagamento_confirmado"
+  | "prazo_proximo"
+  | "show_cancelado_prazo";
+
 interface Notification {
   id: string;
-  tipo: "minuta_aprovada" | "minuta_rejeitada";
+  tipo: NotifTipo;
   titulo: string;
   mensagem: string;
   show_id: string | null;
   lida: boolean;
   created_at: string;
 }
+
+const TIPO_COR: Record<NotifTipo, string> = {
+  minuta_aprovada: "bg-green-500",
+  pagamento_confirmado: "bg-green-500",
+  comprovante_enviado: "bg-orange-500",
+  prazo_proximo: "bg-amber-500",
+  minuta_rejeitada: "bg-destructive",
+  show_cancelado_prazo: "bg-destructive",
+};
 
 export function NotificationBell() {
   const [items, setItems] = useState<Notification[]>([]);
@@ -98,7 +115,7 @@ export function NotificationBell() {
                         <span
                           className={cn(
                             "h-2 w-2 rounded-full",
-                            n.tipo === "minuta_aprovada" ? "bg-green-500" : "bg-destructive",
+                            TIPO_COR[n.tipo] ?? "bg-muted-foreground",
                           )}
                         />
                         {n.titulo}

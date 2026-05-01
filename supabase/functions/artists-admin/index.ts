@@ -14,6 +14,7 @@ type ArtistPayload = {
   rider_padrao?: string | null;
   cor?: string;
   ativo?: boolean;
+  cache_minimo?: number | string | null;
 };
 
 function json(body: unknown, status = 200) {
@@ -38,6 +39,13 @@ function validateArtist(input: ArtistPayload) {
   const cor = input.cor ?? "#f59e0b";
   if (typeof cor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(cor)) throw new Error("Cor inválida");
 
+  let cacheMinimo = 0;
+  if (input.cache_minimo !== undefined && input.cache_minimo !== null && input.cache_minimo !== "") {
+    const n = typeof input.cache_minimo === "number" ? input.cache_minimo : Number(input.cache_minimo);
+    if (!Number.isFinite(n) || n < 0) throw new Error("Cachê mínimo inválido");
+    cacheMinimo = n;
+  }
+
   return {
     nome,
     google_calendar_id: cleanText(input.google_calendar_id, 255),
@@ -45,6 +53,7 @@ function validateArtist(input: ArtistPayload) {
     cor,
     ativo: typeof input.ativo === "boolean" ? input.ativo : true,
     foto_url: cleanText(input.foto_url, 500),
+    cache_minimo: cacheMinimo,
   };
 }
 
@@ -80,7 +89,7 @@ Deno.serve(async (req) => {
 
     if (action === "list") {
       const artists = await sql`
-        select id, nome, foto_url, google_calendar_id, rider_padrao, cor, ativo
+        select id, nome, foto_url, google_calendar_id, rider_padrao, cor, ativo, cache_minimo
         from public.artists
         order by nome asc
       `;
@@ -90,9 +99,9 @@ Deno.serve(async (req) => {
     if (action === "create") {
       const artist = validateArtist(body.artist ?? {});
       const rows = await sql`
-        insert into public.artists (nome, foto_url, google_calendar_id, rider_padrao, cor, ativo, updated_at)
-        values (${artist.nome}, ${artist.foto_url}, ${artist.google_calendar_id}, ${artist.rider_padrao}, ${artist.cor}, ${artist.ativo}, now())
-        returning id, nome, foto_url, google_calendar_id, rider_padrao, cor, ativo
+        insert into public.artists (nome, foto_url, google_calendar_id, rider_padrao, cor, ativo, cache_minimo, updated_at)
+        values (${artist.nome}, ${artist.foto_url}, ${artist.google_calendar_id}, ${artist.rider_padrao}, ${artist.cor}, ${artist.ativo}, ${artist.cache_minimo}, now())
+        returning id, nome, foto_url, google_calendar_id, rider_padrao, cor, ativo, cache_minimo
       `;
       return json({ artist: rows[0] });
     }
@@ -108,9 +117,10 @@ Deno.serve(async (req) => {
             rider_padrao = ${artist.rider_padrao},
             cor = ${artist.cor},
             ativo = ${artist.ativo},
+            cache_minimo = ${artist.cache_minimo},
             updated_at = now()
         where id = ${body.id}
-        returning id, nome, foto_url, google_calendar_id, rider_padrao, cor, ativo
+        returning id, nome, foto_url, google_calendar_id, rider_padrao, cor, ativo, cache_minimo
       `;
       if (rows.length === 0) return json({ error: "Artista não encontrado" }, 404);
       return json({ artist: rows[0] });
