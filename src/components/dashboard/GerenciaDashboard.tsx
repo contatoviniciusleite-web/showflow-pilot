@@ -283,7 +283,14 @@ export function GerenciaDashboard() {
                     {fmtDate(s.data_show)}{s.cidade ? ` · ${s.cidade}` : ""} · {fmtBRL(Number(s.cache_total ?? 0))}
                   </p>
                 </div>
-                <Badge className={STATUS_CLASS[s.status] ?? ""}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  {s.auto_aprovado && (
+                    <Badge className={AUTO_BADGE} title="Minuta aprovada pelo próprio criador (gerente)">
+                      <ShieldCheck className="h-3 w-3 mr-1" /> Auto aprovado
+                    </Badge>
+                  )}
+                  <Badge className={STATUS_CLASS[s.status] ?? ""}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
+                </div>
               </li>
             ))}
           </ul>
