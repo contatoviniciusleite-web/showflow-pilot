@@ -49,7 +49,7 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/shows" element={<Shows />} />
-              <Route path="/agenda" element={<Placeholder title="Agenda" description="Calendário unificado dos artistas." />} />
+              <Route path="/agenda" element={<AgendaPage />} />
               <Route path="/financeiro" element={<Placeholder title="Financeiro" description="Ficha financeira e despesas por show." />} />
               <Route
                 path="/relatorios"
