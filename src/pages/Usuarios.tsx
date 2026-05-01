@@ -33,7 +33,9 @@ const ROLE_LABEL: Record<AppRole, string> = {
   equipe: "Equipe",
   artista: "Artista",
   vendedor: "Vendedor",
+  financeiro: "Financeiro",
 };
+const ALL_ROLES: AppRole[] = ["gerente", "equipe", "artista", "vendedor", "financeiro"];
 
 async function getFunctionErrorMessage(error: unknown, fallback = "Erro ao processar solicitação") {
   const err = error as { message?: string; context?: unknown } | null;
@@ -106,7 +108,7 @@ export default function Usuarios() {
 
   const addRole = () => {
     const used = new Set(editForm.roles.map((r) => r.role));
-    const next = (["gerente", "equipe", "artista", "vendedor"] as AppRole[]).find((r) => !used.has(r));
+    const next = ALL_ROLES.find((r) => !used.has(r));
     if (!next) return;
     setEditForm({ ...editForm, roles: [...editForm.roles, { role: next, artist_id: null }] });
   };
@@ -167,7 +169,7 @@ export default function Usuarios() {
 
   const availableRolesFor = (idx: number) => {
     const used = new Set(editForm.roles.map((r, i) => (i === idx ? null : r.role)));
-    return (["gerente", "equipe", "artista", "vendedor"] as AppRole[]).filter((r) => !used.has(r));
+    return ALL_ROLES.filter((r) => !used.has(r));
   };
 
   return (
@@ -268,7 +270,7 @@ export default function Usuarios() {
               <Select value={inviteForm.role} onValueChange={(v: AppRole) => setInviteForm({ ...inviteForm, role: v, artist_id: "" })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(["gerente", "equipe", "artista", "vendedor"] as AppRole[]).map((r) => (
+                  {ALL_ROLES.map((r) => (
                     <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
                   ))}
                 </SelectContent>

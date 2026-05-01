@@ -20,6 +20,7 @@ interface Artist {
   rider_padrao: string | null;
   cor: string;
   ativo: boolean;
+  cache_minimo: number;
 }
 
 const schema = z.object({
@@ -28,6 +29,7 @@ const schema = z.object({
   rider_padrao: z.string().max(5000).optional().or(z.literal("")),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Cor em hex (#RRGGBB)"),
   ativo: z.boolean(),
+  cache_minimo: z.number().min(0),
 });
 
 const PRESET_COLORS = ["#f59e0b", "#ef4444", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"];
@@ -63,6 +65,7 @@ export default function Artistas() {
     rider_padrao: "",
     cor: "#f59e0b",
     ativo: true,
+    cache_minimo: 0,
     fotoFile: null as File | null,
   });
 
@@ -79,7 +82,7 @@ export default function Artistas() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ nome: "", google_calendar_id: "", rider_padrao: "", cor: "#f59e0b", ativo: true, fotoFile: null });
+    setForm({ nome: "", google_calendar_id: "", rider_padrao: "", cor: "#f59e0b", ativo: true, cache_minimo: 0, fotoFile: null });
     setOpen(true);
   };
   const openEdit = (a: Artist) => {
@@ -90,6 +93,7 @@ export default function Artistas() {
       rider_padrao: a.rider_padrao ?? "",
       cor: a.cor,
       ativo: a.ativo,
+      cache_minimo: Number(a.cache_minimo ?? 0),
       fotoFile: null,
     });
     setOpen(true);
@@ -103,6 +107,7 @@ export default function Artistas() {
       rider_padrao: form.rider_padrao,
       cor: form.cor,
       ativo: form.ativo,
+      cache_minimo: form.cache_minimo,
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
@@ -124,6 +129,7 @@ export default function Artistas() {
         rider_padrao: form.rider_padrao,
         cor: form.cor,
         ativo: form.ativo,
+        cache_minimo: form.cache_minimo,
         foto_url,
       };
       if (editing) {
@@ -251,6 +257,12 @@ export default function Artistas() {
             <div className="space-y-1.5">
               <Label htmlFor="rider">Rider padrão de hospitalidade</Label>
               <Textarea id="rider" rows={5} value={form.rider_padrao} onChange={(e) => setForm({ ...form, rider_padrao: e.target.value })} placeholder="Ex: 12 águas sem gás, 6 isotônicos, frutas frescas..." />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="cmin">Cachê mínimo (R$)</Label>
+              <Input id="cmin" type="number" min={0} step={100} value={form.cache_minimo} onChange={(e) => setForm({ ...form, cache_minimo: Number(e.target.value) || 0 })} />
+              <p className="text-xs text-muted-foreground">Vendedores não conseguirão criar minutas abaixo deste valor. Use 0 para desativar.</p>
             </div>
 
             <div className="flex items-center justify-between rounded-md border px-3 py-2">

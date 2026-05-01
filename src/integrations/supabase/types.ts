@@ -14,9 +14,31 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       artists: {
         Row: {
           ativo: boolean
+          cache_minimo: number
           cor: string
           created_at: string
           foto_url: string | null
@@ -28,6 +50,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cache_minimo?: number
           cor?: string
           created_at?: string
           foto_url?: string | null
@@ -39,6 +62,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cache_minimo?: number
           cor?: string
           created_at?: string
           foto_url?: string | null
@@ -261,11 +285,19 @@ export type Database = {
           aprovado_por: string | null
           artist_id: string
           autorizado_por: string | null
+          aviso_12h_enviado_em: string | null
           cache_total: number
           camarins_rider: string | null
+          cancelado_em: string | null
+          cancelado_motivo: string | null
           capacidade: number | null
           cidade: string | null
+          comprovante_enviado_em: string | null
+          comprovante_enviado_por: string | null
+          comprovante_url: string | null
           condicao_pagamento: string | null
+          confirmado_em: string | null
+          confirmado_por: string | null
           contratante_cep: string | null
           contratante_cidade: string | null
           contratante_documento: string | null
@@ -285,6 +317,7 @@ export type Database = {
           hosp_traslado: boolean
           id: string
           local: string | null
+          prazo_comprovante_em: string | null
           status: Database["public"]["Enums"]["show_status"]
           tipo_estrutura: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo: boolean
@@ -300,11 +333,19 @@ export type Database = {
           aprovado_por?: string | null
           artist_id: string
           autorizado_por?: string | null
+          aviso_12h_enviado_em?: string | null
           cache_total?: number
           camarins_rider?: string | null
+          cancelado_em?: string | null
+          cancelado_motivo?: string | null
           capacidade?: number | null
           cidade?: string | null
+          comprovante_enviado_em?: string | null
+          comprovante_enviado_por?: string | null
+          comprovante_url?: string | null
           condicao_pagamento?: string | null
+          confirmado_em?: string | null
+          confirmado_por?: string | null
           contratante_cep?: string | null
           contratante_cidade?: string | null
           contratante_documento?: string | null
@@ -324,6 +365,7 @@ export type Database = {
           hosp_traslado?: boolean
           id?: string
           local?: string | null
+          prazo_comprovante_em?: string | null
           status?: Database["public"]["Enums"]["show_status"]
           tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo?: boolean
@@ -339,11 +381,19 @@ export type Database = {
           aprovado_por?: string | null
           artist_id?: string
           autorizado_por?: string | null
+          aviso_12h_enviado_em?: string | null
           cache_total?: number
           camarins_rider?: string | null
+          cancelado_em?: string | null
+          cancelado_motivo?: string | null
           capacidade?: number | null
           cidade?: string | null
+          comprovante_enviado_em?: string | null
+          comprovante_enviado_por?: string | null
+          comprovante_url?: string | null
           condicao_pagamento?: string | null
+          confirmado_em?: string | null
+          confirmado_por?: string | null
           contratante_cep?: string | null
           contratante_cidade?: string | null
           contratante_documento?: string | null
@@ -363,6 +413,7 @@ export type Database = {
           hosp_traslado?: boolean
           id?: string
           local?: string | null
+          prazo_comprovante_em?: string | null
           status?: Database["public"]["Enums"]["show_status"]
           tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo?: boolean
@@ -442,6 +493,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_business_hours: {
+        Args: { hours_to_add: number; start_ts: string }
+        Returns: string
+      }
       get_my_artist_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -452,10 +507,16 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "gerente" | "equipe" | "artista" | "vendedor"
+      app_role: "gerente" | "equipe" | "artista" | "vendedor" | "financeiro"
       deposito_status: "ok" | "pendente"
       estrutura_tipo: "aberta" | "fechada"
-      show_status: "pendente" | "aprovada"
+      show_status:
+        | "pendente"
+        | "aprovada"
+        | "aguardando_pagamento"
+        | "comprovante_enviado"
+        | "confirmado"
+        | "cancelada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -583,10 +644,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["gerente", "equipe", "artista", "vendedor"],
+      app_role: ["gerente", "equipe", "artista", "vendedor", "financeiro"],
       deposito_status: ["ok", "pendente"],
       estrutura_tipo: ["aberta", "fechada"],
-      show_status: ["pendente", "aprovada"],
+      show_status: [
+        "pendente",
+        "aprovada",
+        "aguardando_pagamento",
+        "comprovante_enviado",
+        "confirmado",
+        "cancelada",
+      ],
     },
   },
 } as const
