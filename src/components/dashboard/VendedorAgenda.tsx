@@ -50,6 +50,13 @@ function ymd(d: Date) {
   return format(d, "yyyy-MM-dd");
 }
 
+// Normaliza valores de data vindos do backend (podem chegar como "YYYY-MM-DD"
+// ou ISO timestamp "YYYY-MM-DDTHH:mm:ss.sssZ"). Sempre devolve "YYYY-MM-DD".
+function toDateKey(v: string | null | undefined): string {
+  if (!v) return "";
+  return v.length >= 10 ? v.slice(0, 10) : v;
+}
+
 export function VendedorAgenda() {
   const { user } = useAuth();
   const navigate = useNavigate();
