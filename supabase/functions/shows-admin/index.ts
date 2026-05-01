@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
           ? await sql`
               select id, artist_id, artist_nome, artist_cor,
                 to_char(data_show, 'YYYY-MM-DD') as data_show,
-                horario, local, cidade, status
+                horario, local, cidade, vendedor, status
               from public.shows_public_view
               where created_by is distinct from ${userId}
                 and artist_id = any(${allowed}::uuid[])

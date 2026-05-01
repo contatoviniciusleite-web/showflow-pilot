@@ -16,6 +16,7 @@ import Usuarios from "./pages/Usuarios";
 import Shows from "./pages/Shows";
 import Bloqueios from "./pages/Bloqueios";
 import Placeholder from "./pages/Placeholder";
+import AgendaPage from "./pages/Agenda";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,7 +49,7 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/shows" element={<Shows />} />
-              <Route path="/agenda" element={<Placeholder title="Agenda" description="Calendário unificado dos artistas." />} />
+              <Route path="/agenda" element={<AgendaPage />} />
               <Route path="/financeiro" element={<Placeholder title="Financeiro" description="Ficha financeira e despesas por show." />} />
               <Route
                 path="/relatorios"

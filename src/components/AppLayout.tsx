@@ -9,8 +9,8 @@ import { NotificationBell } from "@/components/NotificationBell";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["gerente", "equipe", "artista", "vendedor", "financeiro"] },
+  { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["gerente", "equipe", "artista", "vendedor"] },
   { to: "/shows", label: "Shows", icon: ListMusic, roles: ["gerente", "equipe", "artista", "vendedor", "financeiro"] },
-  { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["gerente", "equipe", "artista"] },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["gerente", "equipe", "artista", "financeiro"] },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["gerente"] },
   { to: "/artistas", label: "Artistas", icon: Music2, roles: ["gerente"] },
