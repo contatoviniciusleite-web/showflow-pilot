@@ -117,7 +117,6 @@ const emptyForm = {
   camarins_rider: "",
   autorizado_por: "Vitor D.",
   contratante_id: "" as string,
-  salvar_contratante: false,
 };
 
 const REQUIRED_FIELDS = [
