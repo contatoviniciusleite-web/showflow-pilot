@@ -331,6 +331,9 @@ Deno.serve(async (req) => {
         return json({ error: "O cachê informado está abaixo do mínimo permitido para este artista. Somente a gerência pode autorizar valores abaixo do mínimo." }, 403);
       }
 
+      // Cadastro/vínculo automático de contratante (piloto: configurável via app_settings.auto_link_contratante)
+      try { s.contratante_id = await autoLinkContratante(sql, s, userId); } catch (e) { console.error("autoLinkContratante (create)", e); }
+
       const rows = await sql`
         insert into public.shows (
           artist_id, data_show, horario, data_subida, vendedor,
