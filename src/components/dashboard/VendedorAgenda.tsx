@@ -31,6 +31,8 @@ interface OwnShow {
   cidade: string | null;
   cache_total: number;
   status: ShowStatus;
+  created_by?: string | null;
+  vendedor?: string | null;
 }
 interface PublicShow {
   id: string;
@@ -229,7 +231,11 @@ export function VendedorAgenda() {
                           style={{ background: s.artist_cor ?? "hsl(var(--primary))" }}
                         />
                         <p className="font-medium truncate">{s.artist_nome ?? "—"}</p>
-                        <Badge variant="outline" className="text-[10px]">Minha minuta</Badge>
+                        {s.created_by && user?.id && s.created_by === user.id ? (
+                          <Badge variant="outline" className="text-[10px]">Minha minuta</Badge>
+                        ) : s.vendedor ? (
+                          <Badge variant="outline" className="text-[10px]"><Users className="h-3 w-3 mr-1" />{s.vendedor}</Badge>
+                        ) : null}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
                         {s.horario && <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{s.horario.slice(0,5)}</span>}
