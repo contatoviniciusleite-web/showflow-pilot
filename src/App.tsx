@@ -72,8 +72,8 @@ const App = () => (
               <Route
                 path="/relatorios"
                 element={
-                  <ProtectedRoute requireRoles={["gerente"]}>
-                    <Placeholder title="Relatórios" description="Relatórios por artista e período." />
+                  <ProtectedRoute requireRoles={["gerente", "financeiro", "vendedor"]}>
+                    <Relatorios />
                   </ProtectedRoute>
                 }
               />
