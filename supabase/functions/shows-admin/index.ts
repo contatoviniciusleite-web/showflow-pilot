@@ -391,6 +391,9 @@ Deno.serve(async (req) => {
         return json({ error: "Somente a gerência pode autorizar valores abaixo do mínimo após a aprovação." }, 403);
       }
 
+      // Cadastro/vínculo automático de contratante
+      try { s.contratante_id = await autoLinkContratante(sql, s, userId); } catch (e) { console.error("autoLinkContratante (update)", e); }
+
       const rows = await sql`
         update public.shows set
           artist_id = ${s.artist_id},
