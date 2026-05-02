@@ -208,32 +208,24 @@ export default function Shows() {
       });
       if (upErr) return toast.error(upErr.message);
       const { error } = await supabase.functions.invoke("shows-admin", {
-        body: { action: "upload_comprovante", id: s.id, path },
+        body: {
+          action: "add_attachment",
+          show_id: s.id,
+          path,
+          file_name: file.name,
+          mime_type: file.type,
+          size_bytes: file.size,
+          tipo: "comprovante",
+        },
       });
       if (error) return toast.error(error.message);
-      toast.success("Comprovante enviado");
+      toast.success("Comprovante anexado");
       load();
     };
     input.click();
   };
 
-  const viewComprovante = async (s: Show) => {
-    const { data, error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "comprovante_signed_url", id: s.id },
-    });
-    if (error) return toast.error(error.message);
-    if (data?.url) window.open(data.url, "_blank");
-  };
-
-  const confirmPayment = async (s: Show) => {
-    if (!confirm("Confirmar o pagamento do sinal deste show?")) return;
-    const { error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "confirm_payment", id: s.id },
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Pagamento confirmado");
-    load();
-  };
+  const openDetails = (s: Show) => setDetails(s);
 
 
   const [shows, setShows] = useState<Show[]>([]);
