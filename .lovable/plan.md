@@ -1,101 +1,104 @@
-## Visão geral
+## Resumo
 
-Quatro melhorias na minuta de show + um novo módulo de Contratantes. Como é um piloto, todos os campos obrigatórios e máscaras ficam centralizados em utilitários reutilizáveis para fácil ajuste futuro.
+Implementar 5 alterações no ShowFlow envolvendo o perfil **Financeiro**, fluxo de pagamentos, múltiplos comprovantes e nova aba de Anexos na ficha do show.
 
 ---
 
-## 1. Máscara monetária (R$ 10.000,00)
+## Alteração 1 — Agenda para Financeiro
 
-- Criar `src/lib/masks.ts` com:
-  - `formatCurrencyBRL(rawDigits)` — recebe string só de dígitos e devolve `R$ 10.000,00`
-  - `parseCurrencyBRL(masked)` → number (em reais)
-  - `formatPhoneBR`, `formatCEP`, `formatCpfCnpj` (úteis também para o módulo de contratantes)
-- Criar `src/components/ui/CurrencyInput.tsx` — wrapper sobre `<Input>` que mantém valor numérico interno e exibe máscara enquanto digita.
-- Aplicar em:
-  - `src/pages/Shows.tsx` — campo "Cachê total"
-  - `src/components/dashboard/...` ou onde houver depósitos/despesas (procurar por `show_deposits` / `show_expenses` no código — atualmente `Shows.tsx` não tem UI de despesas; aplicar somente onde já existir input de valor).
+- A página `/agenda` hoje mostra `VendedorAgenda` (calendário de artistas liberados ao vendedor).
+- Criar uma visão de calendário **completa para Financeiro** (todos artistas, todos shows, sem filtro de propriedade).
+- No calendário e na lista do dia, exibir **status financeiro**: Aguardando Pagamento (amarelo), Comprovante Enviado (laranja), Confirmado (verde), Atrasado (vermelho — quando `prazo_comprovante_em` passou e ainda não confirmado).
+- Clicar no show abre a **ficha financeira completa** (modal/drawer) com pagamentos, comprovantes e ações.
+- RLS de `shows`: adicionar leitura para `financeiro` de todos os shows (hoje só vê via subqueries em depósitos/despesas; precisa SELECT direto).
 
-## 2. Campos obrigatórios na minuta
+## Alteração 2 — Baixa manual de pagamento
 
-Centralizar em uma constante:
+- Criar tabela `show_payments` para registrar baixas (manuais ou via comprovante):
+  - `valor`, `data_pagamento`, `forma_pagamento` (enum: pix/transferencia/especie/outro), `conta_destino`, `observacoes`, `comprovante_id` (FK opcional para `show_attachments`), `registrado_por`, `created_at`.
+- RLS: somente **Financeiro** pode INSERT/UPDATE/DELETE. SELECT para gerência, equipe, financeiro e vendedor criador do show.
+- UI: na ficha do show, aba **Financeiro**, botão "Registrar Pagamento Manual" (visível só para Financeiro). Modal com campos do briefing. Observação obrigatória se não houver comprovante anexado.
 
-```ts
-const REQUIRED_FIELDS = [
-  "artist_id", "data_show", "horario", "local", "cidade",
-  "cache_total", "condicao_pagamento",
-  "contratante_nome", "contratante_telefone", "contratante_email",
-] as const;
-```
+## Alteração 3 — Confirmação exclusiva do Financeiro
 
-- Função `validateShowForm(form)` retorna `Record<campo, string>` com erros.
-- No JSX da minuta: cada campo passa a ler `errors[name]` e:
-  - aplica `aria-invalid` + classe `border-destructive`
-  - mostra `<p class="text-sm text-destructive">Este campo é obrigatório</p>` abaixo
-- `save()` chama `validateShowForm`; se houver erros, faz `setErrors`, foca o primeiro campo inválido e aborta o envio.
+- Hoje o status `confirmado` é setado por gerente/equipe. Alterar regra:
+  - Endpoint `confirmar_pagamento` no `shows-admin` passa a aceitar **apenas role `financeiro`**.
+  - Remover botão "Confirmar pagamento" da UI quando o usuário for gerente/equipe (sem o papel financeiro).
+- Ao confirmar, registrar `confirmado_por` (uuid) + `confirmado_em` (já existem). Adicionar campo `confirmado_por_nome` (text) para snapshot do nome.
+- Visibilidade do "Confirmado por [nome] em [data/hora]":
+  - Gerência ✅ / Vendedor ✅ / Artista ❌
+- Notificações ao confirmar:
+  - Vendedor (criador do show) recebe `pagamento_confirmado`
+  - Todos os usuários com role `gerente` recebem a mesma notificação
+  - Adicionar `pagamento_confirmado` à constraint `notifications_tipo_check`
 
-## 3. Title Case automático
+## Alteração 4 — Múltiplos comprovantes
 
-- Em `src/lib/masks.ts` adicionar `toTitleCase(str)` com tratamento para preposições PT-BR (`de`, `da`, `do`, `dos`, `das`, `e`).
-- Criar componente `TitleCaseInput` que aplica `toTitleCase` em `onBlur` (não em cada tecla, para não quebrar acentuação enquanto o usuário digita).
-- Aplicar em: `local`, `endereco`, `cidade`, `contratante_nome`, `contratante_endereco`, `contratante_cidade`, `vendedor`, `autorizado_por` e em todos os campos de texto livre do módulo de contratantes (exceto e-mail e CPF/CNPJ).
+- Hoje `shows.comprovante_url` é único. Migrar para tabela `show_attachments`:
+  - `id`, `show_id`, `tipo` (enum: comprovante / documento), `file_path`, `file_name`, `mime_type`, `size_bytes`, `uploaded_by`, `uploaded_by_nome`, `created_at`.
+- Botão "Anexar comprovante" continua sempre disponível na ficha (vendedor criador do show + financeiro + gerência).
+- Cada anexo é registrado individualmente; nada substitui o anterior. Manter `shows.comprovante_url` por compatibilidade temporária (opcional).
+- Storage: continuar usando bucket `comprovantes` (já privado, 10MB, MIME PDF/JPG/PNG).
+- Nome do arquivo no bucket: `{show_id}/{timestamp}-{slug}.{ext}` (mantém política RLS atual baseada no primeiro segmento do path).
 
-## 4. Módulo de Contratantes
+## Alteração 5 — Aba "Anexos" na ficha do show
 
-### Banco
-
-Nova tabela `contratantes`:
-
-```
-id uuid pk, nome text not null, documento text, endereco text,
-cidade text, estado text, cep text, telefone text, email text,
-observacoes text, created_by uuid, created_at, updated_at
-```
-
-RLS:
-- SELECT: `gerente | financeiro | vendedor` (artista sem acesso)
-- INSERT: `gerente | financeiro | vendedor`
-- UPDATE: `gerente | financeiro`
-- DELETE: `gerente`
-
-Índice `idx_contratantes_nome_lower` para autocomplete.
-
-Adicionar coluna opcional em `shows`: `contratante_id uuid` (nullable) — permite manter dados editados na minuta sem mexer no cadastro principal.
-
-### Edge function
-
-`supabase/functions/contratantes-admin/index.ts` com ações: `list`, `search` (q), `get` (id, retorna dados + histórico de shows do contratante), `create`, `update`, `delete`.
-
-### Frontend
-
-- Nova página `src/pages/Contratantes.tsx`:
-  - Lista com busca, ações conforme papel
-  - Drawer/Dialog de cadastro/edição
-  - Ficha do contratante exibe shows vinculados (artista, data, local, valor)
-- Rota `/contratantes` em `App.tsx` protegida por `["gerente","financeiro","vendedor"]`
-- Item no menu lateral (`AppLayout.tsx`)
-- No formulário da minuta:
-  - Campo "Contratante" vira combobox com autocomplete (`Command` do shadcn) buscando via edge function
-  - Selecionar → preenche os campos `contratante_*` e seta `contratante_id`
-  - Editar campos não desfaz o vínculo, apenas sobrescreve no show
-  - Checkbox "Salvar como novo contratante" aparece quando o vendedor digitou um nome novo
+- Reorganizar a ficha do show em **abas**: Geral / Financeiro / Anexos / Histórico (já existem algumas seções; consolidar em `Tabs`).
+- Aba **Anexos**:
+  - Lista cronológica (desc) de todos os itens em `show_attachments`.
+  - Cada item: ícone (PDF/imagem), nome do arquivo, quem anexou, data/hora, botões Ver, Baixar, Excluir.
+  - Acessos:
+    - Financeiro / Gerência: ver, baixar, excluir todos.
+    - Vendedor: ver e baixar **apenas os anexos enviados por ele**.
+    - Artista: aba não aparece.
+- "Ver" e "Baixar" usam `createSignedUrl` (bucket privado).
+- "Excluir" remove o registro + o arquivo do storage (apenas Financeiro/Gerência).
 
 ---
 
 ## Detalhes técnicos
 
-- `src/lib/masks.ts`, `src/components/ui/CurrencyInput.tsx`, `src/components/ui/TitleCaseInput.tsx` — utilitários reutilizáveis
-- Validação client-side em `Shows.tsx`; servidor (`shows-admin`) mantém validação mínima atual
-- Migração SQL será proposta separadamente para aprovação antes do código frontend
-- Configurabilidade: lista `REQUIRED_FIELDS` em constante única; máscaras isoladas em utilitário; nada hard-coded em JSX
+### Migrações
+
+1. **`show_payments`** (nova tabela + RLS).
+2. **`show_attachments`** (nova tabela + RLS + helper `can_view_attachment(_user_id, _attachment_id)`).
+3. **`shows`**: adicionar `confirmado_por_nome text`.
+4. **RLS `shows`**: trocar policy SELECT para incluir `financeiro` em todos os shows (hoje já inclui, manter).
+5. **RLS `notifications`**: estender `notifications_tipo_check` com `pagamento_confirmado`.
+6. **Storage policies do bucket `comprovantes`**: ajustar DELETE para Financeiro também (hoje só "manage").
+
+### Edge function `shows-admin`
+
+- Novas actions:
+  - `register_payment` — só financeiro; insere em `show_payments`; opcional `attachment_id`.
+  - `confirm_payment` — só financeiro; seta status `confirmado`, `confirmado_por`, `confirmado_por_nome`, `confirmado_em`; cria notificações para criador + gerentes.
+  - `add_attachment` — registra metadados em `show_attachments` após upload no storage.
+  - `list_attachments` — devolve lista filtrada conforme papel.
+  - `delete_attachment` — só financeiro/gerência; remove do storage e da tabela.
+  - `list_payments` — para a ficha financeira.
+- Ajustar `list` para incluir `confirmado_por_nome`, lista de pagamentos e contagem de anexos por show (ou carregar sob demanda).
+- Action `agenda_financeiro` (ou reusar `list` com flag) — devolve **todos** os shows quando o caller tiver role `financeiro`.
+
+### Frontend
+
+- **`src/pages/Agenda.tsx`**: detectar role financeiro e renderizar novo `<FinanceiroAgenda />` no lugar de `VendedorAgenda`.
+- **Novo `src/components/dashboard/FinanceiroAgenda.tsx`**: calendário com todos os shows, badge de status financeiro, dia clicado abre lista; clicar num show abre ficha completa.
+- **`src/pages/Shows.tsx`**: refatorar o modal/drawer da ficha do show para usar `Tabs` (Geral, Financeiro, Anexos, Histórico). Esconder botão "Confirmar pagamento" para não-financeiro. Adicionar "Registrar Pagamento Manual" para financeiro.
+- **Novo `src/components/shows/AttachmentsTab.tsx`**: lista + upload + ações.
+- **Novo `src/components/shows/PaymentsTab.tsx`** (ou seção): lista de pagamentos + botão de baixa manual + botão "Confirmar pagamento" (só financeiro).
+- Exibir "Confirmado por [nome] em [data/hora]" para gerência e vendedor; ocultar para artista.
+
+### Permissões / configuráveis
+
+- Centralizar checks em `src/lib/permissions.ts` (novo) com funções como `canRegisterPayment(roles)`, `canConfirmPayment(roles)`, `canDeleteAttachment(roles)`, `canViewConfirmedBy(roles)` — para facilitar ajustes futuros do piloto.
 
 ---
 
 ## Ordem de execução
 
-1. Migração: tabela `contratantes` + coluna `shows.contratante_id` + RLS
-2. Edge function `contratantes-admin`
-3. Utilitários (`masks.ts`, `CurrencyInput`, `TitleCaseInput`)
-4. Refatorar `Shows.tsx` (máscara, validação, title case, autocomplete contratante)
-5. Página `Contratantes.tsx` + rota + menu
-
-Confirma para começar pela migração?
+1. Migração 1: `show_attachments` + `show_payments` + `confirmado_por_nome` + constraint notifications + storage policies.
+2. Atualizar `shows-admin` com as novas actions.
+3. Criar `src/lib/permissions.ts`.
+4. Criar `FinanceiroAgenda` + ajustar `Agenda.tsx`.
+5. Refatorar ficha do show em `Shows.tsx` com Tabs + componentes Anexos/Pagamentos.
+6. Ajustar notificações e exibição de "Confirmado por".
