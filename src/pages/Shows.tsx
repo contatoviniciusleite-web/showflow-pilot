@@ -61,6 +61,13 @@ interface Show {
   hosp_traslado: boolean;
   camarins_rider: string | null;
   autorizado_por: string | null;
+  cancelado_em?: string | null;
+  cancelado_motivo?: string | null;
+  data_show_original?: string | null;
+  horario_original?: string | null;
+  remarcado_count?: number | null;
+  ultima_remarcacao_em?: string | null;
+  ultima_remarcacao_motivo?: string | null;
 }
 interface ShowPublic {
   id: string;
