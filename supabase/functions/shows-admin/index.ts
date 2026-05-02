@@ -584,6 +584,181 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ============================================================
+    // CANCELAR SHOW (somente gerência)
+    // ============================================================
+    if (action === "cancel") {
+      if (!isManager) return json({ error: "Apenas o gerente pode cancelar shows" }, 403);
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      const motivo = txt(body.motivo, 1000);
+      if (!motivo) return json({ error: "Motivo do cancelamento é obrigatório" }, 400);
+
+      const found = await sql`
+        select s.*, a.nome as artist_nome
+        from public.shows s left join public.artists a on a.id = s.artist_id
+        where s.id = ${body.id}
+      `;
+      if (!found.length) return json({ error: "Show não encontrado" }, 404);
+      const show: any = found[0];
+      if (show.status === "cancelada") return json({ error: "Show já está cancelado" }, 400);
+
+      const updated = await sql`
+        update public.shows set
+          status = 'cancelada'::show_status,
+          cancelado_em = now(),
+          cancelado_motivo = ${motivo},
+          updated_at = now()
+        where id = ${body.id}
+        returning *
+      `;
+
+      // Notificações
+      const dataFmt = show.data_show;
+      const local = show.local ?? "local não informado";
+      const artista = show.artist_nome ?? "—";
+      const tituloComMotivo = "Show cancelado";
+      const msgComMotivo = `O show de ${artista} em ${local} no dia ${dataFmt} foi cancelado. Motivo: ${motivo}`;
+      const msgSemMotivo = `O show de ${artista} em ${local} no dia ${dataFmt} foi cancelado.`;
+
+      // Gerência + Financeiro: com motivo
+      await notifyByRoles(sql, ["gerente", "financeiro"], "show_cancelado", tituloComMotivo, msgComMotivo, body.id);
+
+      // Artista vinculado: com motivo
+      if (show.artist_id) {
+        const artistUsers = await sql`
+          select user_id from public.user_roles
+          where role = 'artista' and artist_id = ${show.artist_id}
+        `;
+        for (const u of artistUsers as any[]) {
+          await notify(sql, u.user_id, "show_cancelado", tituloComMotivo, msgComMotivo, body.id);
+        }
+      }
+
+      // Vendedor (criador): sem motivo
+      if (show.created_by) {
+        await notify(sql, show.created_by, "show_cancelado", tituloComMotivo, msgSemMotivo, body.id);
+      }
+
+      return json({ show: updated[0] });
+    }
+
+    // ============================================================
+    // REMARCAR SHOW (somente gerência)
+    // ============================================================
+    if (action === "reschedule") {
+      if (!isManager) return json({ error: "Apenas o gerente pode remarcar shows" }, 403);
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      const novaData = dateOrNull(body.nova_data);
+      if (!novaData) return json({ error: "Nova data é obrigatória" }, 400);
+      const novoHorario = timeOrNull(body.novo_horario);
+      if (!novoHorario) return json({ error: "Novo horário é obrigatório" }, 400);
+      const motivo = txt(body.motivo, 1000);
+      if (!motivo) return json({ error: "Motivo da remarcação é obrigatório" }, 400);
+
+      const found = await sql`
+        select s.*, a.nome as artist_nome
+        from public.shows s left join public.artists a on a.id = s.artist_id
+        where s.id = ${body.id}
+      `;
+      if (!found.length) return json({ error: "Show não encontrado" }, 404);
+      const show: any = found[0];
+      if (show.status === "cancelada") {
+        return json({ error: "Show cancelado não pode ser remarcado" }, 400);
+      }
+
+      const dataAnterior = show.data_show;
+      const horarioAnterior = show.horario;
+      const dataOriginal = show.data_show_original ?? dataAnterior;
+      const horarioOriginal = show.horario_original ?? horarioAnterior;
+
+      // Atualiza o próprio registro com a nova data/horário e o histórico
+      const updated = await sql`
+        update public.shows set
+          data_show = ${novaData},
+          horario = ${novoHorario},
+          data_show_original = ${dataOriginal},
+          horario_original = ${horarioOriginal},
+          remarcado_count = coalesce(remarcado_count, 0) + 1,
+          ultima_remarcacao_em = now(),
+          ultima_remarcacao_motivo = ${motivo},
+          ultima_remarcacao_por = ${userId},
+          updated_at = now()
+        where id = ${body.id}
+        returning *
+      `;
+
+      // Nome de quem remarcou
+      const profRows = await sql`select nome from public.profiles where id = ${userId}`;
+      const remarcadoPorNome = (profRows[0] as any)?.nome ?? null;
+
+      // Insere no histórico
+      await sql`
+        insert into public.show_reschedules (
+          show_id, show_anterior_id, data_anterior, horario_anterior,
+          data_nova, horario_novo, motivo, remarcado_por, remarcado_por_nome
+        ) values (
+          ${body.id}, ${body.id}, ${dataAnterior}, ${horarioAnterior},
+          ${novaData}, ${novoHorario}, ${motivo}, ${userId}, ${remarcadoPorNome}
+        )
+      `;
+
+      // Notificações
+      const artista = show.artist_nome ?? "—";
+      const local = show.local ?? "local não informado";
+      const horaFmt = String(novoHorario).slice(0, 5);
+      const tituloMsg = "Show remarcado";
+      const msgComMotivo = `O show de ${artista} em ${local} foi remarcado para ${novaData} às ${horaFmt}. Motivo: ${motivo}`;
+      const msgSemMotivo = `O show de ${artista} em ${local} foi remarcado para ${novaData} às ${horaFmt}.`;
+
+      await notifyByRoles(sql, ["gerente", "financeiro"], "show_remarcado", tituloMsg, msgComMotivo, body.id);
+
+      if (show.artist_id) {
+        const artistUsers = await sql`
+          select user_id from public.user_roles
+          where role = 'artista' and artist_id = ${show.artist_id}
+        `;
+        for (const u of artistUsers as any[]) {
+          await notify(sql, u.user_id, "show_remarcado", tituloMsg, msgComMotivo, body.id);
+        }
+      }
+
+      if (show.created_by) {
+        await notify(sql, show.created_by, "show_remarcado", tituloMsg, msgSemMotivo, body.id);
+      }
+
+      return json({ show: updated[0] });
+    }
+
+    // ============================================================
+    // LISTAR HISTÓRICO DE REMARCAÇÕES
+    // ============================================================
+    if (action === "list_reschedules") {
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      // gerência, financeiro, equipe, artista vinculado podem ver
+      const showRows = await sql`select artist_id, created_by from public.shows where id = ${body.id}`;
+      if (!showRows.length) return json({ error: "Show não encontrado" }, 404);
+      const sh: any = showRows[0];
+      const myArtistRows = isArtista
+        ? await sql`select artist_id from public.user_roles where user_id = ${userId} and role = 'artista'`
+        : [];
+      const myArtistIds = (myArtistRows as any[]).map((r) => r.artist_id);
+      const allowed =
+        isManager || isStaff || isFinanceiro ||
+        (isArtista && myArtistIds.includes(sh.artist_id)) ||
+        (isVendedor && sh.created_by === userId);
+      if (!allowed) return json({ error: "Acesso negado" }, 403);
+
+      const rows = await sql`
+        select id, data_anterior::text as data_anterior, horario_anterior::text as horario_anterior,
+               data_nova::text as data_nova, horario_novo::text as horario_novo,
+               motivo, remarcado_por_nome, created_at
+        from public.show_reschedules
+        where show_id = ${body.id}
+        order by created_at desc
+      `;
+      return json({ reschedules: rows });
+    }
+
     return json({ error: "Ação inválida" }, 400);
   } catch (error) {
     console.error("Erro em shows-admin", error);
