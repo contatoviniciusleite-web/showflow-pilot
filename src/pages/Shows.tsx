@@ -105,7 +105,49 @@ const emptyForm = {
   hosp_traslado: false,
   camarins_rider: "",
   autorizado_por: "Vitor D.",
+  contratante_id: "" as string,
+  salvar_contratante: false,
 };
+
+const REQUIRED_FIELDS = [
+  "artist_id",
+  "data_show",
+  "horario",
+  "local",
+  "cidade",
+  "cache_total",
+  "condicao_pagamento",
+  "contratante_nome",
+  "contratante_telefone",
+  "contratante_email",
+] as const;
+
+const FIELD_LABELS: Record<string, string> = {
+  artist_id: "Artista",
+  data_show: "Data do show",
+  horario: "Horário",
+  local: "Nome do local",
+  cidade: "Cidade",
+  cache_total: "Cachê total",
+  condicao_pagamento: "Condição de pagamento",
+  contratante_nome: "Nome do contratante",
+  contratante_telefone: "Telefone do contratante",
+  contratante_email: "E-mail do contratante",
+};
+
+function validateForm(form: FormState): Record<string, string> {
+  const errs: Record<string, string> = {};
+  for (const f of REQUIRED_FIELDS) {
+    const v = (form as any)[f];
+    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
+      errs[f] = "Este campo é obrigatório";
+    }
+  }
+  if (form.contratante_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contratante_email)) {
+    errs.contratante_email = "E-mail inválido";
+  }
+  return errs;
+}
 
 type FormState = typeof emptyForm;
 
