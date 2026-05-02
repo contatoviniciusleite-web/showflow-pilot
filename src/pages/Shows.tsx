@@ -309,7 +309,7 @@ export default function Shows() {
       contratante_cep: s.contratante_cep ?? "",
       contratante_telefone: s.contratante_telefone ?? "",
       contratante_email: s.contratante_email ?? "",
-      cache_total: s.cache_total?.toString() ?? "",
+      cache_total: Number(s.cache_total ?? 0),
       condicao_pagamento: s.condicao_pagamento ?? "",
       encargos_extras: !!s.encargos_extras,
       transp_onibus: !!s.transp_onibus,
