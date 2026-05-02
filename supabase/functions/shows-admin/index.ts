@@ -464,7 +464,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "confirm_payment") {
-      if (!isManager && !isFinanceiro) return json({ error: "Apenas gerente ou financeiro pode confirmar" }, 403);
+      if (!isFinanceiro) return json({ error: "Apenas o financeiro pode confirmar pagamentos" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
       const found = await sql`
         select s.*, a.nome as artist_nome from public.shows s
@@ -473,29 +473,172 @@ Deno.serve(async (req) => {
       `;
       if (!found.length) return json({ error: "Show não encontrado" }, 404);
       const show: any = found[0];
-      if (show.status !== "comprovante_enviado") return json({ error: "Comprovante ainda não foi enviado" }, 400);
+      if (show.status === "confirmado") return json({ error: "Pagamento já confirmado" }, 400);
+      if (show.status === "cancelada") return json({ error: "Show cancelado" }, 400);
+
+      // snapshot do nome do financeiro
+      const profRows = await sql`select nome from public.profiles where id = ${userId}`;
+      const finNome = (profRows[0] as any)?.nome ?? "Financeiro";
 
       const updated = await sql`
         update public.shows set
           status = 'confirmado'::show_status,
           confirmado_por = ${userId},
+          confirmado_por_nome = ${finNome},
           confirmado_em = now(),
           updated_at = now()
         where id = ${body.id}
         returning *
       `;
-      // TODO: atualizar Google Calendar para confirmado
+      const local = show.local ?? "local não informado";
+      const msg = `Pagamento do show ${show.artist_nome ?? "—"} em ${local} dia ${show.data_show} confirmado por ${finNome}.`;
+      // Vendedor (criador)
       if (show.created_by) {
-        await notify(
-          sql,
-          show.created_by,
-          "pagamento_confirmado",
-          "Pagamento confirmado",
-          `O sinal do show de ${show.artist_nome ?? "—"} em ${show.data_show} foi confirmado.`,
-          show.id,
-        );
+        await notify(sql, show.created_by, "pagamento_confirmado", "Pagamento confirmado", msg, show.id);
       }
+      // Gerência
+      await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", "Pagamento confirmado", msg, show.id);
       return json({ show: updated[0] });
+    }
+
+    // ============================================================
+    // ANEXOS (múltiplos comprovantes / documentos)
+    // ============================================================
+    if (action === "add_attachment") {
+      if (typeof body.show_id !== "string" || typeof body.path !== "string" || typeof body.file_name !== "string") {
+        return json({ error: "Dados inválidos" }, 400);
+      }
+      const showRows = await sql`select id, created_by, artist_id, data_show, local, (select nome from public.artists where id = artist_id) as artist_nome from public.shows where id = ${body.show_id}`;
+      if (!showRows.length) return json({ error: "Show não encontrado" }, 404);
+      const sh: any = showRows[0];
+      const isOwner = sh.created_by === userId;
+      if (!isOwner && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
+
+      const tipo = txt(body.tipo, 30) ?? "comprovante";
+      const mime = txt(body.mime_type, 100);
+      const size = body.size_bytes ? Number(body.size_bytes) : null;
+
+      const profRows = await sql`select nome from public.profiles where id = ${userId}`;
+      const upNome = (profRows[0] as any)?.nome ?? null;
+
+      const ins = await sql`
+        insert into public.show_attachments (show_id, tipo, file_path, file_name, mime_type, size_bytes, uploaded_by, uploaded_by_nome)
+        values (${body.show_id}, ${tipo}, ${body.path}, ${body.file_name}, ${mime}, ${size}, ${userId}, ${upNome})
+        returning *
+      `;
+
+      // Atualiza compatibilidade do show + status (se for comprovante e ainda aguardando)
+      if (tipo === "comprovante") {
+        await sql`
+          update public.shows set
+            comprovante_url = coalesce(comprovante_url, ${body.path}),
+            comprovante_enviado_em = coalesce(comprovante_enviado_em, now()),
+            comprovante_enviado_por = coalesce(comprovante_enviado_por, ${userId}),
+            status = case when status = 'aguardando_pagamento'::show_status then 'comprovante_enviado'::show_status else status end,
+            updated_at = now()
+          where id = ${body.show_id}
+        `;
+        // Notifica gerência/financeiro
+        const msg = `Novo comprovante anexado ao show de ${sh.artist_nome ?? "—"} em ${sh.data_show}.`;
+        await notifyByRoles(sql, ["gerente", "financeiro"], "comprovante_enviado", "Comprovante recebido", msg, sh.id);
+      }
+      return json({ attachment: ins[0] });
+    }
+
+    if (action === "list_attachments") {
+      if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
+      const showRows = await sql`select created_by from public.shows where id = ${body.show_id}`;
+      if (!showRows.length) return json({ error: "Show não encontrado" }, 404);
+      if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
+
+      let rows;
+      if (isEditor || isFinanceiro) {
+        rows = await sql`select * from public.show_attachments where show_id = ${body.show_id} order by created_at desc`;
+      } else if (isVendedor) {
+        rows = await sql`select * from public.show_attachments where show_id = ${body.show_id} and uploaded_by = ${userId} order by created_at desc`;
+      } else {
+        return json({ error: "Acesso negado" }, 403);
+      }
+      return json({ attachments: rows });
+    }
+
+    if (action === "attachment_signed_url") {
+      if (typeof body.id !== "string") return json({ error: "Anexo inválido" }, 400);
+      const rows = await sql`select a.*, s.created_by as show_created_by from public.show_attachments a join public.shows s on s.id = a.show_id where a.id = ${body.id}`;
+      if (!rows.length) return json({ error: "Anexo não encontrado" }, 404);
+      const att: any = rows[0];
+      const allowed = isEditor || isFinanceiro || (isVendedor && att.uploaded_by === userId);
+      if (!allowed) return json({ error: "Acesso negado" }, 403);
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      const { data, error } = await admin.storage.from("comprovantes").createSignedUrl(att.file_path, 600);
+      if (error) return json({ error: error.message }, 500);
+      return json({ url: data?.signedUrl });
+    }
+
+    if (action === "delete_attachment") {
+      if (!isManager && !isFinanceiro) return json({ error: "Apenas gerência ou financeiro podem excluir anexos" }, 403);
+      if (typeof body.id !== "string") return json({ error: "Anexo inválido" }, 400);
+      const rows = await sql`select * from public.show_attachments where id = ${body.id}`;
+      if (!rows.length) return json({ error: "Anexo não encontrado" }, 404);
+      const att: any = rows[0];
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      await admin.storage.from("comprovantes").remove([att.file_path]);
+      await sql`delete from public.show_attachments where id = ${body.id}`;
+      return json({ ok: true });
+    }
+
+    // ============================================================
+    // PAGAMENTOS (baixa manual)
+    // ============================================================
+    if (action === "list_payments") {
+      if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
+      if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
+      const rows = await sql`select * from public.show_payments where show_id = ${body.show_id} order by data_pagamento desc, created_at desc`;
+      return json({ payments: rows });
+    }
+
+    if (action === "register_payment") {
+      if (!isFinanceiro) return json({ error: "Apenas o financeiro pode registrar pagamentos" }, 403);
+      if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
+      const valor = num(body.valor);
+      if (valor <= 0) return json({ error: "Valor é obrigatório" }, 400);
+      const dataPg = dateOrNull(body.data_pagamento);
+      if (!dataPg) return json({ error: "Data do pagamento é obrigatória" }, 400);
+      const forma = txt(body.forma_pagamento, 20) ?? "pix";
+      if (!["pix", "transferencia", "especie", "outro"].includes(forma)) {
+        return json({ error: "Forma de pagamento inválida" }, 400);
+      }
+      const conta = txt(body.conta_destino, 200);
+      const obs = txt(body.observacoes, 2000);
+      const attachmentId = body.attachment_id ? txt(body.attachment_id, 64) : null;
+      if (!attachmentId && !obs) return json({ error: "Observações são obrigatórias quando não há comprovante" }, 400);
+
+      const profRows = await sql`select nome from public.profiles where id = ${userId}`;
+      const finNome = (profRows[0] as any)?.nome ?? "Financeiro";
+
+      const ins = await sql`
+        insert into public.show_payments (show_id, valor, data_pagamento, forma_pagamento, conta_destino, observacoes, attachment_id, registrado_por, registrado_por_nome)
+        values (${body.show_id}, ${valor}, ${dataPg}, ${forma}, ${conta}, ${obs}, ${attachmentId}, ${userId}, ${finNome})
+        returning *
+      `;
+
+      const showRows = await sql`select s.*, a.nome as artist_nome from public.shows s left join public.artists a on a.id = s.artist_id where s.id = ${body.show_id}`;
+      if (showRows.length) {
+        const sh: any = showRows[0];
+        const msg = `${finNome} registrou pagamento de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}.`;
+        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_registrado", "Pagamento registrado", msg, sh.id);
+        await notifyByRoles(sql, ["gerente"], "pagamento_registrado", "Pagamento registrado", msg, sh.id);
+      }
+      return json({ payment: ins[0] });
+    }
+
+    if (action === "delete_payment") {
+      if (!isFinanceiro) return json({ error: "Apenas o financeiro pode excluir pagamentos" }, 403);
+      if (typeof body.id !== "string") return json({ error: "Pagamento inválido" }, 400);
+      await sql`delete from public.show_payments where id = ${body.id}`;
+      return json({ ok: true });
     }
 
     if (action === "comprovante_signed_url") {
