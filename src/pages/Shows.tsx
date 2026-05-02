@@ -19,7 +19,7 @@ import { TitleCaseInput } from "@/components/ui/title-case-input";
 import { formatCEP, formatCpfCnpj, formatPhoneBR, toTitleCase } from "@/lib/masks";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
@@ -61,6 +61,13 @@ interface Show {
   hosp_traslado: boolean;
   camarins_rider: string | null;
   autorizado_por: string | null;
+  cancelado_em?: string | null;
+  cancelado_motivo?: string | null;
+  data_show_original?: string | null;
+  horario_original?: string | null;
+  remarcado_count?: number | null;
+  ultima_remarcacao_em?: string | null;
+  ultima_remarcacao_motivo?: string | null;
 }
 interface ShowPublic {
   id: string;
@@ -250,6 +257,26 @@ export default function Shows() {
   const [rejectTarget, setRejectTarget] = useState<Show | null>(null);
   const [rejectMotivo, setRejectMotivo] = useState("");
 
+  // Cancelamento
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Show | null>(null);
+  const [cancelMotivo, setCancelMotivo] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+
+  // Remarcação
+  const [reschedOpen, setReschedOpen] = useState(false);
+  const [reschedTarget, setReschedTarget] = useState<Show | null>(null);
+  const [reschedData, setReschedData] = useState("");
+  const [reschedHora, setReschedHora] = useState("");
+  const [reschedMotivo, setReschedMotivo] = useState("");
+  const [rescheduling, setRescheduling] = useState(false);
+
+  // Histórico de remarcações
+  const [histOpen, setHistOpen] = useState(false);
+  const [histTarget, setHistTarget] = useState<Show | null>(null);
+  const [histRows, setHistRows] = useState<any[]>([]);
+  const [histLoading, setHistLoading] = useState(false);
+
   const load = async () => {
     setLoading(true);
     const [showsRes, artistsRes] = await Promise.all([
@@ -419,6 +446,75 @@ export default function Shows() {
     load();
   };
 
+  // ===== Cancelamento =====
+  const openCancel = (s: Show) => {
+    setCancelTarget(s);
+    setCancelMotivo("");
+    setCancelOpen(true);
+  };
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    if (!cancelMotivo.trim()) return toast.error("Informe o motivo do cancelamento");
+    setCancelling(true);
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "cancel", id: cancelTarget.id, motivo: cancelMotivo.trim() },
+    });
+    setCancelling(false);
+    if (error) return toast.error(error.message);
+    toast.success("Show cancelado — usuários notificados");
+    setCancelOpen(false);
+    setCancelTarget(null);
+    load();
+  };
+
+  // ===== Remarcação =====
+  const openReschedule = (s: Show) => {
+    if (s.status === "cancelada") {
+      toast.error("Show cancelado não pode ser remarcado");
+      return;
+    }
+    setReschedTarget(s);
+    setReschedData(s.data_show ?? "");
+    setReschedHora(s.horario ? s.horario.slice(0, 5) : "");
+    setReschedMotivo("");
+    setReschedOpen(true);
+  };
+  const confirmReschedule = async () => {
+    if (!reschedTarget) return;
+    if (!reschedData) return toast.error("Informe a nova data");
+    if (!reschedHora) return toast.error("Informe o novo horário");
+    if (!reschedMotivo.trim()) return toast.error("Informe o motivo da remarcação");
+    setRescheduling(true);
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: {
+        action: "reschedule",
+        id: reschedTarget.id,
+        nova_data: reschedData,
+        novo_horario: reschedHora,
+        motivo: reschedMotivo.trim(),
+      },
+    });
+    setRescheduling(false);
+    if (error) return toast.error(error.message);
+    toast.success("Show remarcado — usuários notificados");
+    setReschedOpen(false);
+    setReschedTarget(null);
+    load();
+  };
+
+  // ===== Histórico =====
+  const openHistory = async (s: Show) => {
+    setHistTarget(s);
+    setHistOpen(true);
+    setHistLoading(true);
+    const { data, error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "list_reschedules", id: s.id },
+    });
+    setHistLoading(false);
+    if (error) return toast.error(error.message);
+    setHistRows((data?.reschedules ?? []) as any[]);
+  };
+
   const upcoming = useMemo(
     () => shows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
     [shows],
@@ -459,14 +555,39 @@ export default function Shows() {
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
                     <h3 className="font-semibold truncate">{s.artist_nome ?? "—"}</h3>
                     <StatusBadge status={s.status} />
+                    {(s.remarcado_count ?? 0) > 0 && (
+                      <Badge className="bg-amber-500 hover:bg-amber-500 text-white">REMARCADO</Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {fmtDate(s.data_show)}{s.horario ? ` · ${s.horario.slice(0, 5)}` : ""}
                   </p>
+                  {(s.remarcado_count ?? 0) > 0 && s.data_show_original && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                      Data original: {fmtDate(s.data_show_original)}
+                      {s.horario_original ? ` · ${String(s.horario_original).slice(0, 5)}` : ""}
+                    </p>
+                  )}
                   <p className="text-sm mt-1 truncate">{s.local ?? "Local não informado"}{s.cidade ? ` — ${s.cidade}` : ""}</p>
                   <p className="text-sm font-medium mt-2">{fmtBRL(Number(s.cache_total ?? 0))}</p>
                   {s.contratante_nome && <p className="text-xs text-muted-foreground mt-1 truncate">Contratante: {s.contratante_nome}</p>}
                   {s.vendedor && <p className="text-xs text-muted-foreground mt-1 truncate">Vendedor: {s.vendedor}</p>}
+                  {s.status === "cancelada" && (
+                    <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2">
+                      {(isManager || isFinanceiro || isArtista) && s.cancelado_motivo ? (
+                        <p className="text-xs text-destructive">
+                          <span className="font-semibold">Motivo do cancelamento:</span> {s.cancelado_motivo}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-destructive font-semibold">Show Cancelado</p>
+                      )}
+                    </div>
+                  )}
+                  {(s.remarcado_count ?? 0) > 0 && s.ultima_remarcacao_motivo && (isManager || isFinanceiro || isArtista) && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <span className="font-semibold">Motivo da remarcação:</span> {s.ultima_remarcacao_motivo}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   {isManager && s.status === "pendente" && (
@@ -494,8 +615,23 @@ export default function Shows() {
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isEditor && (
+                  {isEditor && s.status !== "cancelada" && (
                     <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                  )}
+                  {isManager && s.status !== "cancelada" && (
+                    <Button size="sm" variant="outline" onClick={() => openReschedule(s)} title="Remarcar show">
+                      <CalendarClock className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {isManager && s.status !== "cancelada" && (
+                    <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => openCancel(s)} title="Cancelar show">
+                      <Ban className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {(s.remarcado_count ?? 0) > 0 && (isManager || isFinanceiro) && (
+                    <Button size="sm" variant="ghost" onClick={() => openHistory(s)} title="Histórico de remarcações">
+                      <History className="h-3.5 w-3.5" />
+                    </Button>
                   )}
                   {isManager && (
                     <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)} title="Excluir">
@@ -532,6 +668,123 @@ export default function Shows() {
           </div>
         </div>
       )}
+
+      {/* Modal de cancelamento */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancelar show</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            O show permanecerá na agenda marcado como <strong>CANCELADO</strong>. Todos os usuários vinculados serão notificados.
+          </p>
+          {cancelTarget && (
+            <div className="text-sm rounded-md border p-2 bg-muted/30">
+              <div className="font-medium">{cancelTarget.artist_nome ?? "—"}</div>
+              <div className="text-muted-foreground">
+                {fmtDate(cancelTarget.data_show)}{cancelTarget.horario ? ` · ${cancelTarget.horario.slice(0, 5)}` : ""}
+                {cancelTarget.local ? ` — ${cancelTarget.local}` : ""}
+              </div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Motivo do cancelamento *</Label>
+            <Textarea rows={4} value={cancelMotivo} onChange={(e) => setCancelMotivo(e.target.value)}
+              placeholder="Explique por que o show está sendo cancelado..." />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancelling}>Voltar</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={cancelling}>
+              {cancelling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de remarcação */}
+      <Dialog open={reschedOpen} onOpenChange={setReschedOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remarcar show</DialogTitle>
+          </DialogHeader>
+          {reschedTarget && (
+            <div className="text-sm rounded-md border p-2 bg-muted/30">
+              <div className="font-medium">{reschedTarget.artist_nome ?? "—"}</div>
+              <div className="text-muted-foreground">
+                Atual: {fmtDate(reschedTarget.data_show)}
+                {reschedTarget.horario ? ` · ${reschedTarget.horario.slice(0, 5)}` : ""}
+                {reschedTarget.local ? ` — ${reschedTarget.local}` : ""}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Nova data *</Label>
+              <Input type="date" value={reschedData} onChange={(e) => setReschedData(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Novo horário *</Label>
+              <Input type="time" value={reschedHora} onChange={(e) => setReschedHora(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Motivo da remarcação *</Label>
+            <Textarea rows={4} value={reschedMotivo} onChange={(e) => setReschedMotivo(e.target.value)}
+              placeholder="Explique por que o show está sendo remarcado..." />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReschedOpen(false)} disabled={rescheduling}>Voltar</Button>
+            <Button onClick={confirmReschedule} disabled={rescheduling}>
+              {rescheduling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar remarcação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Histórico de remarcações */}
+      <Dialog open={histOpen} onOpenChange={setHistOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Histórico de remarcações</DialogTitle>
+          </DialogHeader>
+          {histTarget && (
+            <p className="text-sm text-muted-foreground">
+              {histTarget.artist_nome ?? "—"}{histTarget.local ? ` · ${histTarget.local}` : ""}
+            </p>
+          )}
+          {histLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : histRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma remarcação registrada.</p>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {histRows.map((r) => (
+                <div key={r.id} className="rounded-md border p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">
+                      {fmtDate(r.data_anterior)}{r.horario_anterior ? ` ${String(r.horario_anterior).slice(0, 5)}` : ""}
+                      {" → "}
+                      {fmtDate(r.data_nova)}{r.horario_novo ? ` ${String(r.horario_novo).slice(0, 5)}` : ""}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground"><span className="font-medium text-foreground">Motivo:</span> {r.motivo}</p>
+                  {r.remarcado_por_nome && (
+                    <p className="text-xs text-muted-foreground mt-1">Por: {r.remarcado_por_nome}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de rejeição */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
