@@ -347,6 +347,7 @@ Deno.serve(async (req) => {
           contratante_cep = ${s.contratante_cep},
           contratante_telefone = ${s.contratante_telefone},
           contratante_email = ${s.contratante_email},
+          contratante_id = ${s.contratante_id},
           cache_total = ${s.cache_total},
           condicao_pagamento = ${s.condicao_pagamento},
           encargos_extras = ${s.encargos_extras},
