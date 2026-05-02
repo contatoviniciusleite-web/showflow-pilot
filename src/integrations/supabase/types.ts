@@ -362,6 +362,48 @@ export type Database = {
           },
         ]
       }
+      show_reschedules: {
+        Row: {
+          created_at: string
+          data_anterior: string
+          data_nova: string
+          horario_anterior: string | null
+          horario_novo: string | null
+          id: string
+          motivo: string
+          remarcado_por: string | null
+          remarcado_por_nome: string | null
+          show_anterior_id: string | null
+          show_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_anterior: string
+          data_nova: string
+          horario_anterior?: string | null
+          horario_novo?: string | null
+          id?: string
+          motivo: string
+          remarcado_por?: string | null
+          remarcado_por_nome?: string | null
+          show_anterior_id?: string | null
+          show_id: string
+        }
+        Update: {
+          created_at?: string
+          data_anterior?: string
+          data_nova?: string
+          horario_anterior?: string | null
+          horario_novo?: string | null
+          id?: string
+          motivo?: string
+          remarcado_por?: string | null
+          remarcado_por_nome?: string | null
+          show_anterior_id?: string | null
+          show_id?: string
+        }
+        Relationships: []
+      }
       shows: {
         Row: {
           aprovado_em: string | null
@@ -394,16 +436,20 @@ export type Database = {
           created_at: string
           created_by: string | null
           data_show: string
+          data_show_original: string | null
           data_subida: string | null
           encargos_extras: boolean
           endereco: string | null
           horario: string | null
+          horario_original: string | null
           hosp_diaria_alimentacao: boolean
           hosp_hospedagem: boolean
           hosp_traslado: boolean
           id: string
           local: string | null
           prazo_comprovante_em: string | null
+          remarcado_count: number
+          remarcado_de_show_id: string | null
           status: Database["public"]["Enums"]["show_status"]
           tipo_estrutura: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo: boolean
@@ -411,6 +457,9 @@ export type Database = {
           transp_observacoes: string | null
           transp_onibus: boolean
           transp_van: boolean
+          ultima_remarcacao_em: string | null
+          ultima_remarcacao_motivo: string | null
+          ultima_remarcacao_por: string | null
           updated_at: string
           vendedor: string | null
         }
@@ -445,16 +494,20 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_show: string
+          data_show_original?: string | null
           data_subida?: string | null
           encargos_extras?: boolean
           endereco?: string | null
           horario?: string | null
+          horario_original?: string | null
           hosp_diaria_alimentacao?: boolean
           hosp_hospedagem?: boolean
           hosp_traslado?: boolean
           id?: string
           local?: string | null
           prazo_comprovante_em?: string | null
+          remarcado_count?: number
+          remarcado_de_show_id?: string | null
           status?: Database["public"]["Enums"]["show_status"]
           tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo?: boolean
@@ -462,6 +515,9 @@ export type Database = {
           transp_observacoes?: string | null
           transp_onibus?: boolean
           transp_van?: boolean
+          ultima_remarcacao_em?: string | null
+          ultima_remarcacao_motivo?: string | null
+          ultima_remarcacao_por?: string | null
           updated_at?: string
           vendedor?: string | null
         }
@@ -496,16 +552,20 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_show?: string
+          data_show_original?: string | null
           data_subida?: string | null
           encargos_extras?: boolean
           endereco?: string | null
           horario?: string | null
+          horario_original?: string | null
           hosp_diaria_alimentacao?: boolean
           hosp_hospedagem?: boolean
           hosp_traslado?: boolean
           id?: string
           local?: string | null
           prazo_comprovante_em?: string | null
+          remarcado_count?: number
+          remarcado_de_show_id?: string | null
           status?: Database["public"]["Enums"]["show_status"]
           tipo_estrutura?: Database["public"]["Enums"]["estrutura_tipo"] | null
           transp_aereo?: boolean
@@ -513,6 +573,9 @@ export type Database = {
           transp_observacoes?: string | null
           transp_onibus?: boolean
           transp_van?: boolean
+          ultima_remarcacao_em?: string | null
+          ultima_remarcacao_motivo?: string | null
+          ultima_remarcacao_por?: string | null
           updated_at?: string
           vendedor?: string | null
         }
