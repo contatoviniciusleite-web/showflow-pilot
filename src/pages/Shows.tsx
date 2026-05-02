@@ -909,9 +909,26 @@ export default function Shows() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cachê e pagamento</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5" data-field="cache_total">
-                  <Label>Cachê total *</Label>
-                  <CurrencyInput value={form.cache_total} onValueChange={(v) => set("cache_total", v)} invalid={!!errors.cache_total} />
+                  <Label>
+                    Cachê total *{" "}
+                    {cacheMin > 0 && (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        (mínimo: {fmtBRL(cacheMin)})
+                      </span>
+                    )}
+                  </Label>
+                  <CurrencyInput value={form.cache_total} onValueChange={(v) => set("cache_total", v)} invalid={!!errors.cache_total || (cacheBelowMin && !isManager)} />
                   {errors.cache_total && <p className="text-sm text-destructive">{errors.cache_total}</p>}
+                  {cacheBelowMin && !isManager && (
+                    <p className="text-sm text-destructive">
+                      O cachê informado ({fmtBRL(Number(form.cache_total))}) está abaixo do mínimo permitido para este artista ({fmtBRL(cacheMin)}). Somente a gerência pode autorizar valores abaixo do mínimo.
+                    </p>
+                  )}
+                  {cacheBelowMin && isManager && (
+                    <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-900 dark:text-yellow-200">
+                      <strong>Atenção:</strong> cachê abaixo do mínimo definido para este artista. Será salvo como exceção pela gerência.
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center justify-between rounded-md border px-3 py-2 sm:mt-6">
                   <Label htmlFor="encargos" className="cursor-pointer text-sm">Encargos extras por conta do contratante</Label>
