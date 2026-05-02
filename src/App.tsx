@@ -18,6 +18,8 @@ import Bloqueios from "./pages/Bloqueios";
 import Placeholder from "./pages/Placeholder";
 import AgendaPage from "./pages/Agenda";
 import Contratantes from "./pages/Contratantes";
+import Financeiro from "./pages/Financeiro";
+import Relatorios from "./pages/Relatorios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
