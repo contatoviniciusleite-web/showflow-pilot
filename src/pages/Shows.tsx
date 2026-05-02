@@ -322,6 +322,8 @@ export default function Shows() {
       hosp_traslado: !!s.hosp_traslado,
       camarins_rider: s.camarins_rider ?? "",
       autorizado_por: s.autorizado_por ?? "Vitor D.",
+      contratante_id: (s as any).contratante_id ?? "",
+      salvar_contratante: false,
     });
     setOpen(true);
   };
