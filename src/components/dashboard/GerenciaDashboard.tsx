@@ -206,11 +206,24 @@ export function GerenciaDashboard() {
               <div className="h-9 w-9 rounded-full" style={{ background: a.cor }} />
               <div className="min-w-0">
                 <p className="font-semibold truncate">{a.nome}</p>
-                <p className="text-xs text-muted-foreground">{a.confirmados} show(s) confirmado(s)</p>
+                <p className="text-xs text-muted-foreground">
+                  {a.confirmados} confirmado(s){a.pendentes > 0 ? ` · ${a.pendentes} pendente(s)` : ""}
+                </p>
               </div>
             </div>
             <div className="text-sm space-y-1">
-              <p><Wallet className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />{fmtBRL(a.faturamento)}</p>
+              <p>
+                <Wallet className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />
+                <span className="text-green-600 font-medium">{fmtBRL(a.faturamento)}</span>
+                <span className="text-muted-foreground"> confirmado</span>
+              </p>
+              {a.pendenteValor > 0 && (
+                <p>
+                  <Clock className="h-3.5 w-3.5 inline mr-1 text-amber-600" />
+                  <span className="text-amber-600 font-medium">{fmtBRL(a.pendenteValor)}</span>
+                  <span className="text-muted-foreground"> aguardando aprovação</span>
+                </p>
+              )}
               <p className="text-muted-foreground">
                 <CalendarDays className="h-3.5 w-3.5 inline mr-1" />
                 {a.proximo ? `Próximo: ${fmtDate(a.proximo.data_show)}${a.proximo.cidade ? ` · ${a.proximo.cidade}` : ""}` : "Sem próximos shows"}
