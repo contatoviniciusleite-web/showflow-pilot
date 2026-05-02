@@ -288,7 +288,14 @@ export default function Contratantes() {
                           <span className="text-muted-foreground">{fmtDate(s.data_show)}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">{s.local ?? "—"}{s.cidade ? ` — ${s.cidade}` : ""}</div>
-                        <div className="text-xs font-medium">{formatCurrencyBRL(Number(s.cache_total ?? 0))}</div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs font-medium">{formatCurrencyBRL(Number(s.cache_total ?? 0))}</span>
+                          {s.status && (
+                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              {STATUS_LABEL[s.status] ?? s.status}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
