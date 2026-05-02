@@ -992,6 +992,13 @@ export default function Shows() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ShowDetailsModal
+        show={details as any}
+        open={!!details}
+        onClose={() => setDetails(null)}
+        onChanged={load}
+      />
     </div>
   );
 }
