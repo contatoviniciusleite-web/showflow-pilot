@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
+import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { canConfirmPayment } from "@/lib/permissions";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
 type ShowStatus = "pendente" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
@@ -68,6 +70,8 @@ interface Show {
   remarcado_count?: number | null;
   ultima_remarcacao_em?: string | null;
   ultima_remarcacao_motivo?: string | null;
+  confirmado_por_nome?: string | null;
+  confirmado_em?: string | null;
 }
 interface ShowPublic {
   id: string;
@@ -225,7 +229,10 @@ export default function Shows() {
     input.click();
   };
 
+  const [details, setDetails] = useState<Show | null>(null);
   const openDetails = (s: Show) => setDetails(s);
+  const canConfirm = canConfirmPayment(roles);
+
 
 
   const [shows, setShows] = useState<Show[]>([]);
