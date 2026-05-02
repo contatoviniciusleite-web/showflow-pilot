@@ -537,6 +537,7 @@ export type Database = {
           hosp_traslado: boolean
           id: string
           local: string | null
+          notificacao_12h_enviada: boolean
           prazo_comprovante_em: string | null
           remarcado_count: number
           remarcado_de_show_id: string | null
@@ -596,6 +597,7 @@ export type Database = {
           hosp_traslado?: boolean
           id?: string
           local?: string | null
+          notificacao_12h_enviada?: boolean
           prazo_comprovante_em?: string | null
           remarcado_count?: number
           remarcado_de_show_id?: string | null
@@ -655,6 +657,7 @@ export type Database = {
           hosp_traslado?: boolean
           id?: string
           local?: string | null
+          notificacao_12h_enviada?: boolean
           prazo_comprovante_em?: string | null
           remarcado_count?: number
           remarcado_de_show_id?: string | null
@@ -771,6 +774,10 @@ export type Database = {
         Args: { hours_to_add: number; start_ts: string }
         Returns: string
       }
+      add_business_hours_br: {
+        Args: { hours_to_add: number; start_ts: string }
+        Returns: string
+      }
       can_access_comprovante: {
         Args: { _show_id: string; _user_id: string }
         Returns: boolean
@@ -784,6 +791,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_business_day_br: { Args: { d: string }; Returns: boolean }
     }
     Enums: {
       app_role: "gerente" | "equipe" | "artista" | "vendedor" | "financeiro"
