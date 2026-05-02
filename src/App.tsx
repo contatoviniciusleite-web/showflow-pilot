@@ -53,7 +53,14 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/shows" element={<Shows />} />
               <Route path="/agenda" element={<AgendaPage />} />
-              <Route path="/financeiro" element={<Placeholder title="Financeiro" description="Ficha financeira e despesas por show." />} />
+              <Route
+                path="/financeiro"
+                element={
+                  <ProtectedRoute requireRoles={["gerente", "financeiro", "equipe"]}>
+                    <Financeiro />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/contratantes"
                 element={
