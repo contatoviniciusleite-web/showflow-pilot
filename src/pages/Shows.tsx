@@ -612,18 +612,16 @@ export default function Shows() {
                       </Button>
                     </>
                   )}
-                  {(s.status === "aguardando_pagamento") && (s.created_by === user?.id || isEditor) && (
+                  {(s.created_by === user?.id || isEditor || isFinanceiro) && s.status !== "cancelada" && (
                     <Button size="sm" variant="outline" onClick={() => uploadComprovante(s)} title="Anexar comprovante">
                       <Upload className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {(s.status === "comprovante_enviado" || s.status === "confirmado") && (
-                    <Button size="sm" variant="outline" onClick={() => viewComprovante(s)} title="Ver comprovante">
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {s.status === "comprovante_enviado" && (isManager || isFinanceiro) && (
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => confirmPayment(s)} title="Confirmar pagamento">
+                  <Button size="sm" variant="outline" onClick={() => openDetails(s)} title="Anexos / Financeiro">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  {(s.status === "comprovante_enviado" || s.status === "aguardando_pagamento") && canConfirm && (
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openDetails(s)} title="Confirmar pagamento">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
