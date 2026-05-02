@@ -214,6 +214,45 @@ export type Database = {
         }
         Relationships: []
       }
+      show_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          mime_type: string | null
+          show_id: string
+          size_bytes: number | null
+          tipo: string
+          uploaded_by: string
+          uploaded_by_nome: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          mime_type?: string | null
+          show_id: string
+          size_bytes?: number | null
+          tipo?: string
+          uploaded_by: string
+          uploaded_by_nome?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          mime_type?: string | null
+          show_id?: string
+          size_bytes?: number | null
+          tipo?: string
+          uploaded_by?: string
+          uploaded_by_nome?: string | null
+        }
+        Relationships: []
+      }
       show_calendar_events: {
         Row: {
           artist_id: string
@@ -362,6 +401,56 @@ export type Database = {
           },
         ]
       }
+      show_payments: {
+        Row: {
+          attachment_id: string | null
+          conta_destino: string | null
+          created_at: string
+          data_pagamento: string
+          forma_pagamento: string
+          id: string
+          observacoes: string | null
+          registrado_por: string
+          registrado_por_nome: string | null
+          show_id: string
+          valor: number
+        }
+        Insert: {
+          attachment_id?: string | null
+          conta_destino?: string | null
+          created_at?: string
+          data_pagamento: string
+          forma_pagamento?: string
+          id?: string
+          observacoes?: string | null
+          registrado_por: string
+          registrado_por_nome?: string | null
+          show_id: string
+          valor?: number
+        }
+        Update: {
+          attachment_id?: string | null
+          conta_destino?: string | null
+          created_at?: string
+          data_pagamento?: string
+          forma_pagamento?: string
+          id?: string
+          observacoes?: string | null
+          registrado_por?: string
+          registrado_por_nome?: string | null
+          show_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_payments_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "show_attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       show_reschedules: {
         Row: {
           created_at: string
@@ -425,6 +514,7 @@ export type Database = {
           condicao_pagamento: string | null
           confirmado_em: string | null
           confirmado_por: string | null
+          confirmado_por_nome: string | null
           contratante_cep: string | null
           contratante_cidade: string | null
           contratante_documento: string | null
@@ -483,6 +573,7 @@ export type Database = {
           condicao_pagamento?: string | null
           confirmado_em?: string | null
           confirmado_por?: string | null
+          confirmado_por_nome?: string | null
           contratante_cep?: string | null
           contratante_cidade?: string | null
           contratante_documento?: string | null
@@ -541,6 +632,7 @@ export type Database = {
           condicao_pagamento?: string | null
           confirmado_em?: string | null
           confirmado_por?: string | null
+          confirmado_por_nome?: string | null
           contratante_cep?: string | null
           contratante_cidade?: string | null
           contratante_documento?: string | null
