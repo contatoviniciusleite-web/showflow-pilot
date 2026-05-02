@@ -361,7 +361,6 @@ export default function Shows() {
       camarins_rider: s.camarins_rider ?? "",
       autorizado_por: s.autorizado_por ?? "Vitor D.",
       contratante_id: (s as any).contratante_id ?? "",
-      salvar_contratante: false,
     });
     setOpen(true);
   };
@@ -394,24 +393,8 @@ export default function Shows() {
       });
       if (error) throw error;
 
-      // Salvar como novo contratante, se solicitado
-      if (!editing && form.salvar_contratante && !form.contratante_id && form.contratante_nome.trim()) {
-        const { error: cErr } = await supabase.functions.invoke("contratantes-admin", {
-          body: {
-            action: "create",
-            contratante: {
-              nome: form.contratante_nome,
-              documento: form.contratante_documento,
-              endereco: form.contratante_endereco,
-              cidade: form.contratante_cidade,
-              cep: form.contratante_cep,
-              telefone: form.contratante_telefone,
-              email: form.contratante_email,
-            },
-          },
-        });
-        if (cErr) toast.error("Minuta salva, mas falhou ao salvar contratante: " + cErr.message);
-      }
+      // Cadastro automático de contratante: o backend (shows-admin) cuida de
+      // criar/vincular pelo CPF/CNPJ. Não há mais ação manual aqui.
 
       toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
       setOpen(false);
@@ -1042,7 +1025,7 @@ function ContratanteSection({
       contratante_cep: c.cep ?? "",
       contratante_telefone: c.telefone ?? "",
       contratante_email: c.email ?? "",
-      salvar_contratante: false,
+      });
     }));
     setOpenCb(false);
   };
@@ -1135,16 +1118,9 @@ function ContratanteSection({
             className={cn(errors.contratante_email && "border-destructive")} aria-invalid={!!errors.contratante_email} />
           {errors.contratante_email && <p className="text-sm text-destructive">{errors.contratante_email}</p>}
         </div>
-        {!form.contratante_id && form.contratante_nome.trim() && (
-          <div className="sm:col-span-2 flex items-center gap-2 rounded-md border px-3 py-2 bg-muted/30">
-            <Checkbox
-              id="salvar-contratante"
-              checked={form.salvar_contratante}
-              onCheckedChange={(v) => setF("salvar_contratante", !!v)}
-            />
-            <Label htmlFor="salvar-contratante" className="cursor-pointer text-sm font-normal">
-              Salvar como novo contratante ao finalizar a minuta
-            </Label>
+        {!form.contratante_id && form.contratante_nome.trim() && form.contratante_documento.trim() && (
+          <div className="sm:col-span-2 rounded-md border px-3 py-2 bg-muted/30 text-xs text-muted-foreground">
+            Este contratante será cadastrado automaticamente ao salvar a minuta (vinculado pelo CPF/CNPJ).
           </div>
         )}
       </div>
