@@ -367,6 +367,10 @@ export default function Shows() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const selectedArtist = artists.find((a) => a.id === form.artist_id);
+  const cacheMin = Number(selectedArtist?.cache_minimo ?? 0);
+  const cacheBelowMin = cacheMin > 0 && Number(form.cache_total) > 0 && Number(form.cache_total) < cacheMin;
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validateForm(form);
@@ -375,6 +379,15 @@ export default function Shows() {
       const first = Object.keys(errs)[0];
       toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
       const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    // Trava de cachê mínimo (somente gerência pode salvar abaixo)
+    if (cacheBelowMin && !isManager) {
+      toast.error(
+        `O cachê informado (${fmtBRL(Number(form.cache_total))}) está abaixo do mínimo permitido para este artista (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar valores abaixo do mínimo.`,
+      );
+      const el = document.querySelector<HTMLElement>(`[data-field="cache_total"]`);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
