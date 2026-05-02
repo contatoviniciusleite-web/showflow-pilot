@@ -257,6 +257,26 @@ export default function Shows() {
   const [rejectTarget, setRejectTarget] = useState<Show | null>(null);
   const [rejectMotivo, setRejectMotivo] = useState("");
 
+  // Cancelamento
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Show | null>(null);
+  const [cancelMotivo, setCancelMotivo] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+
+  // Remarcação
+  const [reschedOpen, setReschedOpen] = useState(false);
+  const [reschedTarget, setReschedTarget] = useState<Show | null>(null);
+  const [reschedData, setReschedData] = useState("");
+  const [reschedHora, setReschedHora] = useState("");
+  const [reschedMotivo, setReschedMotivo] = useState("");
+  const [rescheduling, setRescheduling] = useState(false);
+
+  // Histórico de remarcações
+  const [histOpen, setHistOpen] = useState(false);
+  const [histTarget, setHistTarget] = useState<Show | null>(null);
+  const [histRows, setHistRows] = useState<any[]>([]);
+  const [histLoading, setHistLoading] = useState(false);
+
   const load = async () => {
     setLoading(true);
     const [showsRes, artistsRes] = await Promise.all([
