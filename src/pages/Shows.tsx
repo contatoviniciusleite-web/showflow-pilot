@@ -92,7 +92,7 @@ const emptyForm = {
   contratante_cep: "",
   contratante_telefone: "",
   contratante_email: "",
-  cache_total: "" as string,
+  cache_total: 0 as number,
   condicao_pagamento: "",
   encargos_extras: false,
   transp_onibus: false,
