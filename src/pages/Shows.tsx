@@ -409,6 +409,9 @@ export default function Shows() {
       // Cadastro automático de contratante: o backend (shows-admin) cuida de
       // criar/vincular pelo CPF/CNPJ. Não há mais ação manual aqui.
 
+      if (cacheBelowMin && isManager) {
+        toast.warning(`Cachê abaixo do mínimo (${fmtBRL(cacheMin)}). Salvo como exceção pela gerência.`);
+      }
       toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
       setOpen(false);
       load();
