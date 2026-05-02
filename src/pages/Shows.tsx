@@ -669,6 +669,123 @@ export default function Shows() {
         </div>
       )}
 
+      {/* Modal de cancelamento */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancelar show</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            O show permanecerá na agenda marcado como <strong>CANCELADO</strong>. Todos os usuários vinculados serão notificados.
+          </p>
+          {cancelTarget && (
+            <div className="text-sm rounded-md border p-2 bg-muted/30">
+              <div className="font-medium">{cancelTarget.artist_nome ?? "—"}</div>
+              <div className="text-muted-foreground">
+                {fmtDate(cancelTarget.data_show)}{cancelTarget.horario ? ` · ${cancelTarget.horario.slice(0, 5)}` : ""}
+                {cancelTarget.local ? ` — ${cancelTarget.local}` : ""}
+              </div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Motivo do cancelamento *</Label>
+            <Textarea rows={4} value={cancelMotivo} onChange={(e) => setCancelMotivo(e.target.value)}
+              placeholder="Explique por que o show está sendo cancelado..." />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancelling}>Voltar</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={cancelling}>
+              {cancelling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de remarcação */}
+      <Dialog open={reschedOpen} onOpenChange={setReschedOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remarcar show</DialogTitle>
+          </DialogHeader>
+          {reschedTarget && (
+            <div className="text-sm rounded-md border p-2 bg-muted/30">
+              <div className="font-medium">{reschedTarget.artist_nome ?? "—"}</div>
+              <div className="text-muted-foreground">
+                Atual: {fmtDate(reschedTarget.data_show)}
+                {reschedTarget.horario ? ` · ${reschedTarget.horario.slice(0, 5)}` : ""}
+                {reschedTarget.local ? ` — ${reschedTarget.local}` : ""}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Nova data *</Label>
+              <Input type="date" value={reschedData} onChange={(e) => setReschedData(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Novo horário *</Label>
+              <Input type="time" value={reschedHora} onChange={(e) => setReschedHora(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Motivo da remarcação *</Label>
+            <Textarea rows={4} value={reschedMotivo} onChange={(e) => setReschedMotivo(e.target.value)}
+              placeholder="Explique por que o show está sendo remarcado..." />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReschedOpen(false)} disabled={rescheduling}>Voltar</Button>
+            <Button onClick={confirmReschedule} disabled={rescheduling}>
+              {rescheduling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar remarcação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Histórico de remarcações */}
+      <Dialog open={histOpen} onOpenChange={setHistOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Histórico de remarcações</DialogTitle>
+          </DialogHeader>
+          {histTarget && (
+            <p className="text-sm text-muted-foreground">
+              {histTarget.artist_nome ?? "—"}{histTarget.local ? ` · ${histTarget.local}` : ""}
+            </p>
+          )}
+          {histLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : histRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma remarcação registrada.</p>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {histRows.map((r) => (
+                <div key={r.id} className="rounded-md border p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">
+                      {fmtDate(r.data_anterior)}{r.horario_anterior ? ` ${String(r.horario_anterior).slice(0, 5)}` : ""}
+                      {" → "}
+                      {fmtDate(r.data_nova)}{r.horario_novo ? ` ${String(r.horario_novo).slice(0, 5)}` : ""}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground"><span className="font-medium text-foreground">Motivo:</span> {r.motivo}</p>
+                  {r.remarcado_por_nome && (
+                    <p className="text-xs text-muted-foreground mt-1">Por: {r.remarcado_por_nome}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de rejeição */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent className="max-w-md">
