@@ -126,7 +126,7 @@ export function GerenciaDashboard() {
       if (!e.proximo || s.data_show < e.proximo.data_show) e.proximo = s;
     }
   }
-  const artistList = Array.from(artistMap.values()).sort((a, b) => b.faturamento - a.faturamento);
+  const artistList = Array.from(artistMap.values()).sort((a, b) => (b.faturamento + b.pendenteValor) - (a.faturamento + a.pendenteValor));
 
   // ===== Vendedores no período =====
   const vendMap = new Map<string, { nome: string; volume: number; total: number; aprovadas: number; rejeitadas: number }>();
