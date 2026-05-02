@@ -328,23 +328,53 @@ export default function Shows() {
     setOpen(true);
   };
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.artist_id) return toast.error("Selecione o artista");
-    if (!form.data_show) return toast.error("Informe a data do show");
+    const errs = validateForm(form);
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      const first = Object.keys(errs)[0];
+      toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
+      const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setErrors({});
     setSaving(true);
     try {
       const payload = {
         ...form,
-        vendedor: myName || form.vendedor, // sempre identificado como o usuário logado
+        vendedor: myName || form.vendedor,
         capacidade: form.capacidade === "" ? null : Number(form.capacidade),
-        cache_total: form.cache_total === "" ? 0 : Number(form.cache_total),
+        cache_total: Number(form.cache_total) || 0,
       };
       const action = editing ? "update" : "create";
       const { error } = await supabase.functions.invoke("shows-admin", {
         body: editing ? { action, id: editing.id, show: payload } : { action, show: payload },
       });
       if (error) throw error;
+
+      // Salvar como novo contratante, se solicitado
+      if (!editing && form.salvar_contratante && !form.contratante_id && form.contratante_nome.trim()) {
+        const { error: cErr } = await supabase.functions.invoke("contratantes-admin", {
+          body: {
+            action: "create",
+            contratante: {
+              nome: form.contratante_nome,
+              documento: form.contratante_documento,
+              endereco: form.contratante_endereco,
+              cidade: form.contratante_cidade,
+              cep: form.contratante_cep,
+              telefone: form.contratante_telefone,
+              email: form.contratante_email,
+            },
+          },
+        });
+        if (cErr) toast.error("Minuta salva, mas falhou ao salvar contratante: " + cErr.message);
+      }
+
       toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
       setOpen(false);
       load();
