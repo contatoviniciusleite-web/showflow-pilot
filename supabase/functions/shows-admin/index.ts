@@ -81,6 +81,7 @@ function validateShow(input: any) {
     contratante_cep: txt(input.contratante_cep, 20),
     contratante_telefone: txt(input.contratante_telefone, 50),
     contratante_email: txt(input.contratante_email, 200),
+    contratante_id: txt(input.contratante_id, 64),
     cache_total: num(input.cache_total),
     condicao_pagamento: txt(input.condicao_pagamento, 2000),
     encargos_extras: bool(input.encargos_extras),
