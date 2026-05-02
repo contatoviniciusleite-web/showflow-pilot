@@ -1025,7 +1025,6 @@ function ContratanteSection({
       contratante_cep: c.cep ?? "",
       contratante_telefone: c.telefone ?? "",
       contratante_email: c.email ?? "",
-      });
     }));
     setOpenCb(false);
   };
