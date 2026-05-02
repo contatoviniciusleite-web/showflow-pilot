@@ -1,0 +1,2 @@
+ALTER TABLE public.notifications DROP CONSTRAINT notifications_tipo_check;
+ALTER TABLE public.notifications ADD CONSTRAINT notifications_tipo_check CHECK (tipo = ANY (ARRAY['minuta_aprovada'::text, 'minuta_rejeitada'::text, 'comprovante_enviado'::text, 'comprovante_recebido'::text, 'show_confirmado'::text, 'show_cancelado'::text, 'show_remarcado'::text, 'aviso_prazo'::text, 'auto_aprovado'::text]));
