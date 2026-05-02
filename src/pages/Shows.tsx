@@ -563,43 +563,43 @@ export default function Shows() {
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Identificação</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 sm:col-span-2">
+                <div className="space-y-1.5 sm:col-span-2" data-field="artist_id">
                   <Label>Artista *</Label>
                   <Select value={form.artist_id} onValueChange={(v) => set("artist_id", v)}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o artista" /></SelectTrigger>
+                    <SelectTrigger className={cn(errors.artist_id && "border-destructive")}>
+                      <SelectValue placeholder="Selecione o artista" />
+                    </SelectTrigger>
                     <SelectContent>
                       {artists.map((a) => (
                         <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.artist_id && <p className="text-sm text-destructive">{errors.artist_id}</p>}
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5" data-field="data_show">
                   <Label>Data do show *</Label>
-                  <Input type="date" value={form.data_show} onChange={(e) => set("data_show", e.target.value)} required />
+                  <Input type="date" value={form.data_show} onChange={(e) => set("data_show", e.target.value)}
+                    className={cn(errors.data_show && "border-destructive")} aria-invalid={!!errors.data_show} />
+                  {errors.data_show && <p className="text-sm text-destructive">{errors.data_show}</p>}
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Horário</Label>
-                  <Input type="time" value={form.horario} onChange={(e) => set("horario", e.target.value)} />
+                <div className="space-y-1.5" data-field="horario">
+                  <Label>Horário *</Label>
+                  <Input type="time" value={form.horario} onChange={(e) => set("horario", e.target.value)}
+                    className={cn(errors.horario && "border-destructive")} aria-invalid={!!errors.horario} />
+                  {errors.horario && <p className="text-sm text-destructive">{errors.horario}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-muted-foreground">Data de subida</Label>
                   <Input
                     value={editing ? new Date(editing.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Será registrada automaticamente ao salvar"}
-                    readOnly
-                    disabled
-                    className="bg-muted/50 cursor-not-allowed"
+                    readOnly disabled className="bg-muted/50 cursor-not-allowed"
                   />
                   <p className="text-[11px] text-muted-foreground">Preenchida automaticamente no momento do cadastro — não editável.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Vendedor responsável</Label>
-                  <Input
-                    value={myName || form.vendedor || "—"}
-                    readOnly
-                    disabled
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input value={myName || form.vendedor || "—"} readOnly disabled className="bg-muted/50 cursor-not-allowed" />
                   <p className="text-[11px] text-muted-foreground">Identificado automaticamente pelo usuário logado — não editável.</p>
                 </div>
               </div>
@@ -609,9 +609,10 @@ export default function Shows() {
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Local do evento</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Nome do local</Label>
-                  <Input value={form.local} onChange={(e) => set("local", e.target.value)} />
+                <div className="space-y-1.5 sm:col-span-2" data-field="local">
+                  <Label>Nome do local *</Label>
+                  <TitleCaseInput value={form.local} onValueChange={(v) => set("local", v)} invalid={!!errors.local} />
+                  {errors.local && <p className="text-sm text-destructive">{errors.local}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Tipo de estrutura</Label>
@@ -629,70 +630,42 @@ export default function Shows() {
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Endereço</Label>
-                  <Input value={form.endereco} onChange={(e) => set("endereco", e.target.value)} />
+                  <TitleCaseInput value={form.endereco} onValueChange={(v) => set("endereco", v)} />
                 </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Cidade</Label>
-                  <Input value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
+                <div className="space-y-1.5 sm:col-span-2" data-field="cidade">
+                  <Label>Cidade *</Label>
+                  <TitleCaseInput value={form.cidade} onValueChange={(v) => set("cidade", v)} invalid={!!errors.cidade} />
+                  {errors.cidade && <p className="text-sm text-destructive">{errors.cidade}</p>}
                 </div>
               </div>
             </section>
 
             {/* 3. Contratante */}
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contratante</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Nome / Razão social</Label>
-                  <Input value={form.contratante_nome} onChange={(e) => set("contratante_nome", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>CNPJ / CPF</Label>
-                  <Input value={form.contratante_documento} onChange={(e) => set("contratante_documento", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>CEP</Label>
-                  <Input value={form.contratante_cep} onChange={(e) => set("contratante_cep", e.target.value)} />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Endereço</Label>
-                  <Input value={form.contratante_endereco} onChange={(e) => set("contratante_endereco", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Cidade</Label>
-                  <Input value={form.contratante_cidade} onChange={(e) => set("contratante_cidade", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone</Label>
-                  <Input value={form.contratante_telefone} onChange={(e) => set("contratante_telefone", e.target.value)} />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={form.contratante_email} onChange={(e) => set("contratante_email", e.target.value)} />
-                </div>
-              </div>
-            </section>
+            <ContratanteSection form={form} setForm={setForm} errors={errors} />
 
             {/* 4. Cachê */}
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cachê e pagamento</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Cachê total (R$)</Label>
-                  <Input type="number" min={0} step="0.01" value={form.cache_total} onChange={(e) => set("cache_total", e.target.value)} />
+                <div className="space-y-1.5" data-field="cache_total">
+                  <Label>Cachê total *</Label>
+                  <CurrencyInput value={form.cache_total} onValueChange={(v) => set("cache_total", v)} invalid={!!errors.cache_total} />
+                  {errors.cache_total && <p className="text-sm text-destructive">{errors.cache_total}</p>}
                 </div>
                 <div className="flex items-center justify-between rounded-md border px-3 py-2 sm:mt-6">
                   <Label htmlFor="encargos" className="cursor-pointer text-sm">Encargos extras por conta do contratante</Label>
                   <Switch id="encargos" checked={form.encargos_extras} onCheckedChange={(v) => set("encargos_extras", v)} />
                 </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Condição de pagamento</Label>
-                  <Textarea rows={3} value={form.condicao_pagamento} onChange={(e) => set("condicao_pagamento", e.target.value)} placeholder="Ex: 50% sinal na assinatura, 50% até 24h antes do show via PIX..." />
+                <div className="space-y-1.5 sm:col-span-2" data-field="condicao_pagamento">
+                  <Label>Condição de pagamento *</Label>
+                  <Textarea rows={3} value={form.condicao_pagamento} onChange={(e) => set("condicao_pagamento", e.target.value)}
+                    className={cn(errors.condicao_pagamento && "border-destructive")} aria-invalid={!!errors.condicao_pagamento}
+                    placeholder="Ex: 50% sinal na assinatura, 50% até 24h antes do show via PIX..." />
+                  {errors.condicao_pagamento && <p className="text-sm text-destructive">{errors.condicao_pagamento}</p>}
                 </div>
               </div>
             </section>
 
-            {/* 5. Transporte */}
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Transporte</h3>
               <div className="grid grid-cols-2 gap-3">
