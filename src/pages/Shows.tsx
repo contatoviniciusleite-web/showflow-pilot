@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
+import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { canConfirmPayment } from "@/lib/permissions";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
 type ShowStatus = "pendente" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
@@ -68,6 +70,8 @@ interface Show {
   remarcado_count?: number | null;
   ultima_remarcacao_em?: string | null;
   ultima_remarcacao_motivo?: string | null;
+  confirmado_por_nome?: string | null;
+  confirmado_em?: string | null;
 }
 interface ShowPublic {
   id: string;
@@ -208,32 +212,27 @@ export default function Shows() {
       });
       if (upErr) return toast.error(upErr.message);
       const { error } = await supabase.functions.invoke("shows-admin", {
-        body: { action: "upload_comprovante", id: s.id, path },
+        body: {
+          action: "add_attachment",
+          show_id: s.id,
+          path,
+          file_name: file.name,
+          mime_type: file.type,
+          size_bytes: file.size,
+          tipo: "comprovante",
+        },
       });
       if (error) return toast.error(error.message);
-      toast.success("Comprovante enviado");
+      toast.success("Comprovante anexado");
       load();
     };
     input.click();
   };
 
-  const viewComprovante = async (s: Show) => {
-    const { data, error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "comprovante_signed_url", id: s.id },
-    });
-    if (error) return toast.error(error.message);
-    if (data?.url) window.open(data.url, "_blank");
-  };
+  const [details, setDetails] = useState<Show | null>(null);
+  const openDetails = (s: Show) => setDetails(s);
+  const canConfirm = canConfirmPayment(roles);
 
-  const confirmPayment = async (s: Show) => {
-    if (!confirm("Confirmar o pagamento do sinal deste show?")) return;
-    const { error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "confirm_payment", id: s.id },
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Pagamento confirmado");
-    load();
-  };
 
 
   const [shows, setShows] = useState<Show[]>([]);
@@ -613,18 +612,16 @@ export default function Shows() {
                       </Button>
                     </>
                   )}
-                  {(s.status === "aguardando_pagamento") && (s.created_by === user?.id || isEditor) && (
+                  {(s.created_by === user?.id || isEditor || isFinanceiro) && s.status !== "cancelada" && (
                     <Button size="sm" variant="outline" onClick={() => uploadComprovante(s)} title="Anexar comprovante">
                       <Upload className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {(s.status === "comprovante_enviado" || s.status === "confirmado") && (
-                    <Button size="sm" variant="outline" onClick={() => viewComprovante(s)} title="Ver comprovante">
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {s.status === "comprovante_enviado" && (isManager || isFinanceiro) && (
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => confirmPayment(s)} title="Confirmar pagamento">
+                  <Button size="sm" variant="outline" onClick={() => openDetails(s)} title="Anexos / Financeiro">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  {(s.status === "comprovante_enviado" || s.status === "aguardando_pagamento") && canConfirm && (
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openDetails(s)} title="Confirmar pagamento">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
@@ -995,6 +992,13 @@ export default function Shows() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ShowDetailsModal
+        show={details as any}
+        open={!!details}
+        onClose={() => setDetails(null)}
+        onChanged={load}
+      />
     </div>
   );
 }
