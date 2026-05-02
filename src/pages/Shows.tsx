@@ -555,14 +555,39 @@ export default function Shows() {
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
                     <h3 className="font-semibold truncate">{s.artist_nome ?? "—"}</h3>
                     <StatusBadge status={s.status} />
+                    {(s.remarcado_count ?? 0) > 0 && (
+                      <Badge className="bg-amber-500 hover:bg-amber-500 text-white">REMARCADO</Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {fmtDate(s.data_show)}{s.horario ? ` · ${s.horario.slice(0, 5)}` : ""}
                   </p>
+                  {(s.remarcado_count ?? 0) > 0 && s.data_show_original && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                      Data original: {fmtDate(s.data_show_original)}
+                      {s.horario_original ? ` · ${String(s.horario_original).slice(0, 5)}` : ""}
+                    </p>
+                  )}
                   <p className="text-sm mt-1 truncate">{s.local ?? "Local não informado"}{s.cidade ? ` — ${s.cidade}` : ""}</p>
                   <p className="text-sm font-medium mt-2">{fmtBRL(Number(s.cache_total ?? 0))}</p>
                   {s.contratante_nome && <p className="text-xs text-muted-foreground mt-1 truncate">Contratante: {s.contratante_nome}</p>}
                   {s.vendedor && <p className="text-xs text-muted-foreground mt-1 truncate">Vendedor: {s.vendedor}</p>}
+                  {s.status === "cancelada" && (
+                    <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2">
+                      {(isManager || isFinanceiro || isArtista) && s.cancelado_motivo ? (
+                        <p className="text-xs text-destructive">
+                          <span className="font-semibold">Motivo do cancelamento:</span> {s.cancelado_motivo}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-destructive font-semibold">Show Cancelado</p>
+                      )}
+                    </div>
+                  )}
+                  {(s.remarcado_count ?? 0) > 0 && s.ultima_remarcacao_motivo && (isManager || isFinanceiro || isArtista) && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <span className="font-semibold">Motivo da remarcação:</span> {s.ultima_remarcacao_motivo}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   {isManager && s.status === "pendente" && (
@@ -590,8 +615,23 @@ export default function Shows() {
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isEditor && (
+                  {isEditor && s.status !== "cancelada" && (
                     <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                  )}
+                  {isManager && s.status !== "cancelada" && (
+                    <Button size="sm" variant="outline" onClick={() => openReschedule(s)} title="Remarcar show">
+                      <CalendarClock className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {isManager && s.status !== "cancelada" && (
+                    <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => openCancel(s)} title="Cancelar show">
+                      <Ban className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {(s.remarcado_count ?? 0) > 0 && (isManager || isFinanceiro) && (
+                    <Button size="sm" variant="ghost" onClick={() => openHistory(s)} title="Histórico de remarcações">
+                      <History className="h-3.5 w-3.5" />
+                    </Button>
                   )}
                   {isManager && (
                     <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(s)} title="Excluir">
