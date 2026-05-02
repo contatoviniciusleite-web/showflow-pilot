@@ -17,6 +17,7 @@ import Shows from "./pages/Shows";
 import Bloqueios from "./pages/Bloqueios";
 import Placeholder from "./pages/Placeholder";
 import AgendaPage from "./pages/Agenda";
+import Contratantes from "./pages/Contratantes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
