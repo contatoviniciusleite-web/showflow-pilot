@@ -186,13 +186,26 @@ export default function Shows() {
   const uploadComprovante = async (s: Show) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*,application/pdf";
+    input.accept = "application/pdf,image/png,image/jpeg,image/jpg";
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
-      const ext = file.name.split(".").pop() ?? "bin";
-      const path = `${s.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("comprovantes").upload(path, file);
+      const allowed = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+      if (!allowed.includes(file.type)) {
+        return toast.error("Formato inválido. Use PDF, JPG, JPEG ou PNG.");
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        return toast.error("Arquivo excede 10MB.");
+      }
+      const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
+      const slug = (s.artist_nome ?? "artista")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const path = `${s.id}/${slug}-${s.data_show}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("comprovantes").upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
       if (upErr) return toast.error(upErr.message);
       const { error } = await supabase.functions.invoke("shows-admin", {
         body: { action: "upload_comprovante", id: s.id, path },
