@@ -31,6 +31,8 @@ interface OwnShow {
   cidade: string | null;
   cache_total: number;
   status: ShowStatus;
+  created_by?: string | null;
+  vendedor?: string | null;
 }
 interface PublicShow {
   id: string;
