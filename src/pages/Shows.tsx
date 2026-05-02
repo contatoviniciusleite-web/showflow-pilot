@@ -187,8 +187,13 @@ export default function Shows() {
         .select("nome")
         .eq("id", user.id)
         .maybeSingle();
+      const metaNome = (user.user_metadata as any)?.nome as string | undefined;
       const fallback = user.email?.split("@")[0] ?? "";
-      setMyName((data?.nome && data.nome.trim()) || fallback);
+      setMyName(
+        (data?.nome && data.nome.trim()) ||
+        (metaNome && metaNome.trim()) ||
+        fallback
+      );
     })();
   }, [user?.id, user?.email]);
 
