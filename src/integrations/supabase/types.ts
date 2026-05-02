@@ -109,6 +109,54 @@ export type Database = {
           },
         ]
       }
+      contratantes: {
+        Row: {
+          cep: string | null
+          cidade: string | null
+          created_at: string
+          created_by: string | null
+          documento: string | null
+          email: string | null
+          endereco: string | null
+          estado: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          cep?: string | null
+          cidade?: string | null
+          created_at?: string
+          created_by?: string | null
+          documento?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cep?: string | null
+          cidade?: string | null
+          created_at?: string
+          created_by?: string | null
+          documento?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -340,6 +388,7 @@ export type Database = {
           contratante_documento: string | null
           contratante_email: string | null
           contratante_endereco: string | null
+          contratante_id: string | null
           contratante_nome: string | null
           contratante_telefone: string | null
           created_at: string
@@ -390,6 +439,7 @@ export type Database = {
           contratante_documento?: string | null
           contratante_email?: string | null
           contratante_endereco?: string | null
+          contratante_id?: string | null
           contratante_nome?: string | null
           contratante_telefone?: string | null
           created_at?: string
@@ -440,6 +490,7 @@ export type Database = {
           contratante_documento?: string | null
           contratante_email?: string | null
           contratante_endereco?: string | null
+          contratante_id?: string | null
           contratante_nome?: string | null
           contratante_telefone?: string | null
           created_at?: string
