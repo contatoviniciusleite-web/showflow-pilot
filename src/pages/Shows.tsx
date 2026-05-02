@@ -117,7 +117,6 @@ const emptyForm = {
   camarins_rider: "",
   autorizado_por: "Vitor D.",
   contratante_id: "" as string,
-  salvar_contratante: false,
 };
 
 const REQUIRED_FIELDS = [
@@ -362,12 +361,15 @@ export default function Shows() {
       camarins_rider: s.camarins_rider ?? "",
       autorizado_por: s.autorizado_por ?? "Vitor D.",
       contratante_id: (s as any).contratante_id ?? "",
-      salvar_contratante: false,
     });
     setOpen(true);
   };
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const selectedArtist = artists.find((a) => a.id === form.artist_id);
+  const cacheMin = Number(selectedArtist?.cache_minimo ?? 0);
+  const cacheBelowMin = cacheMin > 0 && Number(form.cache_total) > 0 && Number(form.cache_total) < cacheMin;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -377,6 +379,15 @@ export default function Shows() {
       const first = Object.keys(errs)[0];
       toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
       const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    // Trava de cachê mínimo (somente gerência pode salvar abaixo)
+    if (cacheBelowMin && !isManager) {
+      toast.error(
+        `O cachê informado (${fmtBRL(Number(form.cache_total))}) está abaixo do mínimo permitido para este artista (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar valores abaixo do mínimo.`,
+      );
+      const el = document.querySelector<HTMLElement>(`[data-field="cache_total"]`);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -395,25 +406,12 @@ export default function Shows() {
       });
       if (error) throw error;
 
-      // Salvar como novo contratante, se solicitado
-      if (!editing && form.salvar_contratante && !form.contratante_id && form.contratante_nome.trim()) {
-        const { error: cErr } = await supabase.functions.invoke("contratantes-admin", {
-          body: {
-            action: "create",
-            contratante: {
-              nome: form.contratante_nome,
-              documento: form.contratante_documento,
-              endereco: form.contratante_endereco,
-              cidade: form.contratante_cidade,
-              cep: form.contratante_cep,
-              telefone: form.contratante_telefone,
-              email: form.contratante_email,
-            },
-          },
-        });
-        if (cErr) toast.error("Minuta salva, mas falhou ao salvar contratante: " + cErr.message);
-      }
+      // Cadastro automático de contratante: o backend (shows-admin) cuida de
+      // criar/vincular pelo CPF/CNPJ. Não há mais ação manual aqui.
 
+      if (cacheBelowMin && isManager) {
+        toast.warning(`Cachê abaixo do mínimo (${fmtBRL(cacheMin)}). Salvo como exceção pela gerência.`);
+      }
       toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
       setOpen(false);
       load();
@@ -911,9 +909,26 @@ export default function Shows() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cachê e pagamento</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5" data-field="cache_total">
-                  <Label>Cachê total *</Label>
-                  <CurrencyInput value={form.cache_total} onValueChange={(v) => set("cache_total", v)} invalid={!!errors.cache_total} />
+                  <Label>
+                    Cachê total *{" "}
+                    {cacheMin > 0 && (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        (mínimo: {fmtBRL(cacheMin)})
+                      </span>
+                    )}
+                  </Label>
+                  <CurrencyInput value={form.cache_total} onValueChange={(v) => set("cache_total", v)} invalid={!!errors.cache_total || (cacheBelowMin && !isManager)} />
                   {errors.cache_total && <p className="text-sm text-destructive">{errors.cache_total}</p>}
+                  {cacheBelowMin && !isManager && (
+                    <p className="text-sm text-destructive">
+                      O cachê informado ({fmtBRL(Number(form.cache_total))}) está abaixo do mínimo permitido para este artista ({fmtBRL(cacheMin)}). Somente a gerência pode autorizar valores abaixo do mínimo.
+                    </p>
+                  )}
+                  {cacheBelowMin && isManager && (
+                    <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-900 dark:text-yellow-200">
+                      <strong>Atenção:</strong> cachê abaixo do mínimo definido para este artista. Será salvo como exceção pela gerência.
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center justify-between rounded-md border px-3 py-2 sm:mt-6">
                   <Label htmlFor="encargos" className="cursor-pointer text-sm">Encargos extras por conta do contratante</Label>
@@ -1043,7 +1058,6 @@ function ContratanteSection({
       contratante_cep: c.cep ?? "",
       contratante_telefone: c.telefone ?? "",
       contratante_email: c.email ?? "",
-      salvar_contratante: false,
     }));
     setOpenCb(false);
   };
@@ -1136,16 +1150,9 @@ function ContratanteSection({
             className={cn(errors.contratante_email && "border-destructive")} aria-invalid={!!errors.contratante_email} />
           {errors.contratante_email && <p className="text-sm text-destructive">{errors.contratante_email}</p>}
         </div>
-        {!form.contratante_id && form.contratante_nome.trim() && (
-          <div className="sm:col-span-2 flex items-center gap-2 rounded-md border px-3 py-2 bg-muted/30">
-            <Checkbox
-              id="salvar-contratante"
-              checked={form.salvar_contratante}
-              onCheckedChange={(v) => setF("salvar_contratante", !!v)}
-            />
-            <Label htmlFor="salvar-contratante" className="cursor-pointer text-sm font-normal">
-              Salvar como novo contratante ao finalizar a minuta
-            </Label>
+        {!form.contratante_id && form.contratante_nome.trim() && form.contratante_documento.trim() && (
+          <div className="sm:col-span-2 rounded-md border px-3 py-2 bg-muted/30 text-xs text-muted-foreground">
+            Este contratante será cadastrado automaticamente ao salvar a minuta (vinculado pelo CPF/CNPJ).
           </div>
         )}
       </div>

@@ -2,16 +2,24 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { AttachmentsTab } from "./AttachmentsTab";
 import { PaymentsTab } from "./PaymentsTab";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AlertTriangle } from "lucide-react";
 
 interface ShowLite {
   id: string;
   artist_nome?: string | null;
+  artist_cache_minimo?: number | null;
   data_show: string;
   horario?: string | null;
   local?: string | null;
@@ -32,23 +40,71 @@ interface Props {
   onChanged?: () => void;
 }
 
+function fmtBRL(n: number) {
+  return Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   const { roles, user } = useAuth();
   const [tab, setTab] = useState("geral");
+  const [busy, setBusy] = useState(false);
+  const [rejectMotivo, setRejectMotivo] = useState("");
+  const [showReject, setShowReject] = useState(false);
+  const [reschedDate, setReschedDate] = useState("");
+  const [reschedTime, setReschedTime] = useState("");
+  const [reschedMotivo, setReschedMotivo] = useState("");
+  const [showResched, setShowResched] = useState(false);
 
   if (!show) return null;
   const isArtista = roles.includes("artista") && roles.length === 1;
+  const isManager = roles.includes("gerente");
+  const isFinanceiro = roles.includes("financeiro");
   const isOwner = show.created_by && user?.id === show.created_by;
-  const isVendedorOnly = roles.includes("vendedor") && !roles.includes("gerente") && !roles.includes("equipe") && !roles.includes("financeiro");
   const canUpload =
     roles.includes("gerente") || roles.includes("equipe") || roles.includes("financeiro") ||
     (roles.includes("vendedor") && isOwner);
+
+  const cacheMin = Number(show.artist_cache_minimo ?? 0);
+  const cacheTotal = Number(show.cache_total ?? 0);
+  const isExcecaoCache = cacheMin > 0 && cacheTotal > 0 && cacheTotal < cacheMin;
+  const canSeeExcecao = isManager || isFinanceiro;
+
+  const callAction = async (action: string, extra: Record<string, unknown> = {}) => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.functions.invoke("shows-admin", {
+        body: { action, id: show.id, ...extra },
+      });
+      if (error) throw error;
+      toast.success("Ação realizada");
+      onChanged?.();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message ?? "Falha na ação");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = () => callAction("approve");
+  const cancel = async () => {
+    if (!confirm("Confirmar cancelamento deste show?")) return;
+    await callAction("cancel", { motivo: "Cancelado pela gerência" });
+  };
+  const reject = async () => {
+    if (!rejectMotivo.trim()) return toast.error("Informe o motivo da rejeição");
+    await callAction("reject", { motivo: rejectMotivo });
+  };
+  const reschedule = async () => {
+    if (!reschedDate || !reschedMotivo.trim()) return toast.error("Informe nova data e motivo");
+    await callAction("reschedule", { data_nova: reschedDate, horario_novo: reschedTime || null, motivo: reschedMotivo });
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             {show.artist_nome ?? "Show"}
             <Badge className={(STATUS_CLASS as any)[show.status]}>{(STATUS_LABEL as any)[show.status] ?? show.status}</Badge>
           </DialogTitle>
@@ -61,13 +117,67 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
             {!isArtista && <TabsTrigger value="anexos">Anexos</TabsTrigger>}
           </TabsList>
 
-          <TabsContent value="geral" className="space-y-2 text-sm">
+          <TabsContent value="geral" className="space-y-3 text-sm">
             <p><strong>Data:</strong> {format(new Date(show.data_show + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}{show.horario ? ` às ${show.horario.slice(0,5)}` : ""}</p>
             {show.local && <p><strong>Local:</strong> {show.local}{show.cidade ? ` · ${show.cidade}` : ""}</p>}
             {show.contratante_nome && <p><strong>Contratante:</strong> {show.contratante_nome}</p>}
             {show.vendedor && <p><strong>Vendedor:</strong> {show.vendedor}</p>}
             {typeof show.cache_total === "number" && (
-              <p><strong>Cachê:</strong> {Number(show.cache_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+              <p><strong>Cachê:</strong> {fmtBRL(cacheTotal)}</p>
+            )}
+
+            {isExcecaoCache && canSeeExcecao && (
+              <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-sm flex gap-2 items-start">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-600 dark:text-yellow-400" />
+                <div>
+                  <p className="font-medium">Exceção de cachê — abaixo do mínimo</p>
+                  <p className="text-muted-foreground">
+                    Cachê: {fmtBRL(cacheTotal)} · Mínimo do artista: {fmtBRL(cacheMin)}. Salvo como exceção pela gerência.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isManager && show.status !== "cancelada" && (
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Ações de gerência</p>
+                <div className="flex flex-wrap gap-2">
+                  {show.status === "pendente" && (
+                    <>
+                      <Button size="sm" onClick={approve} disabled={busy}>Aprovar</Button>
+                      <Button size="sm" variant="outline" onClick={() => setShowReject((v) => !v)} disabled={busy}>Rejeitar</Button>
+                    </>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => setShowResched((v) => !v)} disabled={busy}>Remarcar</Button>
+                  <Button size="sm" variant="destructive" onClick={cancel} disabled={busy}>Cancelar show</Button>
+                </div>
+
+                {showReject && (
+                  <div className="space-y-2 rounded-md border p-3">
+                    <Label>Motivo da rejeição</Label>
+                    <Textarea rows={2} value={rejectMotivo} onChange={(e) => setRejectMotivo(e.target.value)} />
+                    <Button size="sm" onClick={reject} disabled={busy}>Confirmar rejeição</Button>
+                  </div>
+                )}
+
+                {showResched && (
+                  <div className="space-y-2 rounded-md border p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>Nova data</Label>
+                        <Input type="date" value={reschedDate} onChange={(e) => setReschedDate(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Novo horário</Label>
+                        <Input type="time" value={reschedTime} onChange={(e) => setReschedTime(e.target.value)} />
+                      </div>
+                    </div>
+                    <Label>Motivo</Label>
+                    <Textarea rows={2} value={reschedMotivo} onChange={(e) => setReschedMotivo(e.target.value)} />
+                    <Button size="sm" onClick={reschedule} disabled={busy}>Confirmar remarcação</Button>
+                  </div>
+                )}
+              </div>
             )}
           </TabsContent>
 

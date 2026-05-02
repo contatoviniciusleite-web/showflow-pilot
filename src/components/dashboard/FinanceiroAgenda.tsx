@@ -16,6 +16,7 @@ interface FShow {
   artist_id: string;
   artist_nome?: string | null;
   artist_cor?: string | null;
+  artist_cache_minimo?: number | null;
   data_show: string;
   horario: string | null;
   local: string | null;
