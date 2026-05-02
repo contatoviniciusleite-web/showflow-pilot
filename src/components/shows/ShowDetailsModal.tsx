@@ -12,6 +12,7 @@ import { ptBR } from "date-fns/locale";
 interface ShowLite {
   id: string;
   artist_nome?: string | null;
+  artist_cache_minimo?: number | null;
   data_show: string;
   horario?: string | null;
   local?: string | null;
