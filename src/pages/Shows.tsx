@@ -19,7 +19,7 @@ import { TitleCaseInput } from "@/components/ui/title-case-input";
 import { formatCEP, formatCpfCnpj, formatPhoneBR, toTitleCase } from "@/lib/masks";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
