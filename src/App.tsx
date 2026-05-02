@@ -18,6 +18,8 @@ import Bloqueios from "./pages/Bloqueios";
 import Placeholder from "./pages/Placeholder";
 import AgendaPage from "./pages/Agenda";
 import Contratantes from "./pages/Contratantes";
+import Financeiro from "./pages/Financeiro";
+import Relatorios from "./pages/Relatorios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,7 +53,14 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/shows" element={<Shows />} />
               <Route path="/agenda" element={<AgendaPage />} />
-              <Route path="/financeiro" element={<Placeholder title="Financeiro" description="Ficha financeira e despesas por show." />} />
+              <Route
+                path="/financeiro"
+                element={
+                  <ProtectedRoute requireRoles={["gerente", "financeiro", "equipe"]}>
+                    <Financeiro />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/contratantes"
                 element={
@@ -63,8 +72,8 @@ const App = () => (
               <Route
                 path="/relatorios"
                 element={
-                  <ProtectedRoute requireRoles={["gerente"]}>
-                    <Placeholder title="Relatórios" description="Relatórios por artista e período." />
+                  <ProtectedRoute requireRoles={["gerente", "financeiro", "vendedor"]}>
+                    <Relatorios />
                   </ProtectedRoute>
                 }
               />
