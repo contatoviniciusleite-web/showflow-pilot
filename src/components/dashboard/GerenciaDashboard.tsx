@@ -105,23 +105,28 @@ export function GerenciaDashboard() {
   const aguardandoAprov = shows.filter((s) => s.status === "pendente");
 
   // ===== Por artista (mês) =====
-  const artistMap = new Map<string, { id: string; nome: string; cor: string; confirmados: number; faturamento: number; proximo?: ShowFull }>();
+  const artistMap = new Map<string, { id: string; nome: string; cor: string; confirmados: number; pendentes: number; faturamento: number; pendenteValor: number; proximo?: ShowFull }>();
   for (const s of shows) {
     if (!s.artist_id) continue;
     if (!artistMap.has(s.artist_id)) {
-      artistMap.set(s.artist_id, { id: s.artist_id, nome: s.artist_nome ?? "—", cor: s.artist_cor ?? "#888", confirmados: 0, faturamento: 0 });
+      artistMap.set(s.artist_id, { id: s.artist_id, nome: s.artist_nome ?? "—", cor: s.artist_cor ?? "#888", confirmados: 0, pendentes: 0, faturamento: 0, pendenteValor: 0 });
     }
     const e = artistMap.get(s.artist_id)!;
-    if (inRange(s.data_show, month.start, month.end) && isApprovedStatus(s.status)) {
-      e.confirmados += 1;
-      e.faturamento += Number(s.cache_total ?? 0);
+    if (inRange(s.data_show, month.start, month.end)) {
+      if (isApprovedStatus(s.status)) {
+        e.confirmados += 1;
+        e.faturamento += Number(s.cache_total ?? 0);
+      } else if (s.status === "pendente") {
+        e.pendentes += 1;
+        e.pendenteValor += Number(s.cache_total ?? 0);
+      }
     }
     const today = new Date().toISOString().slice(0, 10);
     if (s.data_show >= today && s.status !== "cancelada") {
       if (!e.proximo || s.data_show < e.proximo.data_show) e.proximo = s;
     }
   }
-  const artistList = Array.from(artistMap.values()).sort((a, b) => b.faturamento - a.faturamento);
+  const artistList = Array.from(artistMap.values()).sort((a, b) => (b.faturamento + b.pendenteValor) - (a.faturamento + a.pendenteValor));
 
   // ===== Vendedores no período =====
   const vendMap = new Map<string, { nome: string; volume: number; total: number; aprovadas: number; rejeitadas: number }>();
@@ -201,11 +206,24 @@ export function GerenciaDashboard() {
               <div className="h-9 w-9 rounded-full" style={{ background: a.cor }} />
               <div className="min-w-0">
                 <p className="font-semibold truncate">{a.nome}</p>
-                <p className="text-xs text-muted-foreground">{a.confirmados} show(s) confirmado(s)</p>
+                <p className="text-xs text-muted-foreground">
+                  {a.confirmados} confirmado(s){a.pendentes > 0 ? ` · ${a.pendentes} pendente(s)` : ""}
+                </p>
               </div>
             </div>
             <div className="text-sm space-y-1">
-              <p><Wallet className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />{fmtBRL(a.faturamento)}</p>
+              <p>
+                <Wallet className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />
+                <span className="text-green-600 font-medium">{fmtBRL(a.faturamento)}</span>
+                <span className="text-muted-foreground"> confirmado</span>
+              </p>
+              {a.pendenteValor > 0 && (
+                <p>
+                  <Clock className="h-3.5 w-3.5 inline mr-1 text-amber-600" />
+                  <span className="text-amber-600 font-medium">{fmtBRL(a.pendenteValor)}</span>
+                  <span className="text-muted-foreground"> aguardando aprovação</span>
+                </p>
+              )}
               <p className="text-muted-foreground">
                 <CalendarDays className="h-3.5 w-3.5 inline mr-1" />
                 {a.proximo ? `Próximo: ${fmtDate(a.proximo.data_show)}${a.proximo.cidade ? ` · ${a.proximo.cidade}` : ""}` : "Sem próximos shows"}
