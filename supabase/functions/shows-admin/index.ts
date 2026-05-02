@@ -657,6 +657,30 @@ Deno.serve(async (req) => {
     // ============================================================
     // PAGAMENTOS (baixa manual)
     // ============================================================
+    if (action === "finance_summary") {
+      // Visão financeira consolidada (shows + total pago + total despesas).
+      if (!isManager && !isStaff && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
+      const rows = await sql`
+        select s.id, s.artist_id, s.data_show::text as data_show, s.local, s.cidade,
+               s.cache_total, s.status::text as status, s.vendedor, s.created_by,
+               s.confirmado_em, s.confirmado_por_nome, s.prazo_comprovante_em,
+               s.aprovado_em,
+               a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo,
+               coalesce(p.total_pago, 0) as total_pago,
+               coalesce(e.total_despesas, 0) as total_despesas
+        from public.shows s
+        left join public.artists a on a.id = s.artist_id
+        left join (
+          select show_id, sum(valor) as total_pago from public.show_payments group by show_id
+        ) p on p.show_id = s.id
+        left join (
+          select show_id, sum(valor) as total_despesas from public.show_expenses group by show_id
+        ) e on e.show_id = s.id
+        order by s.data_show desc nulls last
+      `;
+      return json({ shows: rows });
+    }
+
     if (action === "list_payments") {
       if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
       if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
