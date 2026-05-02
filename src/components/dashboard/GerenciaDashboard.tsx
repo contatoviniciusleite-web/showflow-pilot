@@ -105,16 +105,21 @@ export function GerenciaDashboard() {
   const aguardandoAprov = shows.filter((s) => s.status === "pendente");
 
   // ===== Por artista (mês) =====
-  const artistMap = new Map<string, { id: string; nome: string; cor: string; confirmados: number; faturamento: number; proximo?: ShowFull }>();
+  const artistMap = new Map<string, { id: string; nome: string; cor: string; confirmados: number; pendentes: number; faturamento: number; pendenteValor: number; proximo?: ShowFull }>();
   for (const s of shows) {
     if (!s.artist_id) continue;
     if (!artistMap.has(s.artist_id)) {
-      artistMap.set(s.artist_id, { id: s.artist_id, nome: s.artist_nome ?? "—", cor: s.artist_cor ?? "#888", confirmados: 0, faturamento: 0 });
+      artistMap.set(s.artist_id, { id: s.artist_id, nome: s.artist_nome ?? "—", cor: s.artist_cor ?? "#888", confirmados: 0, pendentes: 0, faturamento: 0, pendenteValor: 0 });
     }
     const e = artistMap.get(s.artist_id)!;
-    if (inRange(s.data_show, month.start, month.end) && isApprovedStatus(s.status)) {
-      e.confirmados += 1;
-      e.faturamento += Number(s.cache_total ?? 0);
+    if (inRange(s.data_show, month.start, month.end)) {
+      if (isApprovedStatus(s.status)) {
+        e.confirmados += 1;
+        e.faturamento += Number(s.cache_total ?? 0);
+      } else if (s.status === "pendente") {
+        e.pendentes += 1;
+        e.pendenteValor += Number(s.cache_total ?? 0);
+      }
     }
     const today = new Date().toISOString().slice(0, 10);
     if (s.data_show >= today && s.status !== "cancelada") {
