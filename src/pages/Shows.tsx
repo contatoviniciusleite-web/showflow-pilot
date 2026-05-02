@@ -515,7 +515,7 @@ export default function Shows() {
     setHistRows((data?.reschedules ?? []) as any[]);
   };
 
-
+  const upcoming = useMemo(
     () => shows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
     [shows],
   );
