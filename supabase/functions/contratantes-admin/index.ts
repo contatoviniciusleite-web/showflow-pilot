@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       // histórico de shows vinculados
       const { data: shows } = await admin
         .from("shows")
-        .select("id,data_show,local,cidade,cache_total,artist_id,artists(nome)")
+        .select("id,data_show,local,cidade,cache_total,status,artist_id,artists(nome)")
         .eq("contratante_id", id)
         .order("data_show", { ascending: false });
       return json({ contratante: c, shows: shows ?? [] });
