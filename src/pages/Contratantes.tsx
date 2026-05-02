@@ -32,8 +32,19 @@ interface HistShow {
   local: string | null;
   cidade: string | null;
   cache_total: number;
+  status?: string | null;
   artists?: { nome: string } | null;
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  pendente: "Pendente",
+  aprovada: "Aprovada",
+  aguardando_comprovante: "Aguardando comprovante",
+  comprovante_enviado: "Comprovante enviado",
+  confirmada: "Confirmada",
+  cancelada: "Cancelada",
+  remarcada: "Remarcada",
+};
 
 const empty: Omit<Contratante, "id"> = {
   nome: "",
