@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 type NotifTipo =
   | "minuta_aprovada"
@@ -35,17 +36,20 @@ const TIPO_COR: Record<NotifTipo, string> = {
 };
 
 export function NotificationBell() {
+  const { session } = useAuth();
   const [items, setItems] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
 
   const loadCount = async () => {
+    if (!session) return;
     const { data, error } = await supabase.functions.invoke("notifications", {
       body: { action: "unread_count" },
     });
     if (!error) setUnread(data?.count ?? 0);
   };
   const loadList = async () => {
+    if (!session) return;
     const { data, error } = await supabase.functions.invoke("notifications", {
       body: { action: "list" },
     });
@@ -53,14 +57,19 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
+    if (!session) {
+      setUnread(0);
+      setItems([]);
+      return;
+    }
     loadCount();
     const id = window.setInterval(loadCount, 30000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [session]);
 
   useEffect(() => {
-    if (open) loadList();
-  }, [open]);
+    if (open && session) loadList();
+  }, [open, session]);
 
   const markAll = async () => {
     const { error } = await supabase.functions.invoke("notifications", {
