@@ -679,6 +679,11 @@ export type Database = {
         Args: { hours_to_add: number; start_ts: string }
         Returns: string
       }
+      can_access_comprovante: {
+        Args: { _show_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_manage_comprovantes: { Args: { _user_id: string }; Returns: boolean }
       get_my_artist_id: { Args: never; Returns: string }
       has_role: {
         Args: {
