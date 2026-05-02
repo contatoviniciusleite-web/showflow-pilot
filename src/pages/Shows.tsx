@@ -732,3 +732,153 @@ export default function Shows() {
     </div>
   );
 }
+
+interface ContratanteOpt {
+  id: string; nome: string; documento?: string | null; endereco?: string | null;
+  cidade?: string | null; estado?: string | null; cep?: string | null;
+  telefone?: string | null; email?: string | null;
+}
+
+function ContratanteSection({
+  form, setForm, errors,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Record<string, string>;
+}) {
+  const setF = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+  const [openCb, setOpenCb] = useState(false);
+  const [opts, setOpts] = useState<ContratanteOpt[]>([]);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      const { data } = await supabase.functions.invoke("contratantes-admin", {
+        body: { action: "search", q: query },
+      });
+      setOpts((data?.contratantes ?? []) as ContratanteOpt[]);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const selecionar = (c: ContratanteOpt) => {
+    setForm((f) => ({
+      ...f,
+      contratante_id: c.id,
+      contratante_nome: c.nome ?? "",
+      contratante_documento: c.documento ?? "",
+      contratante_endereco: c.endereco ?? "",
+      contratante_cidade: c.cidade ?? "",
+      contratante_cep: c.cep ?? "",
+      contratante_telefone: c.telefone ?? "",
+      contratante_email: c.email ?? "",
+      salvar_contratante: false,
+    }));
+    setOpenCb(false);
+  };
+
+  const limparVinculo = () => setF("contratante_id", "");
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contratante</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5 sm:col-span-2" data-field="contratante_nome">
+          <Label>Nome / Razão social *</Label>
+          <Popover open={openCb} onOpenChange={setOpenCb}>
+            <PopoverTrigger asChild>
+              <div>
+                <Input
+                  value={form.contratante_nome}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setF("contratante_nome", v);
+                    setQuery(v);
+                    if (form.contratante_id) setF("contratante_id", "");
+                    if (!openCb) setOpenCb(true);
+                  }}
+                  onFocus={() => setOpenCb(true)}
+                  onBlur={(e) => {
+                    const next = toTitleCase(e.target.value);
+                    if (next !== e.target.value) setF("contratante_nome", next);
+                  }}
+                  placeholder="Digite para buscar ou cadastrar..."
+                  className={cn(errors.contratante_nome && "border-destructive")}
+                  aria-invalid={!!errors.contratante_nome}
+                />
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <Command shouldFilter={false}>
+                <CommandList>
+                  <CommandEmpty>Nenhum contratante encontrado. Continue digitando para cadastrar um novo.</CommandEmpty>
+                  <CommandGroup heading="Contratantes cadastrados">
+                    {opts.map((c) => (
+                      <CommandItem key={c.id} value={c.id} onSelect={() => selecionar(c)}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{c.nome}</span>
+                          {c.documento && <span className="text-xs text-muted-foreground">{formatCpfCnpj(c.documento)}</span>}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          {form.contratante_id && (
+            <p className="text-[11px] text-muted-foreground">
+              Vinculado ao cadastro. <button type="button" className="text-primary underline" onClick={limparVinculo}>desvincular</button>
+            </p>
+          )}
+          {errors.contratante_nome && <p className="text-sm text-destructive">{errors.contratante_nome}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label>CNPJ / CPF</Label>
+          <Input value={formatCpfCnpj(form.contratante_documento)} onChange={(e) => setF("contratante_documento", e.target.value.replace(/\D/g, ""))} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>CEP</Label>
+          <Input value={formatCEP(form.contratante_cep)} onChange={(e) => setF("contratante_cep", e.target.value.replace(/\D/g, ""))} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Endereço</Label>
+          <TitleCaseInput value={form.contratante_endereco} onValueChange={(v) => setF("contratante_endereco", v)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Cidade</Label>
+          <TitleCaseInput value={form.contratante_cidade} onValueChange={(v) => setF("contratante_cidade", v)} />
+        </div>
+        <div className="space-y-1.5" data-field="contratante_telefone">
+          <Label>Telefone *</Label>
+          <Input
+            value={formatPhoneBR(form.contratante_telefone)}
+            onChange={(e) => setF("contratante_telefone", e.target.value.replace(/\D/g, ""))}
+            className={cn(errors.contratante_telefone && "border-destructive")}
+            aria-invalid={!!errors.contratante_telefone}
+          />
+          {errors.contratante_telefone && <p className="text-sm text-destructive">{errors.contratante_telefone}</p>}
+        </div>
+        <div className="space-y-1.5 sm:col-span-2" data-field="contratante_email">
+          <Label>E-mail *</Label>
+          <Input type="email" value={form.contratante_email} onChange={(e) => setF("contratante_email", e.target.value)}
+            className={cn(errors.contratante_email && "border-destructive")} aria-invalid={!!errors.contratante_email} />
+          {errors.contratante_email && <p className="text-sm text-destructive">{errors.contratante_email}</p>}
+        </div>
+        {!form.contratante_id && form.contratante_nome.trim() && (
+          <div className="sm:col-span-2 flex items-center gap-2 rounded-md border px-3 py-2 bg-muted/30">
+            <Checkbox
+              id="salvar-contratante"
+              checked={form.salvar_contratante}
+              onCheckedChange={(v) => setF("salvar_contratante", !!v)}
+            />
+            <Label htmlFor="salvar-contratante" className="cursor-pointer text-sm font-normal">
+              Salvar como novo contratante ao finalizar a minuta
+            </Label>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
