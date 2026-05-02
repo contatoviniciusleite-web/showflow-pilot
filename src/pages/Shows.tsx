@@ -12,6 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { TitleCaseInput } from "@/components/ui/title-case-input";
+import { formatCEP, formatCpfCnpj, formatPhoneBR, toTitleCase } from "@/lib/masks";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2 } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
@@ -86,7 +92,7 @@ const emptyForm = {
   contratante_cep: "",
   contratante_telefone: "",
   contratante_email: "",
-  cache_total: "" as string,
+  cache_total: 0 as number,
   condicao_pagamento: "",
   encargos_extras: false,
   transp_onibus: false,
@@ -99,7 +105,49 @@ const emptyForm = {
   hosp_traslado: false,
   camarins_rider: "",
   autorizado_por: "Vitor D.",
+  contratante_id: "" as string,
+  salvar_contratante: false,
 };
+
+const REQUIRED_FIELDS = [
+  "artist_id",
+  "data_show",
+  "horario",
+  "local",
+  "cidade",
+  "cache_total",
+  "condicao_pagamento",
+  "contratante_nome",
+  "contratante_telefone",
+  "contratante_email",
+] as const;
+
+const FIELD_LABELS: Record<string, string> = {
+  artist_id: "Artista",
+  data_show: "Data do show",
+  horario: "Horário",
+  local: "Nome do local",
+  cidade: "Cidade",
+  cache_total: "Cachê total",
+  condicao_pagamento: "Condição de pagamento",
+  contratante_nome: "Nome do contratante",
+  contratante_telefone: "Telefone do contratante",
+  contratante_email: "E-mail do contratante",
+};
+
+function validateForm(form: FormState): Record<string, string> {
+  const errs: Record<string, string> = {};
+  for (const f of REQUIRED_FIELDS) {
+    const v = (form as any)[f];
+    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
+      errs[f] = "Este campo é obrigatório";
+    }
+  }
+  if (form.contratante_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contratante_email)) {
+    errs.contratante_email = "E-mail inválido";
+  }
+  return errs;
+}
 
 type FormState = typeof emptyForm;
 
@@ -261,7 +309,7 @@ export default function Shows() {
       contratante_cep: s.contratante_cep ?? "",
       contratante_telefone: s.contratante_telefone ?? "",
       contratante_email: s.contratante_email ?? "",
-      cache_total: s.cache_total?.toString() ?? "",
+      cache_total: Number(s.cache_total ?? 0),
       condicao_pagamento: s.condicao_pagamento ?? "",
       encargos_extras: !!s.encargos_extras,
       transp_onibus: !!s.transp_onibus,
@@ -274,27 +322,59 @@ export default function Shows() {
       hosp_traslado: !!s.hosp_traslado,
       camarins_rider: s.camarins_rider ?? "",
       autorizado_por: s.autorizado_por ?? "Vitor D.",
+      contratante_id: (s as any).contratante_id ?? "",
+      salvar_contratante: false,
     });
     setOpen(true);
   };
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.artist_id) return toast.error("Selecione o artista");
-    if (!form.data_show) return toast.error("Informe a data do show");
+    const errs = validateForm(form);
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      const first = Object.keys(errs)[0];
+      toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
+      const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setErrors({});
     setSaving(true);
     try {
       const payload = {
         ...form,
-        vendedor: myName || form.vendedor, // sempre identificado como o usuário logado
+        vendedor: myName || form.vendedor,
         capacidade: form.capacidade === "" ? null : Number(form.capacidade),
-        cache_total: form.cache_total === "" ? 0 : Number(form.cache_total),
+        cache_total: Number(form.cache_total) || 0,
       };
       const action = editing ? "update" : "create";
       const { error } = await supabase.functions.invoke("shows-admin", {
         body: editing ? { action, id: editing.id, show: payload } : { action, show: payload },
       });
       if (error) throw error;
+
+      // Salvar como novo contratante, se solicitado
+      if (!editing && form.salvar_contratante && !form.contratante_id && form.contratante_nome.trim()) {
+        const { error: cErr } = await supabase.functions.invoke("contratantes-admin", {
+          body: {
+            action: "create",
+            contratante: {
+              nome: form.contratante_nome,
+              documento: form.contratante_documento,
+              endereco: form.contratante_endereco,
+              cidade: form.contratante_cidade,
+              cep: form.contratante_cep,
+              telefone: form.contratante_telefone,
+              email: form.contratante_email,
+            },
+          },
+        });
+        if (cErr) toast.error("Minuta salva, mas falhou ao salvar contratante: " + cErr.message);
+      }
+
       toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
       setOpen(false);
       load();
@@ -483,43 +563,43 @@ export default function Shows() {
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Identificação</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 sm:col-span-2">
+                <div className="space-y-1.5 sm:col-span-2" data-field="artist_id">
                   <Label>Artista *</Label>
                   <Select value={form.artist_id} onValueChange={(v) => set("artist_id", v)}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o artista" /></SelectTrigger>
+                    <SelectTrigger className={cn(errors.artist_id && "border-destructive")}>
+                      <SelectValue placeholder="Selecione o artista" />
+                    </SelectTrigger>
                     <SelectContent>
                       {artists.map((a) => (
                         <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.artist_id && <p className="text-sm text-destructive">{errors.artist_id}</p>}
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5" data-field="data_show">
                   <Label>Data do show *</Label>
-                  <Input type="date" value={form.data_show} onChange={(e) => set("data_show", e.target.value)} required />
+                  <Input type="date" value={form.data_show} onChange={(e) => set("data_show", e.target.value)}
+                    className={cn(errors.data_show && "border-destructive")} aria-invalid={!!errors.data_show} />
+                  {errors.data_show && <p className="text-sm text-destructive">{errors.data_show}</p>}
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Horário</Label>
-                  <Input type="time" value={form.horario} onChange={(e) => set("horario", e.target.value)} />
+                <div className="space-y-1.5" data-field="horario">
+                  <Label>Horário *</Label>
+                  <Input type="time" value={form.horario} onChange={(e) => set("horario", e.target.value)}
+                    className={cn(errors.horario && "border-destructive")} aria-invalid={!!errors.horario} />
+                  {errors.horario && <p className="text-sm text-destructive">{errors.horario}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-muted-foreground">Data de subida</Label>
                   <Input
                     value={editing ? new Date(editing.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Será registrada automaticamente ao salvar"}
-                    readOnly
-                    disabled
-                    className="bg-muted/50 cursor-not-allowed"
+                    readOnly disabled className="bg-muted/50 cursor-not-allowed"
                   />
                   <p className="text-[11px] text-muted-foreground">Preenchida automaticamente no momento do cadastro — não editável.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Vendedor responsável</Label>
-                  <Input
-                    value={myName || form.vendedor || "—"}
-                    readOnly
-                    disabled
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input value={myName || form.vendedor || "—"} readOnly disabled className="bg-muted/50 cursor-not-allowed" />
                   <p className="text-[11px] text-muted-foreground">Identificado automaticamente pelo usuário logado — não editável.</p>
                 </div>
               </div>
@@ -529,9 +609,10 @@ export default function Shows() {
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Local do evento</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Nome do local</Label>
-                  <Input value={form.local} onChange={(e) => set("local", e.target.value)} />
+                <div className="space-y-1.5 sm:col-span-2" data-field="local">
+                  <Label>Nome do local *</Label>
+                  <TitleCaseInput value={form.local} onValueChange={(v) => set("local", v)} invalid={!!errors.local} />
+                  {errors.local && <p className="text-sm text-destructive">{errors.local}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Tipo de estrutura</Label>
@@ -549,70 +630,42 @@ export default function Shows() {
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Endereço</Label>
-                  <Input value={form.endereco} onChange={(e) => set("endereco", e.target.value)} />
+                  <TitleCaseInput value={form.endereco} onValueChange={(v) => set("endereco", v)} />
                 </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Cidade</Label>
-                  <Input value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
+                <div className="space-y-1.5 sm:col-span-2" data-field="cidade">
+                  <Label>Cidade *</Label>
+                  <TitleCaseInput value={form.cidade} onValueChange={(v) => set("cidade", v)} invalid={!!errors.cidade} />
+                  {errors.cidade && <p className="text-sm text-destructive">{errors.cidade}</p>}
                 </div>
               </div>
             </section>
 
             {/* 3. Contratante */}
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contratante</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Nome / Razão social</Label>
-                  <Input value={form.contratante_nome} onChange={(e) => set("contratante_nome", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>CNPJ / CPF</Label>
-                  <Input value={form.contratante_documento} onChange={(e) => set("contratante_documento", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>CEP</Label>
-                  <Input value={form.contratante_cep} onChange={(e) => set("contratante_cep", e.target.value)} />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Endereço</Label>
-                  <Input value={form.contratante_endereco} onChange={(e) => set("contratante_endereco", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Cidade</Label>
-                  <Input value={form.contratante_cidade} onChange={(e) => set("contratante_cidade", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone</Label>
-                  <Input value={form.contratante_telefone} onChange={(e) => set("contratante_telefone", e.target.value)} />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={form.contratante_email} onChange={(e) => set("contratante_email", e.target.value)} />
-                </div>
-              </div>
-            </section>
+            <ContratanteSection form={form} setForm={setForm} errors={errors} />
 
             {/* 4. Cachê */}
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cachê e pagamento</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Cachê total (R$)</Label>
-                  <Input type="number" min={0} step="0.01" value={form.cache_total} onChange={(e) => set("cache_total", e.target.value)} />
+                <div className="space-y-1.5" data-field="cache_total">
+                  <Label>Cachê total *</Label>
+                  <CurrencyInput value={form.cache_total} onValueChange={(v) => set("cache_total", v)} invalid={!!errors.cache_total} />
+                  {errors.cache_total && <p className="text-sm text-destructive">{errors.cache_total}</p>}
                 </div>
                 <div className="flex items-center justify-between rounded-md border px-3 py-2 sm:mt-6">
                   <Label htmlFor="encargos" className="cursor-pointer text-sm">Encargos extras por conta do contratante</Label>
                   <Switch id="encargos" checked={form.encargos_extras} onCheckedChange={(v) => set("encargos_extras", v)} />
                 </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Condição de pagamento</Label>
-                  <Textarea rows={3} value={form.condicao_pagamento} onChange={(e) => set("condicao_pagamento", e.target.value)} placeholder="Ex: 50% sinal na assinatura, 50% até 24h antes do show via PIX..." />
+                <div className="space-y-1.5 sm:col-span-2" data-field="condicao_pagamento">
+                  <Label>Condição de pagamento *</Label>
+                  <Textarea rows={3} value={form.condicao_pagamento} onChange={(e) => set("condicao_pagamento", e.target.value)}
+                    className={cn(errors.condicao_pagamento && "border-destructive")} aria-invalid={!!errors.condicao_pagamento}
+                    placeholder="Ex: 50% sinal na assinatura, 50% até 24h antes do show via PIX..." />
+                  {errors.condicao_pagamento && <p className="text-sm text-destructive">{errors.condicao_pagamento}</p>}
                 </div>
               </div>
             </section>
 
-            {/* 5. Transporte */}
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Transporte</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -677,5 +730,155 @@ export default function Shows() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+interface ContratanteOpt {
+  id: string; nome: string; documento?: string | null; endereco?: string | null;
+  cidade?: string | null; estado?: string | null; cep?: string | null;
+  telefone?: string | null; email?: string | null;
+}
+
+function ContratanteSection({
+  form, setForm, errors,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Record<string, string>;
+}) {
+  const setF = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+  const [openCb, setOpenCb] = useState(false);
+  const [opts, setOpts] = useState<ContratanteOpt[]>([]);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      const { data } = await supabase.functions.invoke("contratantes-admin", {
+        body: { action: "search", q: query },
+      });
+      setOpts((data?.contratantes ?? []) as ContratanteOpt[]);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const selecionar = (c: ContratanteOpt) => {
+    setForm((f) => ({
+      ...f,
+      contratante_id: c.id,
+      contratante_nome: c.nome ?? "",
+      contratante_documento: c.documento ?? "",
+      contratante_endereco: c.endereco ?? "",
+      contratante_cidade: c.cidade ?? "",
+      contratante_cep: c.cep ?? "",
+      contratante_telefone: c.telefone ?? "",
+      contratante_email: c.email ?? "",
+      salvar_contratante: false,
+    }));
+    setOpenCb(false);
+  };
+
+  const limparVinculo = () => setF("contratante_id", "");
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contratante</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5 sm:col-span-2" data-field="contratante_nome">
+          <Label>Nome / Razão social *</Label>
+          <Popover open={openCb} onOpenChange={setOpenCb}>
+            <PopoverTrigger asChild>
+              <div>
+                <Input
+                  value={form.contratante_nome}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setF("contratante_nome", v);
+                    setQuery(v);
+                    if (form.contratante_id) setF("contratante_id", "");
+                    if (!openCb) setOpenCb(true);
+                  }}
+                  onFocus={() => setOpenCb(true)}
+                  onBlur={(e) => {
+                    const next = toTitleCase(e.target.value);
+                    if (next !== e.target.value) setF("contratante_nome", next);
+                  }}
+                  placeholder="Digite para buscar ou cadastrar..."
+                  className={cn(errors.contratante_nome && "border-destructive")}
+                  aria-invalid={!!errors.contratante_nome}
+                />
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <Command shouldFilter={false}>
+                <CommandList>
+                  <CommandEmpty>Nenhum contratante encontrado. Continue digitando para cadastrar um novo.</CommandEmpty>
+                  <CommandGroup heading="Contratantes cadastrados">
+                    {opts.map((c) => (
+                      <CommandItem key={c.id} value={c.id} onSelect={() => selecionar(c)}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{c.nome}</span>
+                          {c.documento && <span className="text-xs text-muted-foreground">{formatCpfCnpj(c.documento)}</span>}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          {form.contratante_id && (
+            <p className="text-[11px] text-muted-foreground">
+              Vinculado ao cadastro. <button type="button" className="text-primary underline" onClick={limparVinculo}>desvincular</button>
+            </p>
+          )}
+          {errors.contratante_nome && <p className="text-sm text-destructive">{errors.contratante_nome}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label>CNPJ / CPF</Label>
+          <Input value={formatCpfCnpj(form.contratante_documento)} onChange={(e) => setF("contratante_documento", e.target.value.replace(/\D/g, ""))} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>CEP</Label>
+          <Input value={formatCEP(form.contratante_cep)} onChange={(e) => setF("contratante_cep", e.target.value.replace(/\D/g, ""))} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Endereço</Label>
+          <TitleCaseInput value={form.contratante_endereco} onValueChange={(v) => setF("contratante_endereco", v)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Cidade</Label>
+          <TitleCaseInput value={form.contratante_cidade} onValueChange={(v) => setF("contratante_cidade", v)} />
+        </div>
+        <div className="space-y-1.5" data-field="contratante_telefone">
+          <Label>Telefone *</Label>
+          <Input
+            value={formatPhoneBR(form.contratante_telefone)}
+            onChange={(e) => setF("contratante_telefone", e.target.value.replace(/\D/g, ""))}
+            className={cn(errors.contratante_telefone && "border-destructive")}
+            aria-invalid={!!errors.contratante_telefone}
+          />
+          {errors.contratante_telefone && <p className="text-sm text-destructive">{errors.contratante_telefone}</p>}
+        </div>
+        <div className="space-y-1.5 sm:col-span-2" data-field="contratante_email">
+          <Label>E-mail *</Label>
+          <Input type="email" value={form.contratante_email} onChange={(e) => setF("contratante_email", e.target.value)}
+            className={cn(errors.contratante_email && "border-destructive")} aria-invalid={!!errors.contratante_email} />
+          {errors.contratante_email && <p className="text-sm text-destructive">{errors.contratante_email}</p>}
+        </div>
+        {!form.contratante_id && form.contratante_nome.trim() && (
+          <div className="sm:col-span-2 flex items-center gap-2 rounded-md border px-3 py-2 bg-muted/30">
+            <Checkbox
+              id="salvar-contratante"
+              checked={form.salvar_contratante}
+              onCheckedChange={(v) => setF("salvar_contratante", !!v)}
+            />
+            <Label htmlFor="salvar-contratante" className="cursor-pointer text-sm font-normal">
+              Salvar como novo contratante ao finalizar a minuta
+            </Label>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

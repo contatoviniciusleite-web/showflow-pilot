@@ -1,91 +1,101 @@
-# Vendedor: agenda do artista + permissões por artista
+## Visão geral
 
-## Objetivo
+Quatro melhorias na minuta de show + um novo módulo de Contratantes. Como é um piloto, todos os campos obrigatórios e máscaras ficam centralizados em utilitários reutilizáveis para fácil ajuste futuro.
 
-- O Gerente define quais artistas cada Vendedor pode visualizar/vender.
-- Vendedor passa a ter uma Agenda no dashboard, com calendário dos artistas liberados.
-- Vendedor vê todos os shows ocupando a data; minutas dos outros vendedores aparecem só com **local + horário** (sem cachê, contratante, vendedor, etc.).
-- Criar minuta direto do calendário, com artista pré-selecionado e respeitando o limite de 3 shows/dia.
+---
 
-## Mudanças no banco (migração)
+## 1. Máscara monetária (R$ 10.000,00)
 
-Nova tabela `public.vendedor_artists`:
+- Criar `src/lib/masks.ts` com:
+  - `formatCurrencyBRL(rawDigits)` — recebe string só de dígitos e devolve `R$ 10.000,00`
+  - `parseCurrencyBRL(masked)` → number (em reais)
+  - `formatPhoneBR`, `formatCEP`, `formatCpfCnpj` (úteis também para o módulo de contratantes)
+- Criar `src/components/ui/CurrencyInput.tsx` — wrapper sobre `<Input>` que mantém valor numérico interno e exibe máscara enquanto digita.
+- Aplicar em:
+  - `src/pages/Shows.tsx` — campo "Cachê total"
+  - `src/components/dashboard/...` ou onde houver depósitos/despesas (procurar por `show_deposits` / `show_expenses` no código — atualmente `Shows.tsx` não tem UI de despesas; aplicar somente onde já existir input de valor).
 
-- `vendedor_id uuid` (auth.users.id)
-- `artist_id uuid` (artists.id)
-- `created_at timestamptz default now()`
-- PK composta `(vendedor_id, artist_id)`
+## 2. Campos obrigatórios na minuta
+
+Centralizar em uma constante:
+
+```ts
+const REQUIRED_FIELDS = [
+  "artist_id", "data_show", "horario", "local", "cidade",
+  "cache_total", "condicao_pagamento",
+  "contratante_nome", "contratante_telefone", "contratante_email",
+] as const;
+```
+
+- Função `validateShowForm(form)` retorna `Record<campo, string>` com erros.
+- No JSX da minuta: cada campo passa a ler `errors[name]` e:
+  - aplica `aria-invalid` + classe `border-destructive`
+  - mostra `<p class="text-sm text-destructive">Este campo é obrigatório</p>` abaixo
+- `save()` chama `validateShowForm`; se houver erros, faz `setErrors`, foca o primeiro campo inválido e aborta o envio.
+
+## 3. Title Case automático
+
+- Em `src/lib/masks.ts` adicionar `toTitleCase(str)` com tratamento para preposições PT-BR (`de`, `da`, `do`, `dos`, `das`, `e`).
+- Criar componente `TitleCaseInput` que aplica `toTitleCase` em `onBlur` (não em cada tecla, para não quebrar acentuação enquanto o usuário digita).
+- Aplicar em: `local`, `endereco`, `cidade`, `contratante_nome`, `contratante_endereco`, `contratante_cidade`, `vendedor`, `autorizado_por` e em todos os campos de texto livre do módulo de contratantes (exceto e-mail e CPF/CNPJ).
+
+## 4. Módulo de Contratantes
+
+### Banco
+
+Nova tabela `contratantes`:
+
+```
+id uuid pk, nome text not null, documento text, endereco text,
+cidade text, estado text, cep text, telefone text, email text,
+observacoes text, created_by uuid, created_at, updated_at
+```
 
 RLS:
-- SELECT: o próprio vendedor vê suas permissões; gerente vê todas.
-- ALL: somente gerente.
+- SELECT: `gerente | financeiro | vendedor` (artista sem acesso)
+- INSERT: `gerente | financeiro | vendedor`
+- UPDATE: `gerente | financeiro`
+- DELETE: `gerente`
 
-Atualizar a view `public.shows_public_view` para também expor:
-- `tipo_estrutura` (continua sem cachê / contratante / vendedor — apenas data, horário, local, cidade).
+Índice `idx_contratantes_nome_lower` para autocomplete.
 
-A view permanece com `security_invoker = true` (RLS de `shows` controla a visibilidade), e ganha um filtro adicional para mostrar todos os status exceto `cancelada` (assim a agenda mostra dias ocupados também por shows pendentes/aprovados, não só os já confirmados).
+Adicionar coluna opcional em `shows`: `contratante_id uuid` (nullable) — permite manter dados editados na minuta sem mexer no cadastro principal.
 
-## Backend (edge functions)
+### Edge function
 
-### `users-admin`
+`supabase/functions/contratantes-admin/index.ts` com ações: `list`, `search` (q), `get` (id, retorna dados + histórico de shows do contratante), `create`, `update`, `delete`.
 
-- Em `list`: incluir `vendedor_artist_ids: string[]` para cada usuário (consulta em `vendedor_artists`).
-- Em `invite` e `set_roles`: aceitar parâmetro opcional `vendedor_artist_ids: string[]` e fazer replace completo das permissões em `vendedor_artists` quando o usuário tem papel `vendedor`. Se o usuário deixa de ser vendedor, limpa permissões.
+### Frontend
 
-### `shows-admin`
+- Nova página `src/pages/Contratantes.tsx`:
+  - Lista com busca, ações conforme papel
+  - Drawer/Dialog de cadastro/edição
+  - Ficha do contratante exibe shows vinculados (artista, data, local, valor)
+- Rota `/contratantes` em `App.tsx` protegida por `["gerente","financeiro","vendedor"]`
+- Item no menu lateral (`AppLayout.tsx`)
+- No formulário da minuta:
+  - Campo "Contratante" vira combobox com autocomplete (`Command` do shadcn) buscando via edge function
+  - Selecionar → preenche os campos `contratante_*` e seta `contratante_id`
+  - Editar campos não desfaz o vínculo, apenas sobrescreve no show
+  - Checkbox "Salvar como novo contratante" aparece quando o vendedor digitou um nome novo
 
-Em `action: list`, no ramo `isVendedor`:
-- Buscar `allowedArtistIds` do vendedor em `vendedor_artists`.
-- `minhas`: apenas onde `created_by = userId` E `artist_id` está em `allowedArtistIds`.
-- `outras_aprovadas`: ler de `shows_public_view` filtrando por `artist_id in (allowedArtistIds)` e `created_by <> userId`.
-
-Em `action: artists` (lista de artistas para criação): se o caller for **apenas** vendedor (sem gerente/equipe), filtrar pelos artistas liberados.
-
-Em `action: create`: se for vendedor, validar que o `artist_id` está em `allowedArtistIds`; senão 403.
-
-A regra existente do limite de 3 shows/dia continua funcionando.
-
-## Frontend
-
-### `src/pages/Usuarios.tsx`
-
-- No diálogo "Convidar usuário": quando `role === "vendedor"`, mostrar lista de artistas com checkboxes para selecionar quais o vendedor pode vender. Enviar `vendedor_artist_ids` no `invite`.
-- No diálogo "Editar usuário": se houver papel `vendedor`, mostrar a mesma lista de checkboxes carregada de `u.vendedor_artist_ids`. Enviar junto no `set_roles`.
-
-### Novo `src/components/dashboard/VendedorAgenda.tsx`
-
-- Calendário mensal (`react-day-picker` via `Calendar` do shadcn).
-- Filtro por artista (apenas os liberados, vindos de `shows-admin/artists`).
-- Carrega dados do mês visível via `shows-admin/list` (combina `shows` próprios + `outras_aprovadas`).
-- Marca dias ocupados com bolinha colorida (cor do artista) e badge com a contagem.
-- Clique em um dia abre um popover/sheet listando os shows daquele dia:
-  - **Próprios**: cartão completo (artista, local, cidade, horário, cachê, status) com link para editar em `/shows`.
-  - **De outros vendedores**: somente `Show — [Local] — [Horário]`.
-- Botão "Novo Show" no popover (e no topo) que navega para `/shows?new=1&artist=<id>&data=<yyyy-mm-dd>`.
-  - Se a data já tiver atingido o limite (3 shows não cancelados), o botão fica desabilitado com tooltip: "Data indisponível para este artista. Limite máximo de shows atingido."
-
-### `src/components/dashboard/VendedorDashboard.tsx`
-
-- Adicionar tabs no topo: **Resumo** (atual) | **Agenda** (novo componente).
-- Na tab Resumo, mantém o que já existe.
-
-### `src/pages/Shows.tsx`
-
-- Ler `?new=1&artist=...&data=...` e abrir o diálogo de criação já preenchido (alteração mínima — só pré-popular o estado inicial). Sem mudar regras de validação.
+---
 
 ## Detalhes técnicos
 
-- Fonte da verdade da permissão é o backend (RLS + edge functions). O front só esconde UI; quem tenta burlar via API recebe 403.
-- Para o vendedor, o calendário usa as cores do artista (`artists.cor`) já presentes no payload.
-- Semana segue ISO (segunda a domingo) — já é o padrão do `react-day-picker` configurado no projeto.
-- Estrutura preparada para futuras adaptações: as permissões ficam em tabela própria, fáceis de expandir (ex.: permissões de financeiro por artista).
+- `src/lib/masks.ts`, `src/components/ui/CurrencyInput.tsx`, `src/components/ui/TitleCaseInput.tsx` — utilitários reutilizáveis
+- Validação client-side em `Shows.tsx`; servidor (`shows-admin`) mantém validação mínima atual
+- Migração SQL será proposta separadamente para aprovação antes do código frontend
+- Configurabilidade: lista `REQUIRED_FIELDS` em constante única; máscaras isoladas em utilitário; nada hard-coded em JSX
 
-## Arquivos afetados
+---
 
-- Migração SQL nova (tabela `vendedor_artists`, RLS, view atualizada).
-- `supabase/functions/users-admin/index.ts`
-- `supabase/functions/shows-admin/index.ts`
-- `src/pages/Usuarios.tsx`
-- `src/pages/Shows.tsx` (apenas pré-popular novo show via querystring)
-- `src/components/dashboard/VendedorDashboard.tsx`
-- `src/components/dashboard/VendedorAgenda.tsx` (novo)
+## Ordem de execução
+
+1. Migração: tabela `contratantes` + coluna `shows.contratante_id` + RLS
+2. Edge function `contratantes-admin`
+3. Utilitários (`masks.ts`, `CurrencyInput`, `TitleCaseInput`)
+4. Refatorar `Shows.tsx` (máscara, validação, title case, autocomplete contratante)
+5. Página `Contratantes.tsx` + rota + menu
+
+Confirma para começar pela migração?

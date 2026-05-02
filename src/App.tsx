@@ -17,6 +17,7 @@ import Shows from "./pages/Shows";
 import Bloqueios from "./pages/Bloqueios";
 import Placeholder from "./pages/Placeholder";
 import AgendaPage from "./pages/Agenda";
+import Contratantes from "./pages/Contratantes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,14 @@ const App = () => (
               <Route path="/shows" element={<Shows />} />
               <Route path="/agenda" element={<AgendaPage />} />
               <Route path="/financeiro" element={<Placeholder title="Financeiro" description="Ficha financeira e despesas por show." />} />
+              <Route
+                path="/contratantes"
+                element={
+                  <ProtectedRoute requireRoles={["gerente", "equipe", "vendedor", "financeiro"]}>
+                    <Contratantes />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/relatorios"
                 element={

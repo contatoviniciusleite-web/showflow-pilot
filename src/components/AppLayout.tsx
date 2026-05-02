@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
 import { ManagerModeToggle } from "@/components/ManagerModeToggle";
@@ -12,6 +12,7 @@ const nav = [
   { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["gerente", "equipe", "artista", "vendedor"] },
   { to: "/shows", label: "Shows", icon: ListMusic, roles: ["gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["gerente", "equipe", "artista", "financeiro"] },
+  { to: "/contratantes", label: "Contratantes", icon: Building2, roles: ["gerente", "equipe", "vendedor", "financeiro"] },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["gerente"] },
   { to: "/artistas", label: "Artistas", icon: Music2, roles: ["gerente"] },
   { to: "/bloqueios", label: "Bloqueios", icon: Ban, roles: ["gerente"] },
