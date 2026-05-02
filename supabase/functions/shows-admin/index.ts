@@ -119,6 +119,65 @@ async function getSetting(sql: postgres.Sql, key: string, fallback: number): Pro
   return typeof v === "number" ? v : Number(v) || fallback;
 }
 
+async function getSettingBool(sql: postgres.Sql, key: string, fallback: boolean): Promise<boolean> {
+  const rows = await sql`select value from public.app_settings where key = ${key}`;
+  if (!rows.length) return fallback;
+  const v = (rows[0] as any).value;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v === "true";
+  return fallback;
+}
+
+const onlyDigits = (v: string | null) => (v ?? "").replace(/\D/g, "");
+
+/**
+ * Cadastro automático de contratante a partir dos dados da minuta.
+ * - Se já houver contratante_id, retorna como está.
+ * - Se houver documento (CPF/CNPJ), busca por documento normalizado.
+ *   - Encontrado: vincula ao existente (NÃO sobrescreve dados).
+ *   - Não encontrado: cria novo com os dados da minuta e vincula.
+ * - Configurável via app_settings.auto_link_contratante (default: true).
+ */
+async function autoLinkContratante(
+  sql: postgres.Sql,
+  s: any,
+  userId: string,
+): Promise<string | null> {
+  if (s.contratante_id) return s.contratante_id;
+  const enabled = await getSettingBool(sql, "auto_link_contratante", true);
+  if (!enabled) return null;
+  const doc = onlyDigits(s.contratante_documento);
+  const nome = s.contratante_nome;
+  // Sem documento e sem nome: nada a fazer
+  if (!doc && !nome) return null;
+
+  // Busca por documento normalizado (remove máscara dos dois lados)
+  if (doc) {
+    const found = await sql`
+      select id from public.contratantes
+      where regexp_replace(coalesce(documento, ''), '[^0-9]', '', 'g') = ${doc}
+      limit 1
+    `;
+    if (found.length) return (found[0] as any).id as string;
+  }
+
+  // Sem nome → não cria
+  if (!nome) return null;
+
+  const inserted = await sql`
+    insert into public.contratantes (
+      nome, documento, endereco, cidade, cep, telefone, email, created_by
+    ) values (
+      ${nome}, ${doc || s.contratante_documento}, ${s.contratante_endereco},
+      ${s.contratante_cidade}, ${s.contratante_cep}, ${s.contratante_telefone},
+      ${s.contratante_email}, ${userId}
+    )
+    returning id
+  `;
+  return (inserted[0] as any).id as string;
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -272,6 +331,9 @@ Deno.serve(async (req) => {
         return json({ error: "O cachê informado está abaixo do mínimo permitido para este artista. Somente a gerência pode autorizar valores abaixo do mínimo." }, 403);
       }
 
+      // Cadastro/vínculo automático de contratante (piloto: configurável via app_settings.auto_link_contratante)
+      try { s.contratante_id = await autoLinkContratante(sql, s, userId); } catch (e) { console.error("autoLinkContratante (create)", e); }
+
       const rows = await sql`
         insert into public.shows (
           artist_id, data_show, horario, data_subida, vendedor,
@@ -328,6 +390,9 @@ Deno.serve(async (req) => {
       if (cacheMin > 0 && s.cache_total < cacheMin && currentStatus !== "pendente" && !isManager) {
         return json({ error: "Somente a gerência pode autorizar valores abaixo do mínimo após a aprovação." }, 403);
       }
+
+      // Cadastro/vínculo automático de contratante
+      try { s.contratante_id = await autoLinkContratante(sql, s, userId); } catch (e) { console.error("autoLinkContratante (update)", e); }
 
       const rows = await sql`
         update public.shows set
