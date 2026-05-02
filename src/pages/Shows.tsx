@@ -446,7 +446,76 @@ export default function Shows() {
     load();
   };
 
-  const upcoming = useMemo(
+  // ===== Cancelamento =====
+  const openCancel = (s: Show) => {
+    setCancelTarget(s);
+    setCancelMotivo("");
+    setCancelOpen(true);
+  };
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    if (!cancelMotivo.trim()) return toast.error("Informe o motivo do cancelamento");
+    setCancelling(true);
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "cancel", id: cancelTarget.id, motivo: cancelMotivo.trim() },
+    });
+    setCancelling(false);
+    if (error) return toast.error(error.message);
+    toast.success("Show cancelado — usuários notificados");
+    setCancelOpen(false);
+    setCancelTarget(null);
+    load();
+  };
+
+  // ===== Remarcação =====
+  const openReschedule = (s: Show) => {
+    if (s.status === "cancelada") {
+      toast.error("Show cancelado não pode ser remarcado");
+      return;
+    }
+    setReschedTarget(s);
+    setReschedData(s.data_show ?? "");
+    setReschedHora(s.horario ? s.horario.slice(0, 5) : "");
+    setReschedMotivo("");
+    setReschedOpen(true);
+  };
+  const confirmReschedule = async () => {
+    if (!reschedTarget) return;
+    if (!reschedData) return toast.error("Informe a nova data");
+    if (!reschedHora) return toast.error("Informe o novo horário");
+    if (!reschedMotivo.trim()) return toast.error("Informe o motivo da remarcação");
+    setRescheduling(true);
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: {
+        action: "reschedule",
+        id: reschedTarget.id,
+        nova_data: reschedData,
+        novo_horario: reschedHora,
+        motivo: reschedMotivo.trim(),
+      },
+    });
+    setRescheduling(false);
+    if (error) return toast.error(error.message);
+    toast.success("Show remarcado — usuários notificados");
+    setReschedOpen(false);
+    setReschedTarget(null);
+    load();
+  };
+
+  // ===== Histórico =====
+  const openHistory = async (s: Show) => {
+    setHistTarget(s);
+    setHistOpen(true);
+    setHistLoading(true);
+    const { data, error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "list_reschedules", id: s.id },
+    });
+    setHistLoading(false);
+    if (error) return toast.error(error.message);
+    setHistRows((data?.reschedules ?? []) as any[]);
+  };
+
+
     () => shows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
     [shows],
   );
