@@ -123,13 +123,11 @@ const emptyForm = {
   contratante_id: "" as string,
 };
 
-const REQUIRED_FIELDS = [
-  "artist_id",
-  "data_show",
-  "horario",
-  "local",
-  "cidade",
-  "cache_total",
+// ETAPA 1: campos básicos exigidos do vendedor.
+const BASIC_REQUIRED = ["artist_id", "data_show", "horario", "local", "cidade", "cache_total"] as const;
+// ETAPA 3: dados completos exigidos para enviar à etapa de pagamento.
+const FULL_REQUIRED = [
+  ...BASIC_REQUIRED,
   "condicao_pagamento",
   "contratante_nome",
   "contratante_telefone",
@@ -149,9 +147,20 @@ const FIELD_LABELS: Record<string, string> = {
   contratante_email: "E-mail do contratante",
 };
 
-function validateForm(form: FormState): Record<string, string> {
+function validateBasic(form: FormState): Record<string, string> {
   const errs: Record<string, string> = {};
-  for (const f of REQUIRED_FIELDS) {
+  for (const f of BASIC_REQUIRED) {
+    const v = (form as any)[f];
+    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
+      errs[f] = "Este campo é obrigatório";
+    }
+  }
+  return errs;
+}
+
+function validateFull(form: FormState): Record<string, string> {
+  const errs: Record<string, string> = {};
+  for (const f of FULL_REQUIRED) {
     const v = (form as any)[f];
     if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
       errs[f] = "Este campo é obrigatório";
@@ -159,18 +168,6 @@ function validateForm(form: FormState): Record<string, string> {
   }
   if (form.contratante_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contratante_email)) {
     errs.contratante_email = "E-mail inválido";
-  }
-  return errs;
-}
-
-const SHOW_ONLY_REQUIRED = ["artist_id", "data_show", "horario", "local", "cidade", "cache_total", "condicao_pagamento"] as const;
-function validateMinuteForLink(form: FormState): Record<string, string> {
-  const errs: Record<string, string> = {};
-  for (const f of SHOW_ONLY_REQUIRED) {
-    const v = (form as any)[f];
-    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
-      errs[f] = "Este campo é obrigatório";
-    }
   }
   return errs;
 }
