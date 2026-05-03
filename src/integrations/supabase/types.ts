@@ -529,6 +529,7 @@ export type Database = {
           contratante_telefone: string | null
           created_at: string
           created_by: string | null
+          dados_completos_em: string | null
           data_show: string
           data_show_original: string | null
           data_subida: string | null
@@ -543,6 +544,9 @@ export type Database = {
           local: string | null
           notificacao_12h_enviada: boolean
           prazo_comprovante_em: string | null
+          rejeitada_em: string | null
+          rejeitada_motivo: string | null
+          rejeitada_por: string | null
           remarcado_count: number
           remarcado_de_show_id: string | null
           status: Database["public"]["Enums"]["show_status"]
@@ -593,6 +597,7 @@ export type Database = {
           contratante_telefone?: string | null
           created_at?: string
           created_by?: string | null
+          dados_completos_em?: string | null
           data_show: string
           data_show_original?: string | null
           data_subida?: string | null
@@ -607,6 +612,9 @@ export type Database = {
           local?: string | null
           notificacao_12h_enviada?: boolean
           prazo_comprovante_em?: string | null
+          rejeitada_em?: string | null
+          rejeitada_motivo?: string | null
+          rejeitada_por?: string | null
           remarcado_count?: number
           remarcado_de_show_id?: string | null
           status?: Database["public"]["Enums"]["show_status"]
@@ -657,6 +665,7 @@ export type Database = {
           contratante_telefone?: string | null
           created_at?: string
           created_by?: string | null
+          dados_completos_em?: string | null
           data_show?: string
           data_show_original?: string | null
           data_subida?: string | null
@@ -671,6 +680,9 @@ export type Database = {
           local?: string | null
           notificacao_12h_enviada?: boolean
           prazo_comprovante_em?: string | null
+          rejeitada_em?: string | null
+          rejeitada_motivo?: string | null
+          rejeitada_por?: string | null
           remarcado_count?: number
           remarcado_de_show_id?: string | null
           status?: Database["public"]["Enums"]["show_status"]
@@ -817,6 +829,8 @@ export type Database = {
         | "confirmado"
         | "cancelada"
         | "aguardando_contratante"
+        | "aguardando_dados"
+        | "rejeitada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -955,6 +969,8 @@ export const Constants = {
         "confirmado",
         "cancelada",
         "aguardando_contratante",
+        "aguardando_dados",
+        "rejeitada",
       ],
     },
   },
