@@ -743,7 +743,12 @@ export default function Shows() {
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isEditor && s.status !== "cancelada" && (
+                  {(s.status === "aguardando_dados") && (s.created_by === user?.id || isEditor) && (
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => openEdit(s)} title="Completar dados">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {isEditor && s.status !== "cancelada" && s.status !== "aguardando_dados" && (
                     <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                   )}
                   {isManager && s.status !== "cancelada" && (
