@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { AttachmentsTab } from "./AttachmentsTab";
 import { PaymentsTab } from "./PaymentsTab";
+import { PaymentScheduleEditor } from "./PaymentScheduleEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -113,6 +114,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="geral">Geral</TabsTrigger>
+            {!isArtista && <TabsTrigger value="cronograma">Cronograma</TabsTrigger>}
             {!isArtista && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}
             {!isArtista && <TabsTrigger value="anexos">Anexos</TabsTrigger>}
           </TabsList>
@@ -180,6 +182,17 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </div>
             )}
           </TabsContent>
+
+          {!isArtista && (
+            <TabsContent value="cronograma">
+              <PaymentScheduleEditor
+                showId={show.id}
+                cacheTotal={Number(show.cache_total ?? 0)}
+                canEdit={isManager || roles.includes("equipe") || isFinanceiro || (roles.includes("vendedor") && !!isOwner)}
+                onChanged={onChanged}
+              />
+            </TabsContent>
+          )}
 
           {!isArtista && (
             <TabsContent value="financeiro">
