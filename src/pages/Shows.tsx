@@ -256,6 +256,7 @@ export default function Shows() {
   const [editing, setEditing] = useState<Show | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [parcelas, setParcelas] = useState<ScheduleItem[]>([]);
   const [myName, setMyName] = useState<string>("");
 
   // Carrega o nome do usuário logado para autopreencher "Vendedor responsável"
