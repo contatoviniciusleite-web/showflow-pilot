@@ -20,6 +20,7 @@ import AgendaPage from "./pages/Agenda";
 import Contratantes from "./pages/Contratantes";
 import Financeiro from "./pages/Financeiro";
 import Relatorios from "./pages/Relatorios";
+import ContratanteMinuta from "./pages/ContratanteMinuta";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/aceitar-convite" element={<AceitarConvite />} />
+            <Route path="/minuta/:token" element={<ContratanteMinuta />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/shows" element={<Shows />} />
