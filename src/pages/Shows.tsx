@@ -403,6 +403,7 @@ export default function Shows() {
     const data = searchParams.get("data") ?? "";
     setEditing(null);
     setForm({ ...emptyForm, artist_id: artistId, data_show: data });
+    setParcelas([]);
     setOpen(true);
     const next = new URLSearchParams(searchParams);
     next.delete("new"); next.delete("artist"); next.delete("data");
