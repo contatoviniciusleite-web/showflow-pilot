@@ -817,6 +817,60 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ============================================================
+    // PARCELAS DE PAGAMENTO (cronograma)
+    // ============================================================
+    if (action === "list_payment_schedule") {
+      if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
+      // Permissão coberta por RLS, mas validamos conta/papel
+      const access = await sql`
+        select 1 from public.shows s where s.id = ${body.show_id}
+        and (
+          ${isManager} or ${isStaff} or ${isFinanceiro}
+          or (${isVendedor} and s.created_by = ${userId})
+          or (${isArtista} and s.artist_id = (select artist_id from public.user_roles where user_id = ${userId} and role = 'artista' limit 1))
+        ) limit 1`;
+      if (!access.length) return json({ error: "Acesso negado" }, 403);
+      const rows = await sql`select * from public.show_payment_schedule where show_id = ${body.show_id} order by ordem asc, data_prevista asc nulls last, created_at asc`;
+      const totalPaidRows = await sql`select coalesce(sum(valor),0)::numeric as total from public.show_payments where show_id = ${body.show_id}`;
+      const cacheRows = await sql`select cache_total from public.shows where id = ${body.show_id}`;
+      return json({
+        schedule: rows,
+        total_pago: Number((totalPaidRows[0] as any)?.total ?? 0),
+        cache_total: Number((cacheRows[0] as any)?.cache_total ?? 0),
+      });
+    }
+
+    if (action === "save_payment_schedule") {
+      if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
+      // Quem pode editar: gerente/equipe/financeiro/vendedor dono
+      const ownRows = await sql`select created_by from public.shows where id = ${body.show_id}`;
+      if (!ownRows.length) return json({ error: "Show não encontrado" }, 404);
+      const isOwner = (ownRows[0] as any).created_by === userId;
+      if (!isManager && !isStaff && !isFinanceiro && !(isVendedor && isOwner)) {
+        return json({ error: "Acesso negado" }, 403);
+      }
+      const items = Array.isArray(body.items) ? body.items : [];
+      if (items.length > 50) return json({ error: "Máximo de 50 parcelas" }, 400);
+      const cleaned = items.map((it: any, idx: number) => ({
+        ordem: Number.isInteger(it?.ordem) ? it.ordem : idx,
+        descricao: txt(it?.descricao, 200),
+        data_prevista: dateOrNull(it?.data_prevista),
+        percentual: it?.percentual === null || it?.percentual === undefined || it?.percentual === "" ? null : num(it.percentual),
+        valor: num(it?.valor),
+        observacoes: txt(it?.observacoes, 1000),
+      }));
+      await sql.begin(async (tx) => {
+        await tx`delete from public.show_payment_schedule where show_id = ${body.show_id}`;
+        for (const it of cleaned) {
+          await tx`insert into public.show_payment_schedule
+            (show_id, ordem, descricao, data_prevista, percentual, valor, observacoes)
+            values (${body.show_id}, ${it.ordem}, ${it.descricao}, ${it.data_prevista}, ${it.percentual}, ${it.valor}, ${it.observacoes})`;
+        }
+      });
+      return json({ ok: true });
+    }
+
     if (action === "comprovante_signed_url") {
       if (!isManager && !isStaff && !isFinanceiro) {
         // dono pode também
