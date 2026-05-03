@@ -454,6 +454,22 @@ export default function Shows() {
       contratante_id: (s as any).contratante_id ?? "",
     });
     setOpen(true);
+    // carrega parcelas existentes
+    supabase.functions.invoke("shows-admin", {
+      body: { action: "list_payment_schedule", show_id: s.id },
+    }).then(({ data, error }) => {
+      if (error) { setParcelas([]); return; }
+      const items = (data?.schedule ?? []).map((r: any, i: number) => ({
+        id: r.id,
+        ordem: r.ordem ?? i,
+        descricao: r.descricao ?? "",
+        data_prevista: r.data_prevista ?? "",
+        percentual: r.percentual === null ? null : Number(r.percentual),
+        valor: Number(r.valor ?? 0),
+        observacoes: r.observacoes ?? "",
+      }));
+      setParcelas(items);
+    });
   };
 
   const [errors, setErrors] = useState<Record<string, string>>({});
