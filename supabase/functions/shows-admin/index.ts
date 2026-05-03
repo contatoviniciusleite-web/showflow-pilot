@@ -1081,92 +1081,32 @@ Deno.serve(async (req) => {
     // ============================================================
     // LINK PÚBLICO PARA O CONTRATANTE PRÉ-PREENCHER A MINUTA
     // ============================================================
+    // ETAPA 3 (opção A) — gera link público para o contratante preencher os dados.
+    // Requer minuta já aprovada (status aguardando_dados ou aguardando_contratante).
     if (action === "generate_contratante_link") {
-      if (!canCreate) return json({ error: "Acesso negado" }, 403);
-      const s = validateShow(body.show ?? {});
-
-      // Vendedor: artista permitido
-      if (isVendedor && !isManager && !isStaff) {
-        const ok = await sql`select 1 from public.vendedor_artists where vendedor_id = ${userId} and artist_id = ${s.artist_id} limit 1`;
-        if (!ok.length) return json({ error: "Você não tem permissão para vender shows deste artista." }, 403);
-      }
-
-      // Trava: data bloqueada
-      if (!isManager) {
-        const blockRows = await sql`
-          select artist_id, motivo from public.blocked_dates
-          where data = ${s.data_show}
-            and (artist_id = ${s.artist_id} or artist_id is null)
-          limit 1
-        `;
-        if (blockRows.length) {
-          const b: any = blockRows[0];
-          const escopo = b.artist_id ? "para este artista" : "para todos os artistas";
-          const motivo = b.motivo ? ` (motivo: ${b.motivo})` : "";
-          return json({ error: `Esta data está bloqueada ${escopo}${motivo}. Fale com a gerência.` }, 409);
-        }
-      }
-
-      // Trava: cachê mínimo
-      const artistRows = await sql`select cache_minimo from public.artists where id = ${s.artist_id}`;
-      const cacheMin = Number((artistRows[0] as any)?.cache_minimo ?? 0);
-      if (cacheMin > 0 && s.cache_total < cacheMin && !isManager) {
-        return json({ error: "O cachê informado está abaixo do mínimo permitido para este artista. Somente a gerência pode autorizar valores abaixo do mínimo." }, 403);
+      if (typeof body.id !== "string") return json({ error: "Show inválido (id obrigatório)" }, 400);
+      const found = await sql`select created_by, status::text as status from public.shows where id = ${body.id}`;
+      if (!found.length) return json({ error: "Show não encontrado" }, 404);
+      const sh0: any = found[0];
+      const isOwner = sh0.created_by === userId;
+      if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
+      if (!["aguardando_dados", "aguardando_contratante"].includes(sh0.status)) {
+        return json({ error: "A minuta precisa estar aprovada (Aguardando Dados) para gerar um link." }, 400);
       }
 
       const validadeHoras = await getSetting(sql, "contratante_link_validade_horas", 24);
-
-      // Atualizar show existente OU criar novo
-      let showId: string | null = typeof body.id === "string" ? body.id : null;
-      if (showId) {
-        const upd = await sql`
-          update public.shows set
-            artist_id = ${s.artist_id}, data_show = ${s.data_show}, horario = ${s.horario},
-            local = ${s.local}, tipo_estrutura = ${s.tipo_estrutura}::estrutura_tipo,
-            endereco = ${s.endereco}, cidade = ${s.cidade}, capacidade = ${s.capacidade},
-            cache_total = ${s.cache_total}, condicao_pagamento = ${s.condicao_pagamento},
-            encargos_extras = ${s.encargos_extras},
-            transp_onibus = ${s.transp_onibus}, transp_van = ${s.transp_van},
-            transp_aereo = ${s.transp_aereo}, transp_excesso_bagagem = ${s.transp_excesso_bagagem},
-            transp_observacoes = ${s.transp_observacoes},
-            hosp_diaria_alimentacao = ${s.hosp_diaria_alimentacao},
-            hosp_hospedagem = ${s.hosp_hospedagem}, hosp_traslado = ${s.hosp_traslado},
-            camarins_rider = ${s.camarins_rider}, autorizado_por = ${s.autorizado_por},
-            vendedor = ${s.vendedor},
-            status = 'aguardando_contratante'::show_status,
-            contratante_link_token = gen_random_uuid(),
-            contratante_link_expires_at = now() + (${validadeHoras} || ' hours')::interval,
-            contratante_link_preenchido = false,
-            contratante_link_preenchido_em = null,
-            updated_at = now()
-          where id = ${showId}
-          returning id, contratante_link_token, contratante_link_expires_at
-        `;
-        if (!upd.length) return json({ error: "Show não encontrado" }, 404);
-        return json({ show: upd[0] });
-      } else {
-        const ins = await sql`
-          insert into public.shows (
-            artist_id, data_show, horario, data_subida, vendedor,
-            local, tipo_estrutura, endereco, cidade, capacidade,
-            cache_total, condicao_pagamento, encargos_extras,
-            transp_onibus, transp_van, transp_aereo, transp_excesso_bagagem, transp_observacoes,
-            hosp_diaria_alimentacao, hosp_hospedagem, hosp_traslado,
-            camarins_rider, autorizado_por, created_by, status,
-            contratante_link_token, contratante_link_expires_at, updated_at
-          ) values (
-            ${s.artist_id}, ${s.data_show}, ${s.horario}, current_date, ${s.vendedor},
-            ${s.local}, ${s.tipo_estrutura}::estrutura_tipo, ${s.endereco}, ${s.cidade}, ${s.capacidade},
-            ${s.cache_total}, ${s.condicao_pagamento}, ${s.encargos_extras},
-            ${s.transp_onibus}, ${s.transp_van}, ${s.transp_aereo}, ${s.transp_excesso_bagagem}, ${s.transp_observacoes},
-            ${s.hosp_diaria_alimentacao}, ${s.hosp_hospedagem}, ${s.hosp_traslado},
-            ${s.camarins_rider}, ${s.autorizado_por}, ${userId}, 'aguardando_contratante'::show_status,
-            gen_random_uuid(), now() + (${validadeHoras} || ' hours')::interval, now()
-          )
-          returning id, contratante_link_token, contratante_link_expires_at
-        `;
-        return json({ show: ins[0] });
-      }
+      const upd = await sql`
+        update public.shows set
+          status = 'aguardando_contratante'::show_status,
+          contratante_link_token = gen_random_uuid(),
+          contratante_link_expires_at = now() + (${validadeHoras} || ' hours')::interval,
+          contratante_link_preenchido = false,
+          contratante_link_preenchido_em = null,
+          updated_at = now()
+        where id = ${body.id}
+        returning id, contratante_link_token, contratante_link_expires_at
+      `;
+      return json({ show: upd[0] });
     }
 
     if (action === "cancel_contratante_link") {
@@ -1180,7 +1120,7 @@ Deno.serve(async (req) => {
         update public.shows set
           contratante_link_token = null,
           contratante_link_expires_at = null,
-          status = 'pendente'::show_status,
+          status = 'aguardando_dados'::show_status,
           updated_at = now()
         where id = ${body.id}
       `;
