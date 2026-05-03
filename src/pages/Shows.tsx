@@ -518,10 +518,20 @@ export default function Shows() {
       else if (editing.status === "aguardando_dados" || editing.status === "aguardando_contratante") action = "complete_data";
       else action = "update";
 
-      const { error } = await supabase.functions.invoke("shows-admin", {
+      const { data: saveData, error } = await supabase.functions.invoke("shows-admin", {
         body: editing ? { action, id: editing.id, show: payload } : { action, show: payload },
       });
       if (error) throw error;
+
+      // Persiste cronograma de pagamento (parcelas)
+      const savedShowId = editing?.id ?? (saveData as any)?.show?.id;
+      if (savedShowId) {
+        const items = parcelas.map((it, i) => ({ ...it, ordem: i }));
+        const { error: schedErr } = await supabase.functions.invoke("shows-admin", {
+          body: { action: "save_payment_schedule", show_id: savedShowId, items },
+        });
+        if (schedErr) console.error("save_payment_schedule", schedErr);
+      }
 
       if (cacheBelowMin && isManager) {
         toast.warning(`Cachê abaixo do mínimo (${fmtBRL(cacheMin)}). Salvo como exceção pela gerência.`);
