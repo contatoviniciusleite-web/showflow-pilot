@@ -118,6 +118,10 @@ Deno.serve(async (req) => {
         const enderecoFinal = estado ? `${endereco} - ${estado}` : endereco;
         const obsExtra = obs ? `\n\n[Observações do contratante]: ${obs}` : "";
 
+        // Buscar prazo configurável (48h úteis padrão)
+        const setRows = await sql`select value from public.app_settings where key = 'prazo_comprovante_horas_uteis'`;
+        const prazoHoras = setRows.length ? Number((setRows[0] as any).value) || 48 : 48;
+
         const upd = await sql`
           update public.shows set
             contratante_nome = ${nome},
@@ -130,7 +134,10 @@ Deno.serve(async (req) => {
             condicao_pagamento = coalesce(condicao_pagamento, '') || ${obsExtra},
             contratante_link_preenchido = true,
             contratante_link_preenchido_em = now(),
-            status = 'pendente'::show_status,
+            status = 'aguardando_pagamento'::show_status,
+            dados_completos_em = now(),
+            prazo_comprovante_em = public.add_business_hours_br(now(), ${prazoHoras}),
+            aviso_12h_enviado_em = null,
             updated_at = now()
           where contratante_link_token = ${token}::uuid
             and contratante_link_preenchido = false
