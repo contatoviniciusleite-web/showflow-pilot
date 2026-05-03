@@ -25,7 +25,7 @@ import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
 import { canConfirmPayment } from "@/lib/permissions";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
-type ShowStatus = "pendente" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
+type ShowStatus = "pendente" | "rejeitada" | "aguardando_dados" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
 interface Show {
   id: string;
   artist_id: string;
@@ -123,13 +123,11 @@ const emptyForm = {
   contratante_id: "" as string,
 };
 
-const REQUIRED_FIELDS = [
-  "artist_id",
-  "data_show",
-  "horario",
-  "local",
-  "cidade",
-  "cache_total",
+// ETAPA 1: campos básicos exigidos do vendedor.
+const BASIC_REQUIRED = ["artist_id", "data_show", "horario", "local", "cidade", "cache_total"] as const;
+// ETAPA 3: dados completos exigidos para enviar à etapa de pagamento.
+const FULL_REQUIRED = [
+  ...BASIC_REQUIRED,
   "condicao_pagamento",
   "contratante_nome",
   "contratante_telefone",
@@ -149,9 +147,20 @@ const FIELD_LABELS: Record<string, string> = {
   contratante_email: "E-mail do contratante",
 };
 
-function validateForm(form: FormState): Record<string, string> {
+function validateBasic(form: FormState): Record<string, string> {
   const errs: Record<string, string> = {};
-  for (const f of REQUIRED_FIELDS) {
+  for (const f of BASIC_REQUIRED) {
+    const v = (form as any)[f];
+    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
+      errs[f] = "Este campo é obrigatório";
+    }
+  }
+  return errs;
+}
+
+function validateFull(form: FormState): Record<string, string> {
+  const errs: Record<string, string> = {};
+  for (const f of FULL_REQUIRED) {
     const v = (form as any)[f];
     if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
       errs[f] = "Este campo é obrigatório";
@@ -159,18 +168,6 @@ function validateForm(form: FormState): Record<string, string> {
   }
   if (form.contratante_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contratante_email)) {
     errs.contratante_email = "E-mail inválido";
-  }
-  return errs;
-}
-
-const SHOW_ONLY_REQUIRED = ["artist_id", "data_show", "horario", "local", "cidade", "cache_total", "condicao_pagamento"] as const;
-function validateMinuteForLink(form: FormState): Record<string, string> {
-  const errs: Record<string, string> = {};
-  for (const f of SHOW_ONLY_REQUIRED) {
-    const v = (form as any)[f];
-    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
-      errs[f] = "Este campo é obrigatório";
-    }
   }
   return errs;
 }
@@ -328,31 +325,14 @@ export default function Shows() {
   const buildLink = (token: string) => `${window.location.origin}/minuta/${token}`;
 
   const generateContratanteLink = async () => {
-    const errs = validateMinuteForLink(form);
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      const first = Object.keys(errs)[0];
-      toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
-      const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    if (cacheBelowMin && !isManager) {
-      toast.error(`O cachê está abaixo do mínimo (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar.`);
+    if (!editing) {
+      toast.error("Salve a minuta básica primeiro e aguarde a aprovação para gerar o link.");
       return;
     }
     setGeneratingLink(true);
     try {
-      const payload = {
-        ...form,
-        vendedor: myName || form.vendedor,
-        capacidade: form.capacidade === "" ? null : Number(form.capacidade),
-        cache_total: Number(form.cache_total) || 0,
-      };
       const { data, error } = await supabase.functions.invoke("shows-admin", {
-        body: editing
-          ? { action: "generate_contratante_link", id: editing.id, show: payload }
-          : { action: "generate_contratante_link", show: payload },
+        body: { action: "generate_contratante_link", id: editing.id },
       });
       if (error) throw error;
       const sh = data?.show;
@@ -361,7 +341,7 @@ export default function Shows() {
       setLinkData({
         token: sh.contratante_link_token,
         expiresAt: sh.contratante_link_expires_at,
-        show: { ...(editing ?? ({} as Show)), ...payload, id: sh.id, status: "aguardando_contratante" } as Show,
+        show: { ...editing, status: "aguardando_contratante" } as Show,
       });
       setLinkOpen(true);
       load();
@@ -373,12 +353,12 @@ export default function Shows() {
   };
 
   const cancelContratanteLink = async (s: Show) => {
-    if (!confirm("Cancelar o link do contratante? A minuta voltará a 'Pendente' para você preencher manualmente.")) return;
+    if (!confirm("Cancelar o link do contratante? A minuta voltará a 'Aguardando Dados' para você preencher manualmente.")) return;
     const { error } = await supabase.functions.invoke("shows-admin", {
       body: { action: "cancel_contratante_link", id: s.id },
     });
     if (error) return toast.error(error.message);
-    toast.success("Link cancelado. Minuta voltou para 'Pendente'.");
+    toast.success("Link cancelado.");
     load();
   };
 
@@ -478,9 +458,12 @@ export default function Shows() {
   const cacheMin = Number(selectedArtist?.cache_minimo ?? 0);
   const cacheBelowMin = cacheMin > 0 && Number(form.cache_total) > 0 && Number(form.cache_total) < cacheMin;
 
+  // Modo do formulário: básico (criação ou edição em pendente/rejeitada) ou completo (etapa 3+).
+  const isCompleteMode = !!editing && ["aguardando_dados", "aguardando_contratante", "aguardando_pagamento", "comprovante_enviado", "confirmado", "aprovada"].includes(editing.status);
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validateForm(form);
+    const errs = isCompleteMode ? validateFull(form) : validateBasic(form);
     if (Object.keys(errs).length) {
       setErrors(errs);
       const first = Object.keys(errs)[0];
@@ -489,7 +472,6 @@ export default function Shows() {
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    // Trava de cachê mínimo (somente gerência pode salvar abaixo)
     if (cacheBelowMin && !isManager) {
       toast.error(
         `O cachê informado (${fmtBRL(Number(form.cache_total))}) está abaixo do mínimo permitido para este artista (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar valores abaixo do mínimo.`,
@@ -507,19 +489,27 @@ export default function Shows() {
         capacidade: form.capacidade === "" ? null : Number(form.capacidade),
         cache_total: Number(form.cache_total) || 0,
       };
-      const action = editing ? "update" : "create";
+      // Decidir action:
+      //  - editar minuta em aguardando_dados (vendedor dono): complete_data → vai para aguardando_pagamento
+      //  - gerência/equipe editando: update (preserva status)
+      //  - nova minuta: create
+      let action: "create" | "update" | "complete_data";
+      if (!editing) action = "create";
+      else if (editing.status === "aguardando_dados" || editing.status === "aguardando_contratante") action = "complete_data";
+      else action = "update";
+
       const { error } = await supabase.functions.invoke("shows-admin", {
         body: editing ? { action, id: editing.id, show: payload } : { action, show: payload },
       });
       if (error) throw error;
 
-      // Cadastro automático de contratante: o backend (shows-admin) cuida de
-      // criar/vincular pelo CPF/CNPJ. Não há mais ação manual aqui.
-
       if (cacheBelowMin && isManager) {
         toast.warning(`Cachê abaixo do mínimo (${fmtBRL(cacheMin)}). Salvo como exceção pela gerência.`);
       }
-      toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
+      const successMsg = action === "create" ? "Minuta enviada para aprovação"
+        : action === "complete_data" ? "Dados completos enviados — aguardando comprovante do sinal"
+        : "Minuta atualizada";
+      toast.success(successMsg);
       setOpen(false);
       load();
     } catch (err: any) {
@@ -700,6 +690,13 @@ export default function Shows() {
                       )}
                     </div>
                   )}
+                  {s.status === "rejeitada" && (s as any).rejeitada_motivo && (
+                    <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2">
+                      <p className="text-xs text-destructive">
+                        <span className="font-semibold">Motivo da rejeição:</span> {(s as any).rejeitada_motivo}
+                      </p>
+                    </div>
+                  )}
                   {(s.remarcado_count ?? 0) > 0 && s.ultima_remarcacao_motivo && (isManager || isFinanceiro || isArtista) && (
                     <p className="text-xs text-muted-foreground mt-1">
                       <span className="font-semibold">Motivo da remarcação:</span> {s.ultima_remarcacao_motivo}
@@ -753,7 +750,12 @@ export default function Shows() {
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isEditor && s.status !== "cancelada" && (
+                  {(s.status === "aguardando_dados") && (s.created_by === user?.id || isEditor) && (
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => openEdit(s)} title="Completar dados">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {isEditor && s.status !== "cancelada" && s.status !== "aguardando_dados" && (
                     <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                   )}
                   {isManager && s.status !== "cancelada" && (

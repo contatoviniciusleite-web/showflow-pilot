@@ -52,12 +52,24 @@ function timeOrNull(v: unknown): string | null {
   return v.length === 5 ? `${v}:00` : v;
 }
 
-function validateShow(input: any) {
+function validateShow(input: any, opts: { strictBasic?: boolean } = {}) {
   if (!input || typeof input !== "object") throw new Error("Dados inválidos");
   const artist_id = txt(input.artist_id, 64);
   if (!artist_id) throw new Error("Artista é obrigatório");
   const data_show = dateOrNull(input.data_show);
   if (!data_show) throw new Error("Data do show é obrigatória");
+
+  const horario = timeOrNull(input.horario);
+  const local = txt(input.local, 200);
+  const cidade = txt(input.cidade, 120);
+  const cache_total = num(input.cache_total);
+
+  if (opts.strictBasic) {
+    if (!horario) throw new Error("Horário é obrigatório");
+    if (!local) throw new Error("Nome do local é obrigatório");
+    if (!cidade) throw new Error("Cidade é obrigatória");
+    if (!(cache_total > 0)) throw new Error("Cachê total é obrigatório");
+  }
 
   let tipo: string | null = null;
   if (input.tipo_estrutura === "aberta" || input.tipo_estrutura === "fechada") {
@@ -67,12 +79,12 @@ function validateShow(input: any) {
   return {
     artist_id,
     data_show,
-    horario: timeOrNull(input.horario),
+    horario,
     vendedor: txt(input.vendedor, 200),
-    local: txt(input.local, 200),
+    local,
     tipo_estrutura: tipo,
     endereco: txt(input.endereco, 300),
-    cidade: txt(input.cidade, 120),
+    cidade,
     capacidade: intOrNull(input.capacidade),
     contratante_nome: txt(input.contratante_nome, 200),
     contratante_documento: txt(input.contratante_documento, 50),
@@ -82,7 +94,7 @@ function validateShow(input: any) {
     contratante_telefone: txt(input.contratante_telefone, 50),
     contratante_email: txt(input.contratante_email, 200),
     contratante_id: txt(input.contratante_id, 64),
-    cache_total: num(input.cache_total),
+    cache_total,
     condicao_pagamento: txt(input.condicao_pagamento, 2000),
     encargos_extras: bool(input.encargos_extras),
     transp_onibus: bool(input.transp_onibus),
@@ -249,7 +261,7 @@ Deno.serve(async (req) => {
               from public.shows_public_view
               where created_by is distinct from ${userId}
                 and artist_id = any(${allowed}::uuid[])
-                and status::text in ('aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
+                and status::text in ('aguardando_dados','aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
               order by data_show desc nulls last
             `
           : [];
@@ -289,7 +301,8 @@ Deno.serve(async (req) => {
 
     if (action === "create") {
       if (!canCreate) return json({ error: "Acesso negado" }, 403);
-      const s = validateShow(body.show ?? {});
+      // ETAPA 1: somente os 5 campos básicos são exigidos.
+      const s = validateShow(body.show ?? {}, { strictBasic: true });
 
       // Vendedor só pode criar para artistas liberados
       if (isVendedor && !isManager && !isStaff) {
@@ -435,24 +448,25 @@ Deno.serve(async (req) => {
       return json({ show: rows[0] });
     }
 
+    // ETAPA 2 — Aprovação básica: status vai para 'aguardando_dados'.
+    // O vendedor ainda precisa completar os dados (Etapa 3) antes de iniciar o prazo do sinal.
     if (action === "approve") {
       if (!isManager) return json({ error: "Apenas gerente pode aprovar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
 
-      const prazoHoras = await getSetting(sql, "prazo_comprovante_horas_uteis", 48);
-      // Detecta auto-aprovação: gerente aprovando minuta criada por ele mesmo.
       const existing = await sql`select created_by from public.shows where id = ${body.id}`;
       if (existing.length === 0) return json({ error: "Show não encontrado" }, 404);
       const isAuto = existing[0].created_by === userId;
       const rows = await sql`
         update public.shows
-          set status = 'aguardando_pagamento'::show_status,
+          set status = 'aguardando_dados'::show_status,
               aprovado_por = ${userId},
               aprovado_em = now(),
               auto_aprovado = ${isAuto},
               auto_aprovado_em = ${isAuto ? sql`now()` : null},
-              prazo_comprovante_em = public.add_business_hours(now(), ${prazoHoras}),
-              aviso_12h_enviado_em = null,
+              rejeitada_motivo = null,
+              rejeitada_em = null,
+              rejeitada_por = null,
               updated_at = now()
         where id = ${body.id}
         returning *, (select nome from public.artists where id = artist_id) as artist_nome
@@ -464,26 +478,33 @@ Deno.serve(async (req) => {
           sql,
           show.created_by,
           "minuta_aprovada",
-          "Minuta aprovada — anexar comprovante",
-          `Sua minuta de ${show.artist_nome ?? "show"} em ${show.data_show} foi aprovada. Anexe o comprovante do sinal em até ${prazoHoras}h úteis.`,
+          "Minuta aprovada — complete os dados",
+          `Sua minuta de ${show.artist_nome ?? "show"} em ${show.local ?? "local"} dia ${show.data_show} foi aprovada! Complete os dados para prosseguir.`,
           show.id,
         );
       }
       return json({ show });
     }
 
+    // ETAPA 2 — Rejeição: NÃO exclui mais a minuta. Mantém com status 'rejeitada'
+    // e o motivo, para o vendedor ver o histórico.
     if (action === "reject") {
       if (!isManager) return json({ error: "Apenas gerente pode rejeitar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
       const motivo = txt(body.motivo, 1000);
       if (!motivo) return json({ error: "Motivo da rejeição é obrigatório" }, 400);
-      const found = await sql`
-        select s.*, a.nome as artist_nome
-        from public.shows s left join public.artists a on a.id = s.artist_id
-        where s.id = ${body.id}
+      const rows = await sql`
+        update public.shows set
+          status = 'rejeitada'::show_status,
+          rejeitada_motivo = ${motivo},
+          rejeitada_em = now(),
+          rejeitada_por = ${userId},
+          updated_at = now()
+        where id = ${body.id}
+        returning *, (select nome from public.artists where id = artist_id) as artist_nome
       `;
-      if (found.length === 0) return json({ error: "Show não encontrado" }, 404);
-      const show: any = found[0];
+      if (rows.length === 0) return json({ error: "Show não encontrado" }, 404);
+      const show: any = rows[0];
       if (show.created_by) {
         await notify(
           sql,
@@ -491,11 +512,74 @@ Deno.serve(async (req) => {
           "minuta_rejeitada",
           "Minuta rejeitada",
           `Sua minuta de ${show.artist_nome ?? "show"} em ${show.data_show} foi rejeitada. Motivo: ${motivo}`,
-          null,
+          show.id,
         );
       }
-      await sql`delete from public.shows where id = ${body.id}`;
-      return json({ ok: true });
+      return json({ ok: true, show });
+    }
+
+    // ETAPA 3 — Vendedor (ou gerência/equipe) completa os dados após aprovação.
+    // Ao concluir: status -> 'aguardando_pagamento', inicia contagem de 48h úteis para o sinal,
+    // notifica gerência + financeiro.
+    if (action === "complete_data") {
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      const owner = await sql`select created_by, status::text as status from public.shows where id = ${body.id}`;
+      if (!owner.length) return json({ error: "Show não encontrado" }, 404);
+      const sh0: any = owner[0];
+      const isOwner = sh0.created_by === userId;
+      if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
+      if (!["aguardando_dados", "aguardando_contratante", "pendente"].includes(sh0.status) && !isEditor) {
+        return json({ error: "Esta minuta não está aguardando dados completos." }, 400);
+      }
+
+      const s = validateShow(body.show ?? {});
+      // Validações mínimas dos dados completos
+      if (!s.contratante_nome) return json({ error: "Nome do contratante é obrigatório" }, 400);
+      if (!s.condicao_pagamento) return json({ error: "Condição de pagamento é obrigatória" }, 400);
+
+      try { s.contratante_id = await autoLinkContratante(sql, s, userId); } catch (e) { console.error("autoLinkContratante (complete_data)", e); }
+
+      const prazoHoras = await getSetting(sql, "prazo_comprovante_horas_uteis", 48);
+      const rows = await sql`
+        update public.shows set
+          horario = coalesce(${s.horario}, horario),
+          local = coalesce(${s.local}, local),
+          tipo_estrutura = ${s.tipo_estrutura}::estrutura_tipo,
+          endereco = ${s.endereco},
+          cidade = coalesce(${s.cidade}, cidade),
+          capacidade = ${s.capacidade},
+          contratante_nome = ${s.contratante_nome},
+          contratante_documento = ${s.contratante_documento},
+          contratante_endereco = ${s.contratante_endereco},
+          contratante_cidade = ${s.contratante_cidade},
+          contratante_cep = ${s.contratante_cep},
+          contratante_telefone = ${s.contratante_telefone},
+          contratante_email = ${s.contratante_email},
+          contratante_id = ${s.contratante_id},
+          condicao_pagamento = ${s.condicao_pagamento},
+          encargos_extras = ${s.encargos_extras},
+          transp_onibus = ${s.transp_onibus}, transp_van = ${s.transp_van},
+          transp_aereo = ${s.transp_aereo}, transp_excesso_bagagem = ${s.transp_excesso_bagagem},
+          transp_observacoes = ${s.transp_observacoes},
+          hosp_diaria_alimentacao = ${s.hosp_diaria_alimentacao},
+          hosp_hospedagem = ${s.hosp_hospedagem}, hosp_traslado = ${s.hosp_traslado},
+          camarins_rider = ${s.camarins_rider},
+          autorizado_por = ${s.autorizado_por},
+          contratante_link_token = null,
+          contratante_link_expires_at = null,
+          status = 'aguardando_pagamento'::show_status,
+          dados_completos_em = now(),
+          prazo_comprovante_em = public.add_business_hours_br(now(), ${prazoHoras}),
+          aviso_12h_enviado_em = null,
+          updated_at = now()
+        where id = ${body.id}
+        returning *, (select nome from public.artists where id = artist_id) as artist_nome
+      `;
+      const show: any = rows[0];
+      const local = show.local ?? "local não informado";
+      const msg = `Minuta de ${show.artist_nome ?? "—"} em ${local} dia ${show.data_show} com dados completos. Aguardando comprovante do sinal (${prazoHoras}h úteis).`;
+      await notifyByRoles(sql, ["gerente", "financeiro"], "dados_completos", "Minuta com dados completos", msg, show.id);
+      return json({ show });
     }
 
     if (action === "upload_comprovante") {
@@ -997,92 +1081,32 @@ Deno.serve(async (req) => {
     // ============================================================
     // LINK PÚBLICO PARA O CONTRATANTE PRÉ-PREENCHER A MINUTA
     // ============================================================
+    // ETAPA 3 (opção A) — gera link público para o contratante preencher os dados.
+    // Requer minuta já aprovada (status aguardando_dados ou aguardando_contratante).
     if (action === "generate_contratante_link") {
-      if (!canCreate) return json({ error: "Acesso negado" }, 403);
-      const s = validateShow(body.show ?? {});
-
-      // Vendedor: artista permitido
-      if (isVendedor && !isManager && !isStaff) {
-        const ok = await sql`select 1 from public.vendedor_artists where vendedor_id = ${userId} and artist_id = ${s.artist_id} limit 1`;
-        if (!ok.length) return json({ error: "Você não tem permissão para vender shows deste artista." }, 403);
-      }
-
-      // Trava: data bloqueada
-      if (!isManager) {
-        const blockRows = await sql`
-          select artist_id, motivo from public.blocked_dates
-          where data = ${s.data_show}
-            and (artist_id = ${s.artist_id} or artist_id is null)
-          limit 1
-        `;
-        if (blockRows.length) {
-          const b: any = blockRows[0];
-          const escopo = b.artist_id ? "para este artista" : "para todos os artistas";
-          const motivo = b.motivo ? ` (motivo: ${b.motivo})` : "";
-          return json({ error: `Esta data está bloqueada ${escopo}${motivo}. Fale com a gerência.` }, 409);
-        }
-      }
-
-      // Trava: cachê mínimo
-      const artistRows = await sql`select cache_minimo from public.artists where id = ${s.artist_id}`;
-      const cacheMin = Number((artistRows[0] as any)?.cache_minimo ?? 0);
-      if (cacheMin > 0 && s.cache_total < cacheMin && !isManager) {
-        return json({ error: "O cachê informado está abaixo do mínimo permitido para este artista. Somente a gerência pode autorizar valores abaixo do mínimo." }, 403);
+      if (typeof body.id !== "string") return json({ error: "Show inválido (id obrigatório)" }, 400);
+      const found = await sql`select created_by, status::text as status from public.shows where id = ${body.id}`;
+      if (!found.length) return json({ error: "Show não encontrado" }, 404);
+      const sh0: any = found[0];
+      const isOwner = sh0.created_by === userId;
+      if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
+      if (!["aguardando_dados", "aguardando_contratante"].includes(sh0.status)) {
+        return json({ error: "A minuta precisa estar aprovada (Aguardando Dados) para gerar um link." }, 400);
       }
 
       const validadeHoras = await getSetting(sql, "contratante_link_validade_horas", 24);
-
-      // Atualizar show existente OU criar novo
-      let showId: string | null = typeof body.id === "string" ? body.id : null;
-      if (showId) {
-        const upd = await sql`
-          update public.shows set
-            artist_id = ${s.artist_id}, data_show = ${s.data_show}, horario = ${s.horario},
-            local = ${s.local}, tipo_estrutura = ${s.tipo_estrutura}::estrutura_tipo,
-            endereco = ${s.endereco}, cidade = ${s.cidade}, capacidade = ${s.capacidade},
-            cache_total = ${s.cache_total}, condicao_pagamento = ${s.condicao_pagamento},
-            encargos_extras = ${s.encargos_extras},
-            transp_onibus = ${s.transp_onibus}, transp_van = ${s.transp_van},
-            transp_aereo = ${s.transp_aereo}, transp_excesso_bagagem = ${s.transp_excesso_bagagem},
-            transp_observacoes = ${s.transp_observacoes},
-            hosp_diaria_alimentacao = ${s.hosp_diaria_alimentacao},
-            hosp_hospedagem = ${s.hosp_hospedagem}, hosp_traslado = ${s.hosp_traslado},
-            camarins_rider = ${s.camarins_rider}, autorizado_por = ${s.autorizado_por},
-            vendedor = ${s.vendedor},
-            status = 'aguardando_contratante'::show_status,
-            contratante_link_token = gen_random_uuid(),
-            contratante_link_expires_at = now() + (${validadeHoras} || ' hours')::interval,
-            contratante_link_preenchido = false,
-            contratante_link_preenchido_em = null,
-            updated_at = now()
-          where id = ${showId}
-          returning id, contratante_link_token, contratante_link_expires_at
-        `;
-        if (!upd.length) return json({ error: "Show não encontrado" }, 404);
-        return json({ show: upd[0] });
-      } else {
-        const ins = await sql`
-          insert into public.shows (
-            artist_id, data_show, horario, data_subida, vendedor,
-            local, tipo_estrutura, endereco, cidade, capacidade,
-            cache_total, condicao_pagamento, encargos_extras,
-            transp_onibus, transp_van, transp_aereo, transp_excesso_bagagem, transp_observacoes,
-            hosp_diaria_alimentacao, hosp_hospedagem, hosp_traslado,
-            camarins_rider, autorizado_por, created_by, status,
-            contratante_link_token, contratante_link_expires_at, updated_at
-          ) values (
-            ${s.artist_id}, ${s.data_show}, ${s.horario}, current_date, ${s.vendedor},
-            ${s.local}, ${s.tipo_estrutura}::estrutura_tipo, ${s.endereco}, ${s.cidade}, ${s.capacidade},
-            ${s.cache_total}, ${s.condicao_pagamento}, ${s.encargos_extras},
-            ${s.transp_onibus}, ${s.transp_van}, ${s.transp_aereo}, ${s.transp_excesso_bagagem}, ${s.transp_observacoes},
-            ${s.hosp_diaria_alimentacao}, ${s.hosp_hospedagem}, ${s.hosp_traslado},
-            ${s.camarins_rider}, ${s.autorizado_por}, ${userId}, 'aguardando_contratante'::show_status,
-            gen_random_uuid(), now() + (${validadeHoras} || ' hours')::interval, now()
-          )
-          returning id, contratante_link_token, contratante_link_expires_at
-        `;
-        return json({ show: ins[0] });
-      }
+      const upd = await sql`
+        update public.shows set
+          status = 'aguardando_contratante'::show_status,
+          contratante_link_token = gen_random_uuid(),
+          contratante_link_expires_at = now() + (${validadeHoras} || ' hours')::interval,
+          contratante_link_preenchido = false,
+          contratante_link_preenchido_em = null,
+          updated_at = now()
+        where id = ${body.id}
+        returning id, contratante_link_token, contratante_link_expires_at
+      `;
+      return json({ show: upd[0] });
     }
 
     if (action === "cancel_contratante_link") {
@@ -1096,7 +1120,7 @@ Deno.serve(async (req) => {
         update public.shows set
           contratante_link_token = null,
           contratante_link_expires_at = null,
-          status = 'pendente'::show_status,
+          status = 'aguardando_dados'::show_status,
           updated_at = now()
         where id = ${body.id}
       `;
