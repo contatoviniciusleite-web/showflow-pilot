@@ -325,31 +325,14 @@ export default function Shows() {
   const buildLink = (token: string) => `${window.location.origin}/minuta/${token}`;
 
   const generateContratanteLink = async () => {
-    const errs = validateMinuteForLink(form);
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      const first = Object.keys(errs)[0];
-      toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
-      const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    if (cacheBelowMin && !isManager) {
-      toast.error(`O cachê está abaixo do mínimo (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar.`);
+    if (!editing) {
+      toast.error("Salve a minuta básica primeiro e aguarde a aprovação para gerar o link.");
       return;
     }
     setGeneratingLink(true);
     try {
-      const payload = {
-        ...form,
-        vendedor: myName || form.vendedor,
-        capacidade: form.capacidade === "" ? null : Number(form.capacidade),
-        cache_total: Number(form.cache_total) || 0,
-      };
       const { data, error } = await supabase.functions.invoke("shows-admin", {
-        body: editing
-          ? { action: "generate_contratante_link", id: editing.id, show: payload }
-          : { action: "generate_contratante_link", show: payload },
+        body: { action: "generate_contratante_link", id: editing.id },
       });
       if (error) throw error;
       const sh = data?.show;
@@ -358,7 +341,7 @@ export default function Shows() {
       setLinkData({
         token: sh.contratante_link_token,
         expiresAt: sh.contratante_link_expires_at,
-        show: { ...(editing ?? ({} as Show)), ...payload, id: sh.id, status: "aguardando_contratante" } as Show,
+        show: { ...editing, status: "aguardando_contratante" } as Show,
       });
       setLinkOpen(true);
       load();
@@ -370,12 +353,12 @@ export default function Shows() {
   };
 
   const cancelContratanteLink = async (s: Show) => {
-    if (!confirm("Cancelar o link do contratante? A minuta voltará a 'Pendente' para você preencher manualmente.")) return;
+    if (!confirm("Cancelar o link do contratante? A minuta voltará a 'Aguardando Dados' para você preencher manualmente.")) return;
     const { error } = await supabase.functions.invoke("shows-admin", {
       body: { action: "cancel_contratante_link", id: s.id },
     });
     if (error) return toast.error(error.message);
-    toast.success("Link cancelado. Minuta voltou para 'Pendente'.");
+    toast.success("Link cancelado.");
     load();
   };
 
