@@ -724,6 +724,29 @@ export default function Shows() {
                   <Button size="sm" variant="outline" onClick={() => openDetails(s)} title="Anexos / Financeiro">
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
+                  {s.status === "aguardando_contratante" && s.contratante_link_token && (s.created_by === user?.id || isEditor) && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title="Copiar link do contratante"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(`${window.location.origin}/minuta/${s.contratante_link_token}`);
+                          toast.success("Link copiado!");
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title="Cancelar link e preencher manualmente"
+                        onClick={() => cancelContratanteLink(s)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
                   {(s.status === "comprovante_enviado" || s.status === "aguardando_pagamento") && canConfirm && (
                     <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openDetails(s)} title="Confirmar pagamento">
                       <CheckCircle2 className="h-3.5 w-3.5" />
