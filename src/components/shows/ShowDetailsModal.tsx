@@ -184,6 +184,17 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
           </TabsContent>
 
           {!isArtista && (
+            <TabsContent value="cronograma">
+              <PaymentScheduleEditor
+                showId={show.id}
+                cacheTotal={Number(show.cache_total ?? 0)}
+                canEdit={isManager || roles.includes("equipe") || isFinanceiro || (roles.includes("vendedor") && !!isOwner)}
+                onChanged={onChanged}
+              />
+            </TabsContent>
+          )}
+
+          {!isArtista && (
             <TabsContent value="financeiro">
               <PaymentsTab
                 showId={show.id}
