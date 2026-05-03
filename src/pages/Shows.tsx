@@ -72,6 +72,9 @@ interface Show {
   ultima_remarcacao_motivo?: string | null;
   confirmado_por_nome?: string | null;
   confirmado_em?: string | null;
+  contratante_link_token?: string | null;
+  contratante_link_expires_at?: string | null;
+  contratante_link_preenchido?: boolean | null;
 }
 interface ShowPublic {
   id: string;
@@ -287,6 +290,97 @@ export default function Shows() {
   const [histTarget, setHistTarget] = useState<Show | null>(null);
   const [histRows, setHistRows] = useState<any[]>([]);
   const [histLoading, setHistLoading] = useState(false);
+
+  // Link do contratante
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkData, setLinkData] = useState<{ token: string; expiresAt: string; show: Show | null } | null>(null);
+  const [linkCountdown, setLinkCountdown] = useState("");
+  const [generatingLink, setGeneratingLink] = useState(false);
+
+  useEffect(() => {
+    if (!linkData?.expiresAt) return;
+    const tick = () => {
+      const ms = new Date(linkData.expiresAt).getTime() - Date.now();
+      if (ms <= 0) { setLinkCountdown("Expirado"); return; }
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLinkCountdown(`${h}h ${m}m ${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [linkData?.expiresAt]);
+
+  const buildLink = (token: string) => `${window.location.origin}/minuta/${token}`;
+
+  const generateContratanteLink = async () => {
+    const errs = validateMinuteForLink(form);
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      const first = Object.keys(errs)[0];
+      toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
+      const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (cacheBelowMin && !isManager) {
+      toast.error(`O cachê está abaixo do mínimo (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar.`);
+      return;
+    }
+    setGeneratingLink(true);
+    try {
+      const payload = {
+        ...form,
+        vendedor: myName || form.vendedor,
+        capacidade: form.capacidade === "" ? null : Number(form.capacidade),
+        cache_total: Number(form.cache_total) || 0,
+      };
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: editing
+          ? { action: "generate_contratante_link", id: editing.id, show: payload }
+          : { action: "generate_contratante_link", show: payload },
+      });
+      if (error) throw error;
+      const sh = data?.show;
+      if (!sh?.contratante_link_token) throw new Error("Token não gerado");
+      setOpen(false);
+      setLinkData({
+        token: sh.contratante_link_token,
+        expiresAt: sh.contratante_link_expires_at,
+        show: { ...(editing ?? ({} as Show)), ...payload, id: sh.id, status: "aguardando_contratante" } as Show,
+      });
+      setLinkOpen(true);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao gerar link");
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const cancelContratanteLink = async (s: Show) => {
+    if (!confirm("Cancelar o link do contratante? A minuta voltará a 'Pendente' para você preencher manualmente.")) return;
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "cancel_contratante_link", id: s.id },
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Link cancelado. Minuta voltou para 'Pendente'.");
+    load();
+  };
+
+  const copyLink = async () => {
+    if (!linkData) return;
+    await navigator.clipboard.writeText(buildLink(linkData.token));
+    toast.success("Link copiado!");
+  };
+
+  const shareWhatsApp = () => {
+    if (!linkData) return;
+    const link = buildLink(linkData.token);
+    const msg = `Olá! Para confirmarmos o show, preciso que você preencha seus dados neste link: ${link}. O link expira em 24 horas.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
   const load = async () => {
     setLoading(true);
