@@ -86,6 +86,7 @@ interface ShowPublic {
   local: string | null;
   cidade: string | null;
   vendedor: string | null;
+  status: ShowStatus;
 }
 
 const emptyForm = {
