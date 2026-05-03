@@ -521,6 +521,10 @@ export type Database = {
           contratante_email: string | null
           contratante_endereco: string | null
           contratante_id: string | null
+          contratante_link_expires_at: string | null
+          contratante_link_preenchido: boolean
+          contratante_link_preenchido_em: string | null
+          contratante_link_token: string | null
           contratante_nome: string | null
           contratante_telefone: string | null
           created_at: string
@@ -581,6 +585,10 @@ export type Database = {
           contratante_email?: string | null
           contratante_endereco?: string | null
           contratante_id?: string | null
+          contratante_link_expires_at?: string | null
+          contratante_link_preenchido?: boolean
+          contratante_link_preenchido_em?: string | null
+          contratante_link_token?: string | null
           contratante_nome?: string | null
           contratante_telefone?: string | null
           created_at?: string
@@ -641,6 +649,10 @@ export type Database = {
           contratante_email?: string | null
           contratante_endereco?: string | null
           contratante_id?: string | null
+          contratante_link_expires_at?: string | null
+          contratante_link_preenchido?: boolean
+          contratante_link_preenchido_em?: string | null
+          contratante_link_token?: string | null
           contratante_nome?: string | null
           contratante_telefone?: string | null
           created_at?: string
@@ -804,6 +816,7 @@ export type Database = {
         | "comprovante_enviado"
         | "confirmado"
         | "cancelada"
+        | "aguardando_contratante"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -941,6 +954,7 @@ export const Constants = {
         "comprovante_enviado",
         "confirmado",
         "cancelada",
+        "aguardando_contratante",
       ],
     },
   },

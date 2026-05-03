@@ -1,1 +1,4 @@
 project_id = "xhcvnkfylvgchqfeumbc"
+
+[functions.contratante-link]
+verify_jwt = false

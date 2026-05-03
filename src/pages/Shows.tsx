@@ -19,13 +19,13 @@ import { TitleCaseInput } from "@/components/ui/title-case-input";
 import { formatCEP, formatCpfCnpj, formatPhoneBR, toTitleCase } from "@/lib/masks";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History, Link as LinkIcon, Copy, MessageCircle } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
 import { canConfirmPayment } from "@/lib/permissions";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
-type ShowStatus = "pendente" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
+type ShowStatus = "pendente" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
 interface Show {
   id: string;
   artist_id: string;
@@ -72,6 +72,9 @@ interface Show {
   ultima_remarcacao_motivo?: string | null;
   confirmado_por_nome?: string | null;
   confirmado_em?: string | null;
+  contratante_link_token?: string | null;
+  contratante_link_expires_at?: string | null;
+  contratante_link_preenchido?: boolean | null;
 }
 interface ShowPublic {
   id: string;
@@ -155,6 +158,18 @@ function validateForm(form: FormState): Record<string, string> {
   }
   if (form.contratante_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contratante_email)) {
     errs.contratante_email = "E-mail inválido";
+  }
+  return errs;
+}
+
+const SHOW_ONLY_REQUIRED = ["artist_id", "data_show", "horario", "local", "cidade", "cache_total", "condicao_pagamento"] as const;
+function validateMinuteForLink(form: FormState): Record<string, string> {
+  const errs: Record<string, string> = {};
+  for (const f of SHOW_ONLY_REQUIRED) {
+    const v = (form as any)[f];
+    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
+      errs[f] = "Este campo é obrigatório";
+    }
   }
   return errs;
 }
@@ -287,6 +302,97 @@ export default function Shows() {
   const [histTarget, setHistTarget] = useState<Show | null>(null);
   const [histRows, setHistRows] = useState<any[]>([]);
   const [histLoading, setHistLoading] = useState(false);
+
+  // Link do contratante
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkData, setLinkData] = useState<{ token: string; expiresAt: string; show: Show | null } | null>(null);
+  const [linkCountdown, setLinkCountdown] = useState("");
+  const [generatingLink, setGeneratingLink] = useState(false);
+
+  useEffect(() => {
+    if (!linkData?.expiresAt) return;
+    const tick = () => {
+      const ms = new Date(linkData.expiresAt).getTime() - Date.now();
+      if (ms <= 0) { setLinkCountdown("Expirado"); return; }
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLinkCountdown(`${h}h ${m}m ${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [linkData?.expiresAt]);
+
+  const buildLink = (token: string) => `${window.location.origin}/minuta/${token}`;
+
+  const generateContratanteLink = async () => {
+    const errs = validateMinuteForLink(form);
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      const first = Object.keys(errs)[0];
+      toast.error(`Preencha: ${FIELD_LABELS[first] ?? first}`);
+      const el = document.querySelector<HTMLElement>(`[data-field="${first}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (cacheBelowMin && !isManager) {
+      toast.error(`O cachê está abaixo do mínimo (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar.`);
+      return;
+    }
+    setGeneratingLink(true);
+    try {
+      const payload = {
+        ...form,
+        vendedor: myName || form.vendedor,
+        capacidade: form.capacidade === "" ? null : Number(form.capacidade),
+        cache_total: Number(form.cache_total) || 0,
+      };
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: editing
+          ? { action: "generate_contratante_link", id: editing.id, show: payload }
+          : { action: "generate_contratante_link", show: payload },
+      });
+      if (error) throw error;
+      const sh = data?.show;
+      if (!sh?.contratante_link_token) throw new Error("Token não gerado");
+      setOpen(false);
+      setLinkData({
+        token: sh.contratante_link_token,
+        expiresAt: sh.contratante_link_expires_at,
+        show: { ...(editing ?? ({} as Show)), ...payload, id: sh.id, status: "aguardando_contratante" } as Show,
+      });
+      setLinkOpen(true);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao gerar link");
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const cancelContratanteLink = async (s: Show) => {
+    if (!confirm("Cancelar o link do contratante? A minuta voltará a 'Pendente' para você preencher manualmente.")) return;
+    const { error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "cancel_contratante_link", id: s.id },
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Link cancelado. Minuta voltou para 'Pendente'.");
+    load();
+  };
+
+  const copyLink = async () => {
+    if (!linkData) return;
+    await navigator.clipboard.writeText(buildLink(linkData.token));
+    toast.success("Link copiado!");
+  };
+
+  const shareWhatsApp = () => {
+    if (!linkData) return;
+    const link = buildLink(linkData.token);
+    const msg = `Olá! Para confirmarmos o show, preciso que você preencha seus dados neste link: ${link}. O link expira em 24 horas.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
   const load = async () => {
     setLoading(true);
@@ -618,6 +724,29 @@ export default function Shows() {
                   <Button size="sm" variant="outline" onClick={() => openDetails(s)} title="Anexos / Financeiro">
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
+                  {s.status === "aguardando_contratante" && s.contratante_link_token && (s.created_by === user?.id || isEditor) && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title="Copiar link do contratante"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(`${window.location.origin}/minuta/${s.contratante_link_token}`);
+                          toast.success("Link copiado!");
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title="Cancelar link e preencher manualmente"
+                        onClick={() => cancelContratanteLink(s)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
                   {(s.status === "comprovante_enviado" || s.status === "aguardando_pagamento") && canConfirm && (
                     <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openDetails(s)} title="Confirmar pagamento">
                       <CheckCircle2 className="h-3.5 w-3.5" />
@@ -997,14 +1126,58 @@ export default function Shows() {
               </div>
             </section>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={saving}>
+              {(!editing || editing.status === "pendente" || editing.status === "aguardando_contratante") && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={generateContratanteLink}
+                  disabled={generatingLink || saving}
+                  title="Salva os dados do show e gera um link para o contratante preencher os dados dele"
+                >
+                  {generatingLink ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LinkIcon className="h-4 w-4 mr-2" />}
+                  Gerar link para contratante
+                </Button>
+              )}
+              <Button type="submit" disabled={saving || generatingLink}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {editing ? "Salvar alterações" : "Cadastrar minuta"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: link gerado para o contratante */}
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link gerado para o contratante</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Envie este link ao contratante. Ele poderá preencher os próprios dados sem precisar de login.
+            O link expira em <strong>{linkCountdown}</strong>.
+          </p>
+          {linkData && (
+            <div className="rounded-md border p-3 bg-muted/30 text-sm break-all font-mono">
+              {buildLink(linkData.token)}
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={copyLink} className="flex-1">
+              <Copy className="h-4 w-4 mr-2" /> Copiar link
+            </Button>
+            <Button onClick={shareWhatsApp} variant="secondary" className="flex-1">
+              <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Você também pode preencher os dados manualmente depois — basta cancelar o link na lista de minutas.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkOpen(false)}>Fechar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
