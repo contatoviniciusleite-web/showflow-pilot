@@ -793,7 +793,9 @@ export default function Shows() {
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
                   <h3 className="font-medium truncate">{s.artist_nome ?? "—"}</h3>
-                  <Badge className="bg-green-600 text-white ml-auto">Aprovada</Badge>
+                  <Badge className={`ml-auto ${(STATUS_CLASS as any)[s.status] ?? "bg-muted text-muted-foreground"}`}>
+                    {(STATUS_LABEL as any)[s.status] ?? s.status}
+                  </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   {fmtDate(s.data_show)}{s.horario ? ` · ${s.horario.slice(0, 5)}` : ""}
