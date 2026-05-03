@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History, Link as LinkIcon, Copy, MessageCircle } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { PaymentScheduleRows, type ScheduleItem } from "@/components/shows/PaymentScheduleEditor";
 import { canConfirmPayment } from "@/lib/permissions";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
@@ -255,6 +256,7 @@ export default function Shows() {
   const [editing, setEditing] = useState<Show | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [parcelas, setParcelas] = useState<ScheduleItem[]>([]);
   const [myName, setMyName] = useState<string>("");
 
   // Carrega o nome do usuário logado para autopreencher "Vendedor responsável"
@@ -401,6 +403,7 @@ export default function Shows() {
     const data = searchParams.get("data") ?? "";
     setEditing(null);
     setForm({ ...emptyForm, artist_id: artistId, data_show: data });
+    setParcelas([]);
     setOpen(true);
     const next = new URLSearchParams(searchParams);
     next.delete("new"); next.delete("artist"); next.delete("data");
@@ -412,6 +415,7 @@ export default function Shows() {
   const openNew = () => {
     setEditing(null);
     setForm(emptyForm);
+    setParcelas([]);
     setOpen(true);
   };
   const openEdit = (s: Show) => {
@@ -450,6 +454,22 @@ export default function Shows() {
       contratante_id: (s as any).contratante_id ?? "",
     });
     setOpen(true);
+    // carrega parcelas existentes
+    supabase.functions.invoke("shows-admin", {
+      body: { action: "list_payment_schedule", show_id: s.id },
+    }).then(({ data, error }) => {
+      if (error) { setParcelas([]); return; }
+      const items = (data?.schedule ?? []).map((r: any, i: number) => ({
+        id: r.id,
+        ordem: r.ordem ?? i,
+        descricao: r.descricao ?? "",
+        data_prevista: r.data_prevista ?? "",
+        percentual: r.percentual === null ? null : Number(r.percentual),
+        valor: Number(r.valor ?? 0),
+        observacoes: r.observacoes ?? "",
+      }));
+      setParcelas(items);
+    });
   };
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -498,10 +518,20 @@ export default function Shows() {
       else if (editing.status === "aguardando_dados" || editing.status === "aguardando_contratante") action = "complete_data";
       else action = "update";
 
-      const { error } = await supabase.functions.invoke("shows-admin", {
+      const { data: saveData, error } = await supabase.functions.invoke("shows-admin", {
         body: editing ? { action, id: editing.id, show: payload } : { action, show: payload },
       });
       if (error) throw error;
+
+      // Persiste cronograma de pagamento (parcelas)
+      const savedShowId = editing?.id ?? (saveData as any)?.show?.id;
+      if (savedShowId) {
+        const items = parcelas.map((it, i) => ({ ...it, ordem: i }));
+        const { error: schedErr } = await supabase.functions.invoke("shows-admin", {
+          body: { action: "save_payment_schedule", show_id: savedShowId, items },
+        });
+        if (schedErr) console.error("save_payment_schedule", schedErr);
+      }
 
       if (cacheBelowMin && isManager) {
         toast.warning(`Cachê abaixo do mínimo (${fmtBRL(cacheMin)}). Salvo como exceção pela gerência.`);
@@ -1076,6 +1106,21 @@ export default function Shows() {
                   {errors.condicao_pagamento && <p className="text-sm text-destructive">{errors.condicao_pagamento}</p>}
                 </div>
               </div>
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cronograma de Pagamento</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Adicione cada parcela com data prevista e percentual do cachê — o valor é calculado automaticamente. O financeiro usa essas informações para previsibilidade e o saldo a receber é atualizado conforme as baixas.
+              </p>
+              <PaymentScheduleRows
+                items={parcelas}
+                onChange={setParcelas}
+                cacheTotal={Number(form.cache_total) || 0}
+                canEdit={true}
+              />
             </section>
 
             <section className="space-y-3">
