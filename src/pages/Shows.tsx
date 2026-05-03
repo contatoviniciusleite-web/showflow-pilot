@@ -690,6 +690,13 @@ export default function Shows() {
                       )}
                     </div>
                   )}
+                  {s.status === "rejeitada" && (s as any).rejeitada_motivo && (
+                    <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2">
+                      <p className="text-xs text-destructive">
+                        <span className="font-semibold">Motivo da rejeição:</span> {(s as any).rejeitada_motivo}
+                      </p>
+                    </div>
+                  )}
                   {(s.remarcado_count ?? 0) > 0 && s.ultima_remarcacao_motivo && (isManager || isFinanceiro || isArtista) && (
                     <p className="text-xs text-muted-foreground mt-1">
                       <span className="font-semibold">Motivo da remarcação:</span> {s.ultima_remarcacao_motivo}
