@@ -414,6 +414,7 @@ export default function Shows() {
   const openNew = () => {
     setEditing(null);
     setForm(emptyForm);
+    setParcelas([]);
     setOpen(true);
   };
   const openEdit = (s: Show) => {
