@@ -25,7 +25,7 @@ import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
 import { canConfirmPayment } from "@/lib/permissions";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
-type ShowStatus = "pendente" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
+type ShowStatus = "pendente" | "rejeitada" | "aguardando_dados" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
 interface Show {
   id: string;
   artist_id: string;
