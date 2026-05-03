@@ -147,17 +147,17 @@ Deno.serve(async (req) => {
         if (!upd.length) return json({ error: "Não foi possível salvar. Link expirado ou já utilizado." }, 410);
         const updated: any = upd[0];
 
-        // Notificações: vendedor + gerência
-        const titulo = "Contratante preencheu a minuta";
-        const mensagem = `O contratante ${nome} preencheu os dados da minuta de ${sh.artist_nome ?? "show"} — ${sh.data_show}. Revise e envie para aprovação.`;
+        // Notificações: vendedor + gerência + financeiro
+        const titulo = "Contratante preencheu a minuta — aguardando comprovante";
+        const mensagem = `O contratante ${nome} preencheu os dados da minuta de ${sh.artist_nome ?? "show"} — ${sh.data_show}. Status: Aguardando Pagamento (sinal).`;
         if (updated.created_by) {
           await sql`
             insert into public.notifications (user_id, tipo, titulo, mensagem, show_id)
             values (${updated.created_by}, 'contratante_preencheu', ${titulo}, ${mensagem}, ${updated.id})
           `;
         }
-        const gerentes = await sql`select user_id from public.user_roles where role = 'gerente'`;
-        for (const g of gerentes as any[]) {
+        const others = await sql`select distinct user_id from public.user_roles where role::text in ('gerente','financeiro')`;
+        for (const g of others as any[]) {
           await sql`
             insert into public.notifications (user_id, tipo, titulo, mensagem, show_id)
             values (${g.user_id}, 'contratante_preencheu', ${titulo}, ${mensagem}, ${updated.id})
