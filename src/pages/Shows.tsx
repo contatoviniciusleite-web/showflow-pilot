@@ -158,7 +158,19 @@ function validateForm(form: FormState): Record<string, string> {
   }
   if (form.contratante_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contratante_email)) {
     errs.contratante_email = "E-mail inválido";
+}
+
+const SHOW_ONLY_REQUIRED = ["artist_id", "data_show", "horario", "local", "cidade", "cache_total", "condicao_pagamento"] as const;
+function validateMinuteForLink(form: FormState): Record<string, string> {
+  const errs: Record<string, string> = {};
+  for (const f of SHOW_ONLY_REQUIRED) {
+    const v = (form as any)[f];
+    if (v === null || v === undefined || v === "" || (typeof v === "number" && v <= 0)) {
+      errs[f] = "Este campo é obrigatório";
+    }
   }
+  return errs;
+}
   return errs;
 }
 
