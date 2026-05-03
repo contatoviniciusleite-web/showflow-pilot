@@ -401,6 +401,45 @@ export type Database = {
           },
         ]
       }
+      show_payment_schedule: {
+        Row: {
+          created_at: string
+          data_prevista: string | null
+          descricao: string | null
+          id: string
+          observacoes: string | null
+          ordem: number
+          percentual: number | null
+          show_id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data_prevista?: string | null
+          descricao?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem?: number
+          percentual?: number | null
+          show_id: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data_prevista?: string | null
+          descricao?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem?: number
+          percentual?: number | null
+          show_id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       show_payments: {
         Row: {
           attachment_id: string | null
