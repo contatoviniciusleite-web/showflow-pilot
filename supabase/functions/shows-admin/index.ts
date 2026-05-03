@@ -435,24 +435,25 @@ Deno.serve(async (req) => {
       return json({ show: rows[0] });
     }
 
+    // ETAPA 2 — Aprovação básica: status vai para 'aguardando_dados'.
+    // O vendedor ainda precisa completar os dados (Etapa 3) antes de iniciar o prazo do sinal.
     if (action === "approve") {
       if (!isManager) return json({ error: "Apenas gerente pode aprovar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
 
-      const prazoHoras = await getSetting(sql, "prazo_comprovante_horas_uteis", 48);
-      // Detecta auto-aprovação: gerente aprovando minuta criada por ele mesmo.
       const existing = await sql`select created_by from public.shows where id = ${body.id}`;
       if (existing.length === 0) return json({ error: "Show não encontrado" }, 404);
       const isAuto = existing[0].created_by === userId;
       const rows = await sql`
         update public.shows
-          set status = 'aguardando_pagamento'::show_status,
+          set status = 'aguardando_dados'::show_status,
               aprovado_por = ${userId},
               aprovado_em = now(),
               auto_aprovado = ${isAuto},
               auto_aprovado_em = ${isAuto ? sql`now()` : null},
-              prazo_comprovante_em = public.add_business_hours(now(), ${prazoHoras}),
-              aviso_12h_enviado_em = null,
+              rejeitada_motivo = null,
+              rejeitada_em = null,
+              rejeitada_por = null,
               updated_at = now()
         where id = ${body.id}
         returning *, (select nome from public.artists where id = artist_id) as artist_nome
@@ -464,26 +465,33 @@ Deno.serve(async (req) => {
           sql,
           show.created_by,
           "minuta_aprovada",
-          "Minuta aprovada — anexar comprovante",
-          `Sua minuta de ${show.artist_nome ?? "show"} em ${show.data_show} foi aprovada. Anexe o comprovante do sinal em até ${prazoHoras}h úteis.`,
+          "Minuta aprovada — complete os dados",
+          `Sua minuta de ${show.artist_nome ?? "show"} em ${show.local ?? "local"} dia ${show.data_show} foi aprovada! Complete os dados para prosseguir.`,
           show.id,
         );
       }
       return json({ show });
     }
 
+    // ETAPA 2 — Rejeição: NÃO exclui mais a minuta. Mantém com status 'rejeitada'
+    // e o motivo, para o vendedor ver o histórico.
     if (action === "reject") {
       if (!isManager) return json({ error: "Apenas gerente pode rejeitar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
       const motivo = txt(body.motivo, 1000);
       if (!motivo) return json({ error: "Motivo da rejeição é obrigatório" }, 400);
-      const found = await sql`
-        select s.*, a.nome as artist_nome
-        from public.shows s left join public.artists a on a.id = s.artist_id
-        where s.id = ${body.id}
+      const rows = await sql`
+        update public.shows set
+          status = 'rejeitada'::show_status,
+          rejeitada_motivo = ${motivo},
+          rejeitada_em = now(),
+          rejeitada_por = ${userId},
+          updated_at = now()
+        where id = ${body.id}
+        returning *, (select nome from public.artists where id = artist_id) as artist_nome
       `;
-      if (found.length === 0) return json({ error: "Show não encontrado" }, 404);
-      const show: any = found[0];
+      if (rows.length === 0) return json({ error: "Show não encontrado" }, 404);
+      const show: any = rows[0];
       if (show.created_by) {
         await notify(
           sql,
@@ -491,11 +499,74 @@ Deno.serve(async (req) => {
           "minuta_rejeitada",
           "Minuta rejeitada",
           `Sua minuta de ${show.artist_nome ?? "show"} em ${show.data_show} foi rejeitada. Motivo: ${motivo}`,
-          null,
+          show.id,
         );
       }
-      await sql`delete from public.shows where id = ${body.id}`;
-      return json({ ok: true });
+      return json({ ok: true, show });
+    }
+
+    // ETAPA 3 — Vendedor (ou gerência/equipe) completa os dados após aprovação.
+    // Ao concluir: status -> 'aguardando_pagamento', inicia contagem de 48h úteis para o sinal,
+    // notifica gerência + financeiro.
+    if (action === "complete_data") {
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      const owner = await sql`select created_by, status::text as status from public.shows where id = ${body.id}`;
+      if (!owner.length) return json({ error: "Show não encontrado" }, 404);
+      const sh0: any = owner[0];
+      const isOwner = sh0.created_by === userId;
+      if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
+      if (!["aguardando_dados", "aguardando_contratante", "pendente"].includes(sh0.status) && !isEditor) {
+        return json({ error: "Esta minuta não está aguardando dados completos." }, 400);
+      }
+
+      const s = validateShow(body.show ?? {});
+      // Validações mínimas dos dados completos
+      if (!s.contratante_nome) return json({ error: "Nome do contratante é obrigatório" }, 400);
+      if (!s.condicao_pagamento) return json({ error: "Condição de pagamento é obrigatória" }, 400);
+
+      try { s.contratante_id = await autoLinkContratante(sql, s, userId); } catch (e) { console.error("autoLinkContratante (complete_data)", e); }
+
+      const prazoHoras = await getSetting(sql, "prazo_comprovante_horas_uteis", 48);
+      const rows = await sql`
+        update public.shows set
+          horario = coalesce(${s.horario}, horario),
+          local = coalesce(${s.local}, local),
+          tipo_estrutura = ${s.tipo_estrutura}::estrutura_tipo,
+          endereco = ${s.endereco},
+          cidade = coalesce(${s.cidade}, cidade),
+          capacidade = ${s.capacidade},
+          contratante_nome = ${s.contratante_nome},
+          contratante_documento = ${s.contratante_documento},
+          contratante_endereco = ${s.contratante_endereco},
+          contratante_cidade = ${s.contratante_cidade},
+          contratante_cep = ${s.contratante_cep},
+          contratante_telefone = ${s.contratante_telefone},
+          contratante_email = ${s.contratante_email},
+          contratante_id = ${s.contratante_id},
+          condicao_pagamento = ${s.condicao_pagamento},
+          encargos_extras = ${s.encargos_extras},
+          transp_onibus = ${s.transp_onibus}, transp_van = ${s.transp_van},
+          transp_aereo = ${s.transp_aereo}, transp_excesso_bagagem = ${s.transp_excesso_bagagem},
+          transp_observacoes = ${s.transp_observacoes},
+          hosp_diaria_alimentacao = ${s.hosp_diaria_alimentacao},
+          hosp_hospedagem = ${s.hosp_hospedagem}, hosp_traslado = ${s.hosp_traslado},
+          camarins_rider = ${s.camarins_rider},
+          autorizado_por = ${s.autorizado_por},
+          contratante_link_token = null,
+          contratante_link_expires_at = null,
+          status = 'aguardando_pagamento'::show_status,
+          dados_completos_em = now(),
+          prazo_comprovante_em = public.add_business_hours_br(now(), ${prazoHoras}),
+          aviso_12h_enviado_em = null,
+          updated_at = now()
+        where id = ${body.id}
+        returning *, (select nome from public.artists where id = artist_id) as artist_nome
+      `;
+      const show: any = rows[0];
+      const local = show.local ?? "local não informado";
+      const msg = `Minuta de ${show.artist_nome ?? "—"} em ${local} dia ${show.data_show} com dados completos. Aguardando comprovante do sinal (${prazoHoras}h úteis).`;
+      await notifyByRoles(sql, ["gerente", "financeiro"], "dados_completos", "Minuta com dados completos", msg, show.id);
+      return json({ show });
     }
 
     if (action === "upload_comprovante") {
