@@ -114,6 +114,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="geral">Geral</TabsTrigger>
+            {!isArtista && <TabsTrigger value="cronograma">Cronograma</TabsTrigger>}
             {!isArtista && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}
             {!isArtista && <TabsTrigger value="anexos">Anexos</TabsTrigger>}
           </TabsList>
