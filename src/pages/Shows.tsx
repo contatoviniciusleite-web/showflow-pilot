@@ -1103,14 +1103,58 @@ export default function Shows() {
               </div>
             </section>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={saving}>
+              {(!editing || editing.status === "pendente" || editing.status === "aguardando_contratante") && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={generateContratanteLink}
+                  disabled={generatingLink || saving}
+                  title="Salva os dados do show e gera um link para o contratante preencher os dados dele"
+                >
+                  {generatingLink ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LinkIcon className="h-4 w-4 mr-2" />}
+                  Gerar link para contratante
+                </Button>
+              )}
+              <Button type="submit" disabled={saving || generatingLink}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {editing ? "Salvar alterações" : "Cadastrar minuta"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: link gerado para o contratante */}
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link gerado para o contratante</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Envie este link ao contratante. Ele poderá preencher os próprios dados sem precisar de login.
+            O link expira em <strong>{linkCountdown}</strong>.
+          </p>
+          {linkData && (
+            <div className="rounded-md border p-3 bg-muted/30 text-sm break-all font-mono">
+              {buildLink(linkData.token)}
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={copyLink} className="flex-1">
+              <Copy className="h-4 w-4 mr-2" /> Copiar link
+            </Button>
+            <Button onClick={shareWhatsApp} variant="secondary" className="flex-1">
+              <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Você também pode preencher os dados manualmente depois — basta cancelar o link na lista de minutas.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkOpen(false)}>Fechar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
