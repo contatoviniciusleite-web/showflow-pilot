@@ -1109,7 +1109,20 @@ export default function Shows() {
             </section>
 
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Transporte</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cronograma de Pagamento</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Adicione cada parcela com data prevista e percentual do cachê — o valor é calculado automaticamente. O financeiro usa essas informações para previsibilidade e o saldo a receber é atualizado conforme as baixas.
+              </p>
+              <PaymentScheduleRows
+                items={parcelas}
+                onChange={setParcelas}
+                cacheTotal={Number(form.cache_total) || 0}
+                canEdit={true}
+              />
+            </section>
+
               <div className="grid grid-cols-2 gap-3">
                 {[
                   ["transp_onibus", "Ônibus"],
