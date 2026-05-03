@@ -301,7 +301,8 @@ Deno.serve(async (req) => {
 
     if (action === "create") {
       if (!canCreate) return json({ error: "Acesso negado" }, 403);
-      const s = validateShow(body.show ?? {});
+      // ETAPA 1: somente os 5 campos básicos são exigidos.
+      const s = validateShow(body.show ?? {}, { strictBasic: true });
 
       // Vendedor só pode criar para artistas liberados
       if (isVendedor && !isManager && !isStaff) {
