@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
               from public.shows_public_view
               where created_by is distinct from ${userId}
                 and artist_id = any(${allowed}::uuid[])
-                and status::text in ('aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
+                and status::text in ('aguardando_dados','aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
               order by data_show desc nulls last
             `
           : [];
