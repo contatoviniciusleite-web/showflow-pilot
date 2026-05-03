@@ -1,104 +1,125 @@
-## Resumo
+# Reestruturação da Minuta em 4 Etapas
 
-Implementar 5 alterações no ShowFlow envolvendo o perfil **Financeiro**, fluxo de pagamentos, múltiplos comprovantes e nova aba de Anexos na ficha do show.
+Substituir o fluxo atual da minuta por um modelo em 4 etapas, com aprovação prévia da gerência sobre dados mínimos e dados completos só após aprovação.
 
----
+## Resumo do Novo Fluxo
 
-## Alteração 1 — Agenda para Financeiro
+```
+[Vendedor]              [Gerência]              [Vendedor + Contratante]      [Sistema]
+   |                        |                            |                        |
+1. Cria minuta básica  →  2. Aprova/Rejeita  →  3. Completa dados  →  4. Minuta completa
+   (5 campos)              (vê só os 5)         (manual ou via link)    (48h úteis para sinal)
+   status: pendente        aprovada/rejeitada   aguardando_dados →      aguardando_pagamento
+                                                aguardando_contratante  → comprovante → confirmado
+```
 
-- A página `/agenda` hoje mostra `VendedorAgenda` (calendário de artistas liberados ao vendedor).
-- Criar uma visão de calendário **completa para Financeiro** (todos artistas, todos shows, sem filtro de propriedade).
-- No calendário e na lista do dia, exibir **status financeiro**: Aguardando Pagamento (amarelo), Comprovante Enviado (laranja), Confirmado (verde), Atrasado (vermelho — quando `prazo_comprovante_em` passou e ainda não confirmado).
-- Clicar no show abre a **ficha financeira completa** (modal/drawer) com pagamentos, comprovantes e ações.
-- RLS de `shows`: adicionar leitura para `financeiro` de todos os shows (hoje só vê via subqueries em depósitos/despesas; precisa SELECT direto).
+## Novos Status
 
-## Alteração 2 — Baixa manual de pagamento
+| Status (enum) | Label | Cor |
+|---|---|---|
+| `pendente` | Pendente | cinza |
+| `rejeitada` | Rejeitada | vermelho |
+| `aguardando_dados` | Aguardando Dados | azul |
+| `aguardando_contratante` | Aguardando Contratante | azul claro |
+| `aguardando_pagamento` | Aguardando Pagamento | amarelo |
+| `comprovante_enviado` | Comprovante Enviado | laranja |
+| `confirmado` | Confirmado | verde |
+| `cancelada` | Cancelado | vermelho escuro |
+| `remarcada` | Remarcado | roxo |
 
-- Criar tabela `show_payments` para registrar baixas (manuais ou via comprovante):
-  - `valor`, `data_pagamento`, `forma_pagamento` (enum: pix/transferencia/especie/outro), `conta_destino`, `observacoes`, `comprovante_id` (FK opcional para `show_attachments`), `registrado_por`, `created_at`.
-- RLS: somente **Financeiro** pode INSERT/UPDATE/DELETE. SELECT para gerência, equipe, financeiro e vendedor criador do show.
-- UI: na ficha do show, aba **Financeiro**, botão "Registrar Pagamento Manual" (visível só para Financeiro). Modal com campos do briefing. Observação obrigatória se não houver comprovante anexado.
+Adicionar valores novos ao enum `show_status`: `rejeitada`, `aguardando_dados`, `remarcada`. Manter `aprovada` como legado para compatibilidade.
 
-## Alteração 3 — Confirmação exclusiva do Financeiro
+## Etapa 1 — Vendedor cria minuta básica
 
-- Hoje o status `confirmado` é setado por gerente/equipe. Alterar regra:
-  - Endpoint `confirmar_pagamento` no `shows-admin` passa a aceitar **apenas role `financeiro`**.
-  - Remover botão "Confirmar pagamento" da UI quando o usuário for gerente/equipe (sem o papel financeiro).
-- Ao confirmar, registrar `confirmado_por` (uuid) + `confirmado_em` (já existem). Adicionar campo `confirmado_por_nome` (text) para snapshot do nome.
-- Visibilidade do "Confirmado por [nome] em [data/hora]":
-  - Gerência ✅ / Vendedor ✅ / Artista ❌
-- Notificações ao confirmar:
-  - Vendedor (criador do show) recebe `pagamento_confirmado`
-  - Todos os usuários com role `gerente` recebem a mesma notificação
-  - Adicionar `pagamento_confirmado` à constraint `notifications_tipo_check`
+Formulário simplificado com apenas:
+- Artista (select)
+- Cachê total (R$)
+- Cidade
+- Local
+- Data + horário
 
-## Alteração 4 — Múltiplos comprovantes
+Validações mantidas: cachê mínimo do artista e limite de 3 shows/dia/artista. Status inicial: `pendente`. Campos extras ficam ocultos para o vendedor nesta etapa.
 
-- Hoje `shows.comprovante_url` é único. Migrar para tabela `show_attachments`:
-  - `id`, `show_id`, `tipo` (enum: comprovante / documento), `file_path`, `file_name`, `mime_type`, `size_bytes`, `uploaded_by`, `uploaded_by_nome`, `created_at`.
-- Botão "Anexar comprovante" continua sempre disponível na ficha (vendedor criador do show + financeiro + gerência).
-- Cada anexo é registrado individualmente; nada substitui o anterior. Manter `shows.comprovante_url` por compatibilidade temporária (opcional).
-- Storage: continuar usando bucket `comprovantes` (já privado, 10MB, MIME PDF/JPG/PNG).
-- Nome do arquivo no bucket: `{show_id}/{timestamp}-{slug}.{ext}` (mantém política RLS atual baseada no primeiro segmento do path).
+## Etapa 2 — Gerência aprova/rejeita
 
-## Alteração 5 — Aba "Anexos" na ficha do show
+Modal de detalhes mostra apenas os 5 campos. Botões:
+- **Aprovar** → status `aguardando_dados`, notifica vendedor: "Sua minuta [artista] em [local] dia [data] foi aprovada! Complete os dados para prosseguir."
+- **Rejeitar** (com motivo) → status `rejeitada`, notifica vendedor com o motivo.
 
-- Reorganizar a ficha do show em **abas**: Geral / Financeiro / Anexos / Histórico (já existem algumas seções; consolidar em `Tabs`).
-- Aba **Anexos**:
-  - Lista cronológica (desc) de todos os itens em `show_attachments`.
-  - Cada item: ícone (PDF/imagem), nome do arquivo, quem anexou, data/hora, botões Ver, Baixar, Excluir.
-  - Acessos:
-    - Financeiro / Gerência: ver, baixar, excluir todos.
-    - Vendedor: ver e baixar **apenas os anexos enviados por ele**.
-    - Artista: aba não aparece.
-- "Ver" e "Baixar" usam `createSignedUrl` (bucket privado).
-- "Excluir" remove o registro + o arquivo do storage (apenas Financeiro/Gerência).
+Gerência sempre pode editar tudo, em qualquer etapa.
 
----
+## Etapa 3 — Vendedor completa os dados
 
-## Detalhes técnicos
+Quando status = `aguardando_dados`, o card do vendedor mostra botão "Completar dados" com duas opções:
 
-### Migrações
+**Opção A — Link público** (já existe via `contratante-link`):
+- Reaproveitar fluxo de geração de link (24h)
+- Quando contratante preenche, status volta para `aguardando_dados` (não direto para `aguardando_pagamento`) — vendedor revisa e clica "Finalizar dados" para então preencher condições de pagamento, rider, transporte, cláusulas etc., e travar.
+- Enquanto link ativo e não preenchido: status `aguardando_contratante`.
 
-1. **`show_payments`** (nova tabela + RLS).
-2. **`show_attachments`** (nova tabela + RLS + helper `can_view_attachment(_user_id, _attachment_id)`).
-3. **`shows`**: adicionar `confirmado_por_nome text`.
-4. **RLS `shows`**: trocar policy SELECT para incluir `financeiro` em todos os shows (hoje já inclui, manter).
-5. **RLS `notifications`**: estender `notifications_tipo_check` com `pagamento_confirmado`.
-6. **Storage policies do bucket `comprovantes`**: ajustar DELETE para Financeiro também (hoje só "manage").
+**Opção B — Preenchimento manual**:
+- Vendedor abre form expandido com todas as seções (contratante, pagamento, hospitalidade, transporte, cláusulas, encargos, data subida, autorizado por).
 
-### Edge function `shows-admin`
+Ao concluir Etapa 3 (qualquer opção):
+- Status → `aguardando_pagamento`
+- `prazo_comprovante_em` é setado agora (48h úteis via `add_business_hours_br`)
+- Notificação para gerência + financeiro: "Minuta [artista]/[local]/[data] com dados completos. Aguardando comprovante do sinal."
 
-- Novas actions:
-  - `register_payment` — só financeiro; insere em `show_payments`; opcional `attachment_id`.
-  - `confirm_payment` — só financeiro; seta status `confirmado`, `confirmado_por`, `confirmado_por_nome`, `confirmado_em`; cria notificações para criador + gerentes.
-  - `add_attachment` — registra metadados em `show_attachments` após upload no storage.
-  - `list_attachments` — devolve lista filtrada conforme papel.
-  - `delete_attachment` — só financeiro/gerência; remove do storage e da tabela.
-  - `list_payments` — para a ficha financeira.
-- Ajustar `list` para incluir `confirmado_por_nome`, lista de pagamentos e contagem de anexos por show (ou carregar sob demanda).
-- Action `agenda_financeiro` (ou reusar `list` com flag) — devolve **todos** os shows quando o caller tiver role `financeiro`.
+## Etapa 4 — Visibilidade por papel
+
+Implementar no edge `shows-admin` (lista) e em `ShowDetailsModal`:
+
+| Papel | Vê |
+|---|---|
+| Gerência | Tudo + histórico |
+| Financeiro | Tudo + dados do contratante |
+| Vendedor (dono) | 5 básicos + contratante + financeiro/comprovantes |
+| Vendedor (outros) | Artista, Local, Cidade, Horário (sem cachê/contratante/financeiro) |
+| Artista | Data, Horário, Local, Cidade |
+
+A query `outras_aprovadas` já filtra; precisa garantir que campos sensíveis (cachê, contratante_*) NÃO sejam retornados para outros vendedores. Hoje retorna `cache_total` — remover.
+
+## Mudanças técnicas
+
+### Banco (migration)
+- `ALTER TYPE show_status ADD VALUE 'rejeitada'`, `'aguardando_dados'`, `'remarcada'` (se não existirem).
+- Coluna `rejeitada_motivo TEXT` e `rejeitada_em TIMESTAMPTZ` em `shows`.
+- Coluna `dados_completos_em TIMESTAMPTZ` em `shows` (marca quando entra em `aguardando_pagamento`).
+- Setting `app_settings.prazo_comprovante_horas` (já existe, manter padrão 48).
+
+### Edge `shows-admin`
+- Action `create` aceita só os 5 campos obrigatórios; demais opcionais.
+- Action `approve` → status `aguardando_dados` (em vez de `aprovada`).
+- Nova action `reject` (já existe) → status `rejeitada`.
+- Nova action `complete_data` → recebe payload com dados do contratante e demais seções; valida; seta `prazo_comprovante_em = add_business_hours_br(now(), 48)`; status `aguardando_pagamento`; notifica gerência+financeiro.
+- Action `submit_contratante_data` (do edge `contratante-link`) deixa status como `aguardando_dados` (não pula direto).
+- Lista para outros vendedores: omitir `cache_total`, `contratante_*`, dados financeiros.
 
 ### Frontend
+- `src/lib/showStatus.ts`: incluir `rejeitada`, `aguardando_dados`, `remarcada` com labels/cores acima.
+- `src/pages/Shows.tsx`:
+  - Form de criação: reduzir para 5 campos.
+  - Card do vendedor com status `aguardando_dados`: botão "Completar dados" abre modal com tabs "Enviar link" / "Preencher manualmente".
+  - Card de outros vendedores: ocultar cachê e contratante.
+- `ShowDetailsModal`: tab "Dados completos" só aparece quando status >= `aguardando_pagamento` ou usuário é gerência/financeiro/dono.
+- Notificações: ajustar mensagens nos handlers `approve`, `reject`, `complete_data`.
 
-- **`src/pages/Agenda.tsx`**: detectar role financeiro e renderizar novo `<FinanceiroAgenda />` no lugar de `VendedorAgenda`.
-- **Novo `src/components/dashboard/FinanceiroAgenda.tsx`**: calendário com todos os shows, badge de status financeiro, dia clicado abre lista; clicar num show abre ficha completa.
-- **`src/pages/Shows.tsx`**: refatorar o modal/drawer da ficha do show para usar `Tabs` (Geral, Financeiro, Anexos, Histórico). Esconder botão "Confirmar pagamento" para não-financeiro. Adicionar "Registrar Pagamento Manual" para financeiro.
-- **Novo `src/components/shows/AttachmentsTab.tsx`**: lista + upload + ações.
-- **Novo `src/components/shows/PaymentsTab.tsx`** (ou seção): lista de pagamentos + botão de baixa manual + botão "Confirmar pagamento" (só financeiro).
-- Exibir "Confirmado por [nome] em [data/hora]" para gerência e vendedor; ocultar para artista.
+### Compatibilidade
+- Shows existentes com status `aprovada` continuam exibidos como "Confirmado" legado (já mapeado).
+- Campos antigos preenchidos no momento da criação (rider, transporte, etc.) ficam preservados; novo form ignora-os e a Etapa 3 permite editar.
 
-### Permissões / configuráveis
+## Arquivos afetados
 
-- Centralizar checks em `src/lib/permissions.ts` (novo) com funções como `canRegisterPayment(roles)`, `canConfirmPayment(roles)`, `canDeleteAttachment(roles)`, `canViewConfirmedBy(roles)` — para facilitar ajustes futuros do piloto.
+- `supabase/migrations/<novo>.sql` (enum + colunas)
+- `supabase/functions/shows-admin/index.ts`
+- `supabase/functions/contratante-link/index.ts`
+- `src/lib/showStatus.ts`
+- `src/pages/Shows.tsx`
+- `src/components/shows/ShowDetailsModal.tsx`
+- `src/integrations/supabase/types.ts` (auto)
 
----
+## Pontos a confirmar antes de implementar
 
-## Ordem de execução
-
-1. Migração 1: `show_attachments` + `show_payments` + `confirmado_por_nome` + constraint notifications + storage policies.
-2. Atualizar `shows-admin` com as novas actions.
-3. Criar `src/lib/permissions.ts`.
-4. Criar `FinanceiroAgenda` + ajustar `Agenda.tsx`.
-5. Refatorar ficha do show em `Shows.tsx` com Tabs + componentes Anexos/Pagamentos.
-6. Ajustar notificações e exibição de "Confirmado por".
+1. Quando o **contratante preenche via link**, o status deve voltar para `aguardando_dados` (vendedor revisa e finaliza manualmente para então ir a `aguardando_pagamento`) ou ir direto para `aguardando_pagamento`?
+2. Devemos **migrar shows existentes** com status `aprovada` para algum dos novos status, ou deixar como legado?
+3. O status `remarcada` deve substituir o uso atual de `cancelada` + criação de novo show, ou apenas ser um label adicional usado quando `remarcado_count > 0`?
