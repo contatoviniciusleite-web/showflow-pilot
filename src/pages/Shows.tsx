@@ -1123,6 +1123,8 @@ export default function Shows() {
               />
             </section>
 
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Transporte</h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   ["transp_onibus", "Ônibus"],
