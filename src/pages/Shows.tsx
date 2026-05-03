@@ -458,9 +458,12 @@ export default function Shows() {
   const cacheMin = Number(selectedArtist?.cache_minimo ?? 0);
   const cacheBelowMin = cacheMin > 0 && Number(form.cache_total) > 0 && Number(form.cache_total) < cacheMin;
 
+  // Modo do formulário: básico (criação ou edição em pendente/rejeitada) ou completo (etapa 3+).
+  const isCompleteMode = !!editing && ["aguardando_dados", "aguardando_contratante", "aguardando_pagamento", "comprovante_enviado", "confirmado", "aprovada"].includes(editing.status);
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validateForm(form);
+    const errs = isCompleteMode ? validateFull(form) : validateBasic(form);
     if (Object.keys(errs).length) {
       setErrors(errs);
       const first = Object.keys(errs)[0];
@@ -469,7 +472,6 @@ export default function Shows() {
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    // Trava de cachê mínimo (somente gerência pode salvar abaixo)
     if (cacheBelowMin && !isManager) {
       toast.error(
         `O cachê informado (${fmtBRL(Number(form.cache_total))}) está abaixo do mínimo permitido para este artista (${fmtBRL(cacheMin)}). Somente a gerência pode autorizar valores abaixo do mínimo.`,
@@ -487,19 +489,27 @@ export default function Shows() {
         capacidade: form.capacidade === "" ? null : Number(form.capacidade),
         cache_total: Number(form.cache_total) || 0,
       };
-      const action = editing ? "update" : "create";
+      // Decidir action:
+      //  - editar minuta em aguardando_dados (vendedor dono): complete_data → vai para aguardando_pagamento
+      //  - gerência/equipe editando: update (preserva status)
+      //  - nova minuta: create
+      let action: "create" | "update" | "complete_data";
+      if (!editing) action = "create";
+      else if (editing.status === "aguardando_dados" || editing.status === "aguardando_contratante") action = "complete_data";
+      else action = "update";
+
       const { error } = await supabase.functions.invoke("shows-admin", {
         body: editing ? { action, id: editing.id, show: payload } : { action, show: payload },
       });
       if (error) throw error;
 
-      // Cadastro automático de contratante: o backend (shows-admin) cuida de
-      // criar/vincular pelo CPF/CNPJ. Não há mais ação manual aqui.
-
       if (cacheBelowMin && isManager) {
         toast.warning(`Cachê abaixo do mínimo (${fmtBRL(cacheMin)}). Salvo como exceção pela gerência.`);
       }
-      toast.success(editing ? "Minuta atualizada" : "Minuta enviada para aprovação");
+      const successMsg = action === "create" ? "Minuta enviada para aprovação"
+        : action === "complete_data" ? "Dados completos enviados — aguardando comprovante do sinal"
+        : "Minuta atualizada";
+      toast.success(successMsg);
       setOpen(false);
       load();
     } catch (err: any) {
