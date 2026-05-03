@@ -52,12 +52,24 @@ function timeOrNull(v: unknown): string | null {
   return v.length === 5 ? `${v}:00` : v;
 }
 
-function validateShow(input: any) {
+function validateShow(input: any, opts: { strictBasic?: boolean } = {}) {
   if (!input || typeof input !== "object") throw new Error("Dados inválidos");
   const artist_id = txt(input.artist_id, 64);
   if (!artist_id) throw new Error("Artista é obrigatório");
   const data_show = dateOrNull(input.data_show);
   if (!data_show) throw new Error("Data do show é obrigatória");
+
+  const horario = timeOrNull(input.horario);
+  const local = txt(input.local, 200);
+  const cidade = txt(input.cidade, 120);
+  const cache_total = num(input.cache_total);
+
+  if (opts.strictBasic) {
+    if (!horario) throw new Error("Horário é obrigatório");
+    if (!local) throw new Error("Nome do local é obrigatório");
+    if (!cidade) throw new Error("Cidade é obrigatória");
+    if (!(cache_total > 0)) throw new Error("Cachê total é obrigatório");
+  }
 
   let tipo: string | null = null;
   if (input.tipo_estrutura === "aberta" || input.tipo_estrutura === "fechada") {
@@ -67,12 +79,12 @@ function validateShow(input: any) {
   return {
     artist_id,
     data_show,
-    horario: timeOrNull(input.horario),
+    horario,
     vendedor: txt(input.vendedor, 200),
-    local: txt(input.local, 200),
+    local,
     tipo_estrutura: tipo,
     endereco: txt(input.endereco, 300),
-    cidade: txt(input.cidade, 120),
+    cidade,
     capacidade: intOrNull(input.capacidade),
     contratante_nome: txt(input.contratante_nome, 200),
     contratante_documento: txt(input.contratante_documento, 50),
@@ -82,7 +94,7 @@ function validateShow(input: any) {
     contratante_telefone: txt(input.contratante_telefone, 50),
     contratante_email: txt(input.contratante_email, 200),
     contratante_id: txt(input.contratante_id, 64),
-    cache_total: num(input.cache_total),
+    cache_total,
     condicao_pagamento: txt(input.condicao_pagamento, 2000),
     encargos_extras: bool(input.encargos_extras),
     transp_onibus: bool(input.transp_onibus),
