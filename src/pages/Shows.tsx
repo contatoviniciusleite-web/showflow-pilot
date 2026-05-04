@@ -274,9 +274,10 @@ export default function Shows() {
     queryFn: async () => {
       const [showsRes, artistsRes] = await Promise.all([
         supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
-        canCreate
-          ? supabase.functions.invoke("shows-admin", { body: { action: "artists" } })
-          : Promise.resolve({ data: { artists: [] }, error: null } as any),
+        // Artista é o único perfil que não precisa da lista de artistas no filtro.
+        isArtista && !isEditor && !isFinanceiro && !isVendedor
+          ? Promise.resolve({ data: { artists: [] }, error: null } as any)
+          : supabase.functions.invoke("shows-admin", { body: { action: "artists" } }),
       ]);
       if (showsRes.error) throw new Error(showsRes.error.message);
       if (artistsRes.error) throw new Error(artistsRes.error.message);
