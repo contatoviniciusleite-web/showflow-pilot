@@ -7,6 +7,27 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/NotificationBell";
 
+// Prefetch dos chunks lazy: dispara o import() ao passar o mouse,
+// fazendo a próxima rota abrir instantaneamente.
+const prefetchers: Record<string, () => Promise<unknown>> = {
+  "/": () => import("@/pages/Dashboard"),
+  "/agenda": () => import("@/pages/Agenda"),
+  "/shows": () => import("@/pages/Shows"),
+  "/financeiro": () => import("@/pages/Financeiro"),
+  "/contratantes": () => import("@/pages/Contratantes"),
+  "/diretoria": () => import("@/pages/Diretoria"),
+  "/relatorios": () => import("@/pages/Relatorios"),
+  "/artistas": () => import("@/pages/Artistas"),
+  "/bloqueios": () => import("@/pages/Bloqueios"),
+  "/usuarios": () => import("@/pages/Usuarios"),
+};
+const prefetched = new Set<string>();
+function prefetchRoute(path: string) {
+  if (prefetched.has(path)) return;
+  prefetched.add(path);
+  prefetchers[path]?.().catch(() => prefetched.delete(path));
+}
+
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["diretor", "gerente", "equipe", "artista", "vendedor"] },
@@ -47,6 +68,8 @@ export function AppLayout() {
               key={item.to}
               to={item.to}
               end={item.to === "/"}
+              onMouseEnter={() => prefetchRoute(item.to)}
+              onFocus={() => prefetchRoute(item.to)}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
@@ -114,6 +137,7 @@ export function AppLayout() {
             key={item.to}
             to={item.to}
             end={item.to === "/"}
+            onTouchStart={() => prefetchRoute(item.to)}
             className={({ isActive }) =>
               cn(
                 "flex min-w-16 flex-1 flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium",
