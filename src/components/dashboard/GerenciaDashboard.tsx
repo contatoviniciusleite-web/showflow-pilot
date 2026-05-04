@@ -196,12 +196,23 @@ export function GerenciaDashboard() {
 
       {/* ===== Alertas ===== */}
       <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-3">Alertas</h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Pagamento atrasado" value={String(pagAtrasado.length)} icon={AlertTriangle} tone="red" highlight onClick={() => setAlertOpen("atrasado")} hint="Clique para ver lista" />
-        <StatCard label={`Contratos pendentes >${DASHBOARD_THRESHOLDS.contratoPendenteDias}d`} value={String(contratosVelhos.length)} icon={Clock} tone="amber" onClick={() => setAlertOpen("contratos")} hint="Clique para ver lista" />
-        <StatCard label="Cancelados no mês" value={String(canceladosMes.length)} icon={XCircle} tone="red" onClick={() => setAlertOpen("cancelados")} hint="Clique para ver lista" />
-        <StatCard label="Aguardando aprovação" value={String(aguardandoAprov.length)} icon={FileText} tone="orange" onClick={() => setAlertOpen("aguardando")} hint="Clique para ver lista" />
-      </div>
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-4 shadow-soft space-y-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-16" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <StatCard label="Pagamento atrasado" value={String(pagAtrasado.length)} icon={AlertTriangle} tone="red" highlight onClick={() => setAlertOpen("atrasado")} hint="Clique para ver lista" />
+          <StatCard label={`Contratos pendentes >${DASHBOARD_THRESHOLDS.contratoPendenteDias}d`} value={String(contratosVelhos.length)} icon={Clock} tone="amber" onClick={() => setAlertOpen("contratos")} hint="Clique para ver lista" />
+          <StatCard label="Cancelados no mês" value={String(canceladosMes.length)} icon={XCircle} tone="red" onClick={() => setAlertOpen("cancelados")} hint="Clique para ver lista" />
+          <StatCard label="Aguardando aprovação" value={String(aguardandoAprov.length)} icon={FileText} tone="orange" onClick={() => setAlertOpen("aguardando")} hint="Clique para ver lista" />
+        </div>
+      )}
 
       {(() => {
         const cfg = {
