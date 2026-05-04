@@ -86,24 +86,20 @@ export function AlertDetailSheet({
 
   const filename = `alerta-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${new Date().toISOString().slice(0, 10)}`;
 
-  const handleExport = (fmt: "csv" | "pdf") => {
-    const meta = {
-      title: `Alerta — ${title}`,
-      subtitle: description,
-      filters: [
-        filterArtist !== "all" ? `Artista: ${artists.find((a) => a.id === filterArtist)?.nome ?? "—"}` : null,
-        filterVendedor !== "all" ? `Vendedor: ${filterVendedor}` : null,
-        search ? `Busca: "${search}"` : null,
-      ].filter(Boolean) as string[],
-      summary: [
-        { label: "Total de shows", value: String(filtered.length) },
-        { label: "Soma de cachês", value: fmtBRL(total) },
-      ],
-      filename,
-    };
-    if (fmt === "csv") exportCSV(filtered, exportColumns, meta);
-    else exportPDF(filtered, exportColumns, meta);
-  };
+  const buildMeta = () => ({
+    title: `Alerta — ${title}`,
+    subtitle: description,
+    filters: [
+      filterArtist !== "all" ? `Artista: ${artists.find((a) => a.id === filterArtist)?.nome ?? "—"}` : null,
+      filterVendedor !== "all" ? `Vendedor: ${filterVendedor}` : null,
+      search ? `Busca: "${search}"` : null,
+    ].filter(Boolean) as string[],
+    summary: [
+      { label: "Total de shows", value: String(filtered.length) },
+      { label: "Soma de cachês", value: fmtBRL(total) },
+    ],
+    filename,
+  });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
