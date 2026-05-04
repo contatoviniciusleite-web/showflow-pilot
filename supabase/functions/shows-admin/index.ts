@@ -794,7 +794,48 @@ Deno.serve(async (req) => {
       return json({ shows: rows });
     }
 
-    if (action === "list_payments") {
+    if (action === "list_payments_consolidated") {
+      // Extrato consolidado: todas as baixas no período, com info do show
+      if (!isManager && !isFinanceiro && !isDiretor) return json({ error: "Acesso negado" }, 403);
+      const from = dateOrNull(body.from);
+      const to = dateOrNull(body.to);
+      const artistId = body.artist_id && body.artist_id !== "all" ? txt(body.artist_id, 64) : null;
+      const statusFilter = txt(body.status, 30); // "all" | "confirmado" | "em_aberto" | null
+      const rows = await sql`
+        select
+          p.id as payment_id,
+          p.valor::numeric(15,2) as valor,
+          p.data_pagamento::text as data_pagamento,
+          p.forma_pagamento,
+          p.conta_destino,
+          p.observacoes,
+          p.registrado_por_nome as confirmado_por,
+          p.created_at as registrado_em,
+          s.id as show_id,
+          s.data_show::text as data_show,
+          s.local, s.cidade,
+          s.cache_total::numeric(15,2) as cache_total,
+          s.status::text as status,
+          a.nome as artist_nome,
+          (s.cache_total - coalesce((select sum(valor) from public.show_payments where show_id = s.id), 0))::numeric(15,2) as saldo_aberto,
+          coalesce((select sum(valor) from public.show_payments where show_id = s.id), 0)::numeric(15,2) as total_pago_show
+        from public.show_payments p
+        join public.shows s on s.id = p.show_id
+        left join public.artists a on a.id = s.artist_id
+        where (${from}::date is null or p.data_pagamento >= ${from}::date)
+          and (${to}::date is null or p.data_pagamento <= ${to}::date)
+          and (${artistId}::uuid is null or s.artist_id = ${artistId}::uuid)
+          and (
+            ${statusFilter}::text is null
+            or ${statusFilter}::text = 'all'
+            or (${statusFilter}::text = 'confirmado' and s.status::text = 'confirmado')
+            or (${statusFilter}::text = 'em_aberto' and s.status::text <> 'confirmado')
+          )
+        order by s.data_show desc nulls last, p.data_pagamento desc, p.created_at desc
+      `;
+      return json({ rows });
+    }
+
       if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
       if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
       const rows = await sql`
