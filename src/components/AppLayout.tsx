@@ -111,8 +111,8 @@ export function AppLayout() {
               key={item.to}
               to={item.to}
               end={item.to === "/app"}
-              onMouseEnter={() => prefetchRoute(item.to)}
-              onFocus={() => prefetchRoute(item.to)}
+              onMouseEnter={() => onHover(item.to)}
+              onFocus={() => onHover(item.to)}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
