@@ -32,6 +32,9 @@ interface ShowLite {
   created_by?: string | null;
   confirmado_por_nome?: string | null;
   confirmado_em?: string | null;
+  autorizado_por_nome?: string | null;
+  autorizado_em?: string | null;
+  autorizado_por?: string | null;
 }
 
 interface Props {
@@ -59,16 +62,20 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   if (!show) return null;
   const isArtista = roles.includes("artista") && roles.length === 1;
   const isManager = roles.includes("gerente");
+  const isDiretor = roles.includes("diretor");
   const isFinanceiro = roles.includes("financeiro");
   const isOwner = show.created_by && user?.id === show.created_by;
   const canUpload =
-    roles.includes("gerente") || roles.includes("equipe") || roles.includes("financeiro") ||
+    roles.includes("gerente") || roles.includes("equipe") || roles.includes("financeiro") || roles.includes("diretor") ||
     (roles.includes("vendedor") && isOwner);
+  const canManageActions = isManager || isDiretor; // remarcar/cancelar
+  const canApproveOrReject = isDiretor; // só diretor aprova/rejeita
+  const canSeeAutorizado = isDiretor || isManager || isFinanceiro;
 
   const cacheMin = Number(show.artist_cache_minimo ?? 0);
   const cacheTotal = Number(show.cache_total ?? 0);
   const isExcecaoCache = cacheMin > 0 && cacheTotal > 0 && cacheTotal < cacheMin;
-  const canSeeExcecao = isManager || isFinanceiro;
+  const canSeeExcecao = isManager || isFinanceiro || isDiretor;
 
   const callAction = async (action: string, extra: Record<string, unknown> = {}) => {
     setBusy(true);
@@ -140,21 +147,38 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </div>
             )}
 
-            {isManager && show.status !== "cancelada" && (
+            {canSeeAutorizado && (show.autorizado_por_nome || show.autorizado_por) && (
+              <p className="text-xs text-muted-foreground">
+                <strong>Autorizado por:</strong>{" "}
+                {show.autorizado_por_nome ?? show.autorizado_por}
+                {show.autorizado_em && (
+                  <> em {format(new Date(show.autorizado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>
+                )}
+              </p>
+            )}
+
+            {canManageActions && show.status !== "cancelada" && (
               <div className="border-t pt-3 space-y-2">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Ações de gerência</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Ações {isDiretor ? "da diretoria" : "de gerência"}
+                </p>
                 <div className="flex flex-wrap gap-2">
-                  {show.status === "pendente" && (
+                  {show.status === "pendente" && canApproveOrReject && (
                     <>
                       <Button size="sm" onClick={approve} disabled={busy}>Aprovar</Button>
                       <Button size="sm" variant="outline" onClick={() => setShowReject((v) => !v)} disabled={busy}>Rejeitar</Button>
                     </>
                   )}
+                  {show.status === "pendente" && !canApproveOrReject && (
+                    <p className="text-xs text-muted-foreground">
+                      Apenas o Diretor pode aprovar ou rejeitar minutas.
+                    </p>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => setShowResched((v) => !v)} disabled={busy}>Remarcar</Button>
                   <Button size="sm" variant="destructive" onClick={cancel} disabled={busy}>Cancelar show</Button>
                 </div>
 
-                {showReject && (
+                {showReject && canApproveOrReject && (
                   <div className="space-y-2 rounded-md border p-3">
                     <Label>Motivo da rejeição</Label>
                     <Textarea rows={2} value={rejectMotivo} onChange={(e) => setRejectMotivo(e.target.value)} />
@@ -188,7 +212,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               <PaymentScheduleEditor
                 showId={show.id}
                 cacheTotal={Number(show.cache_total ?? 0)}
-                canEdit={isManager || roles.includes("equipe") || isFinanceiro || (roles.includes("vendedor") && !!isOwner)}
+                canEdit={isManager || isDiretor || roles.includes("equipe") || isFinanceiro || (roles.includes("vendedor") && !!isOwner)}
                 onChanged={onChanged}
               />
             </TabsContent>

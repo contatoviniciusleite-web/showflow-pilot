@@ -539,7 +539,10 @@ export type Database = {
           artist_id: string
           auto_aprovado: boolean
           auto_aprovado_em: string | null
+          autorizado_em: string | null
           autorizado_por: string | null
+          autorizado_por_nome: string | null
+          autorizado_por_user_id: string | null
           aviso_12h_enviado_em: string | null
           cache_total: number
           camarins_rider: string | null
@@ -607,7 +610,10 @@ export type Database = {
           artist_id: string
           auto_aprovado?: boolean
           auto_aprovado_em?: string | null
+          autorizado_em?: string | null
           autorizado_por?: string | null
+          autorizado_por_nome?: string | null
+          autorizado_por_user_id?: string | null
           aviso_12h_enviado_em?: string | null
           cache_total?: number
           camarins_rider?: string | null
@@ -675,7 +681,10 @@ export type Database = {
           artist_id?: string
           auto_aprovado?: boolean
           auto_aprovado_em?: string | null
+          autorizado_em?: string | null
           autorizado_por?: string | null
+          autorizado_por_nome?: string | null
+          autorizado_por_user_id?: string | null
           aviso_12h_enviado_em?: string | null
           cache_total?: number
           camarins_rider?: string | null
@@ -857,7 +866,13 @@ export type Database = {
       is_business_day_br: { Args: { d: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "gerente" | "equipe" | "artista" | "vendedor" | "financeiro"
+      app_role:
+        | "gerente"
+        | "equipe"
+        | "artista"
+        | "vendedor"
+        | "financeiro"
+        | "diretor"
       deposito_status: "ok" | "pendente"
       estrutura_tipo: "aberta" | "fechada"
       show_status:
@@ -997,7 +1012,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["gerente", "equipe", "artista", "vendedor", "financeiro"],
+      app_role: [
+        "gerente",
+        "equipe",
+        "artista",
+        "vendedor",
+        "financeiro",
+        "diretor",
+      ],
       deposito_status: ["ok", "pendente"],
       estrutura_tipo: ["aberta", "fechada"],
       show_status: [

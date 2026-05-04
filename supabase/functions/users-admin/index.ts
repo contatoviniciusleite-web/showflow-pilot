@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ROLES = ["gerente", "equipe", "artista", "vendedor", "financeiro"] as const;
+const ROLES = ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] as const;
 type Role = (typeof ROLES)[number];
 
 function json(body: unknown, status = 200) {
