@@ -147,13 +147,21 @@ export function FinanceiroAgenda() {
         </Card>
 
         <Card className="p-6 shadow-soft">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold">
-              {selected ? format(selected, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione uma data"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {dayItems.length === 0 ? "Nenhum show neste dia." : `${dayItems.length} show(s) neste dia.`}
-            </p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">
+                {selected ? format(selected, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione uma data"}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {dayItems.length === 0 ? "Nenhum show neste dia." : `${dayItems.length} show(s) neste dia.`}
+              </p>
+            </div>
+            <ExportMenu
+              label={`Exportar ${format(month, "MMM/yy", { locale: ptBR })}`}
+              disabled={monthShows.length === 0}
+              onExportPDF={() => exportMonth("pdf")}
+              onExportCSV={() => exportMonth("csv")}
+            />
           </div>
 
           {loading ? (
