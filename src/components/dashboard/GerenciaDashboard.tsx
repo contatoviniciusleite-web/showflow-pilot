@@ -22,6 +22,7 @@ import {
   sumCache, monthLabel, DASHBOARD_THRESHOLDS, PERIOD_LABEL,
 } from "@/lib/dashboard";
 import { STATUS_CLASS, STATUS_LABEL, ShowStatus } from "@/lib/showStatus";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ShowFull {
   id: string;
