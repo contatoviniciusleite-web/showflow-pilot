@@ -83,15 +83,22 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "list_payments", show_id: showId },
-    });
-    if (error) toast.error(error.message);
-    setItems((data?.payments ?? []) as Payment[]);
-    setCacheTotal(toN(data?.cache_total));
-    setTotalPago(toN(data?.total_pago));
-    if (data?.status) setStatus(data.status);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: { action: "list_payments", show_id: showId },
+      });
+      if (error) throw error;
+      setItems(Array.isArray(data?.payments) ? (data.payments as Payment[]) : []);
+      setCacheTotal(toN(data?.cache_total));
+      setTotalPago(toN(data?.total_pago));
+      if (data?.status) setStatus(data.status);
+    } catch (err: any) {
+      console.error("Erro ao carregar pagamentos:", err);
+      toast.error(err?.message ?? "Não foi possível carregar os pagamentos.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [showId]);
