@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.enforce_single_diretor() FROM PUBLIC, anon, authenticated;
