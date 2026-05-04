@@ -57,6 +57,17 @@ const FORMA_LABEL: Record<string, string> = {
 
 const toN = (v: any) => Number(v ?? 0);
 
+const safeFmt = (value: string | null | undefined, pattern: string, opts?: any) => {
+  if (!value) return "—";
+  try {
+    const d = value.length === 10 ? new Date(value + "T00:00:00") : new Date(value);
+    if (isNaN(d.getTime())) return "—";
+    return format(d, pattern, opts);
+  } catch {
+    return "—";
+  }
+};
+
 export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, confirmadoEm, onChanged, artistNome, showDate, showLocal }: Props) {
   const { roles } = useAuth();
   const [items, setItems] = useState<Payment[]>([]);
@@ -225,18 +236,18 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
 
   const exportExtrato = (kind: "pdf" | "csv") => {
     const cols: Column[] = [
-      { header: "Data", key: (r: Payment) => format(new Date(r.data_pagamento + "T00:00:00"), "dd/MM/yyyy") },
+      { header: "Data", key: (r: Payment) => safeFmt(r.data_pagamento, "dd/MM/yyyy") },
       { header: "Valor", key: (r: Payment) => formatCurrencyBRL(toN(r.valor)), align: "right" },
       { header: "Forma", key: (r: Payment) => FORMA_LABEL[r.forma_pagamento] ?? r.forma_pagamento },
       { header: "Conta", key: (r: Payment) => r.conta_destino ?? "—" },
       { header: "Observações", key: (r: Payment) => r.observacoes ?? "" },
       { header: "Confirmado por", key: (r: Payment) => r.registrado_por_nome ?? "—" },
-      { header: "Registrado em", key: (r: Payment) => format(new Date(r.created_at), "dd/MM/yyyy HH:mm") },
+      { header: "Registrado em", key: (r: Payment) => safeFmt(r.created_at, "dd/MM/yyyy HH:mm") },
       { header: "Comprovante", key: (r: Payment) => r.attachment_file_name ?? "—" },
     ];
     const meta = {
       title: `Extrato de baixas — ${artistNome ?? "Show"}`,
-      subtitle: `${showLocal ?? ""}${showDate ? ` · ${format(new Date(showDate + "T00:00:00"), "dd/MM/yyyy")}` : ""}`,
+      subtitle: `${showLocal ?? ""}${showDate ? ` · ${safeFmt(showDate, "dd/MM/yyyy")}` : ""}`,
       filters: [
         `Cachê total: ${formatCurrencyBRL(cacheTotal)}`,
         `Total pago: ${formatCurrencyBRL(totalPago)}`,
@@ -259,7 +270,7 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
       {showConfirmedBy && (
         <div className="rounded-md bg-green-500/10 border border-green-500/30 p-3 text-sm">
           ✓ Confirmado por <strong>{confirmadoPorNome}</strong>
-          {confirmadoEm && <> em {format(new Date(confirmadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>}
+          {confirmadoEm && <> em {safeFmt(confirmadoEm, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>}
         </div>
       )}
 
@@ -381,11 +392,11 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
                     <span className="text-muted-foreground font-normal"> · {FORMA_LABEL[p.forma_pagamento] ?? p.forma_pagamento}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Pago em {format(new Date(p.data_pagamento + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}
+                    Pago em {safeFmt(p.data_pagamento, "dd/MM/yyyy", { locale: ptBR })}
                     {p.conta_destino ? ` · ${p.conta_destino}` : ""}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Confirmado por {p.registrado_por_nome ?? "—"} em {format(new Date(p.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    Confirmado por {p.registrado_por_nome ?? "—"} em {safeFmt(p.created_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                   {p.observacoes && <p className="text-xs mt-1">{p.observacoes}</p>}
                 </div>
@@ -428,7 +439,7 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{a.file_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(a.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      {safeFmt(a.created_at, "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
