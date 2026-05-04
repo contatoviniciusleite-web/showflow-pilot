@@ -367,11 +367,18 @@ Deno.serve(async (req) => {
           ${s.cache_total}, ${s.condicao_pagamento}, ${s.encargos_extras},
           ${s.transp_onibus}, ${s.transp_van}, ${s.transp_aereo}, ${s.transp_excesso_bagagem}, ${s.transp_observacoes},
           ${s.hosp_diaria_alimentacao}, ${s.hosp_hospedagem}, ${s.hosp_traslado},
-          ${s.camarins_rider}, ${s.autorizado_por}, ${userId}, 'pendente'::show_status, now()
+          ${s.camarins_rider}, null, ${userId}, 'pendente'::show_status, now()
         )
-        returning *
+        returning *, (select nome from public.artists where id = artist_id) as artist_nome
       `;
-      return json({ show: rows[0] });
+      const newShow: any = rows[0];
+      // Notifica o Diretor sobre nova minuta para aprovação
+      try {
+        const titulo = "Nova minuta para aprovação";
+        const msg = `Nova minuta de ${newShow.artist_nome ?? "—"} em ${newShow.local ?? "local"} dia ${newShow.data_show} aguardando sua aprovação.`;
+        await notifyByRoles(sql, ["diretor"], "minuta_pendente", titulo, msg, newShow.id);
+      } catch (e) { console.error("notify diretor (create)", e); }
+      return json({ show: newShow });
     }
 
     if (action === "update") {
