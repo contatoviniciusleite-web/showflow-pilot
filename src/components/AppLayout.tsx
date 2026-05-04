@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2 } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
 import { ManagerModeToggle } from "@/components/ManagerModeToggle";
@@ -8,15 +8,16 @@ import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/NotificationBell";
 
 const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["gerente", "equipe", "artista", "vendedor", "financeiro"] },
-  { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["gerente", "equipe", "artista", "vendedor"] },
-  { to: "/shows", label: "Shows", icon: ListMusic, roles: ["gerente", "equipe", "artista", "vendedor", "financeiro"] },
-  { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["gerente", "equipe", "artista", "financeiro"] },
-  { to: "/contratantes", label: "Contratantes", icon: Building2, roles: ["gerente", "equipe", "vendedor", "financeiro"] },
-  { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["gerente"] },
-  { to: "/artistas", label: "Artistas", icon: Music2, roles: ["gerente"] },
-  { to: "/bloqueios", label: "Bloqueios", icon: Ban, roles: ["gerente"] },
-  { to: "/usuarios", label: "Usuários", icon: Users, roles: ["gerente"] },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
+  { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["diretor", "gerente", "equipe", "artista", "vendedor"] },
+  { to: "/shows", label: "Shows", icon: ListMusic, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
+  { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["diretor", "gerente", "equipe", "artista", "financeiro"] },
+  { to: "/contratantes", label: "Contratantes", icon: Building2, roles: ["diretor", "gerente", "equipe", "vendedor", "financeiro"] },
+  { to: "/diretoria", label: "Diretoria", icon: Crown, roles: ["diretor"] },
+  { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["diretor", "gerente"] },
+  { to: "/artistas", label: "Artistas", icon: Music2, roles: ["diretor", "gerente"] },
+  { to: "/bloqueios", label: "Bloqueios", icon: Ban, roles: ["diretor", "gerente"] },
+  { to: "/usuarios", label: "Usuários", icon: Users, roles: ["diretor", "gerente"] },
 ] as const;
 
 export function AppLayout() {
