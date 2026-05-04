@@ -447,7 +447,6 @@ Deno.serve(async (req) => {
           hosp_hospedagem = ${s.hosp_hospedagem},
           hosp_traslado = ${s.hosp_traslado},
           camarins_rider = ${s.camarins_rider},
-          autorizado_por = ${s.autorizado_por},
           updated_at = now()
         where id = ${body.id}
         returning *
@@ -572,7 +571,6 @@ Deno.serve(async (req) => {
           hosp_diaria_alimentacao = ${s.hosp_diaria_alimentacao},
           hosp_hospedagem = ${s.hosp_hospedagem}, hosp_traslado = ${s.hosp_traslado},
           camarins_rider = ${s.camarins_rider},
-          autorizado_por = ${s.autorizado_por},
           contratante_link_token = null,
           contratante_link_expires_at = null,
           status = 'aguardando_pagamento'::show_status,
