@@ -216,6 +216,13 @@ export default function Financeiro() {
           <Button variant="ghost" onClick={() => { setFArtist("all"); setFStatus("all"); setFFrom(""); setFTo(""); }}>
             Limpar
           </Button>
+          <div className="ml-auto">
+            <ExportMenu
+              disabled={filtered.length === 0}
+              onExportPDF={() => exportFinanceiro("pdf")}
+              onExportCSV={() => exportFinanceiro("csv")}
+            />
+          </div>
         </div>
 
         <div className="overflow-x-auto">
