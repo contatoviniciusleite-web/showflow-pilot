@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
-import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { lazy, Suspense } from "react";
+const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 import { AlertTriangle, Clock, DollarSign, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ExportMenu } from "@/components/ExportMenu";
@@ -81,18 +83,12 @@ export default function Financeiro() {
   const loading = finQuery.isLoading;
   const load = () => queryClient.invalidateQueries({ queryKey: ["financeiro"] });
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("financeiro-page")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" },
-        () => queryClient.invalidateQueries({ queryKey: ["financeiro"] }))
-      .on("postgres_changes", { event: "*", schema: "public", table: "show_payments" },
-        () => queryClient.invalidateQueries({ queryKey: ["financeiro"] }))
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [queryClient]);
+  useRealtimeInvalidate({
+    channel: "financeiro-page",
+    tables: ["shows", "show_payments"],
+    queryKeys: [["financeiro"]],
+    debounceMs: 400,
+  });
 
   const artists = useMemo(() => {
     const m = new Map<string, string>();
@@ -383,7 +379,11 @@ export default function Financeiro() {
         </div>
       </Card>
 
-      <ShowDetailsModal show={active as any} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+      {active && (
+        <Suspense fallback={null}>
+          <ShowDetailsModal show={active as any} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+        </Suspense>
+      )}
     </div>
   );
 }

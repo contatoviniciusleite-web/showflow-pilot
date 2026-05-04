@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,13 +50,16 @@ export function VendedorDashboard() {
 
   useEffect(() => {
     refetch();
-    const ch = supabase
-      .channel("vendedor-dash")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" }, () => refetch())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+  useRealtimeInvalidate({
+    channel: "vendedor-dash",
+    tables: ["shows"],
+    queryKeys: [],
+    debounceMs: 400,
+    onEvent: refetch,
+    enabled: !!user?.id,
+  });
 
   const range = useMemo(() => getRangeFor(period), [period]);
   const showsPeriodo = useMemo(

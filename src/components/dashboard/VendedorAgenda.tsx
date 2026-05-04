@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,13 +85,16 @@ export function VendedorAgenda() {
 
   useEffect(() => {
     refetch();
-    const ch = supabase
-      .channel("vendedor-agenda")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" }, () => refetch())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+  useRealtimeInvalidate({
+    channel: "vendedor-agenda",
+    tables: ["shows"],
+    queryKeys: [],
+    debounceMs: 400,
+    onEvent: refetch,
+    enabled: !!user?.id,
+  });
 
   // Combina shows próprios + sanitizados; filtra por artista selecionado
   const allByDay = useMemo(() => {

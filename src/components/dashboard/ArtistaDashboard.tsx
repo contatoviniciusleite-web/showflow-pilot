@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,12 +35,14 @@ export function ArtistaDashboard() {
 
   useEffect(() => {
     refetch();
-    const ch = supabase
-      .channel("artista-dash")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" }, () => refetch())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
   }, []);
+  useRealtimeInvalidate({
+    channel: "artista-dash",
+    tables: ["shows"],
+    queryKeys: [],
+    debounceMs: 400,
+    onEvent: refetch,
+  });
 
   const week = useMemo(() => getWeekRange(), []);
   const month = useMemo(() => getMonthRange(), []);

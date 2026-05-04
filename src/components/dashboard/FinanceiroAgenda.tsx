@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,8 @@ import { format } from "date-fns";
 import { Clock, MapPin } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { cn } from "@/lib/utils";
-import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { lazy, Suspense } from "react";
+const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 
@@ -60,14 +62,14 @@ export function FinanceiroAgenda() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-    const ch = supabase
-      .channel("financeiro-agenda")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+  useEffect(() => { load(); }, []);
+  useRealtimeInvalidate({
+    channel: "financeiro-agenda",
+    tables: ["shows"],
+    queryKeys: [],
+    debounceMs: 400,
+    onEvent: load,
+  });
 
   const byDay = useMemo(() => {
     const m = new Map<string, FShow[]>();
@@ -201,7 +203,11 @@ export function FinanceiroAgenda() {
         </Card>
       </div>
 
-      <ShowDetailsModal show={active} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+      {active && (
+        <Suspense fallback={null}>
+          <ShowDetailsModal show={active} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+        </Suspense>
+      )}
     </>
   );
 }
