@@ -150,10 +150,45 @@ export default function Relatorios() {
     for (const s of filtered) {
       if (s.status === "cancelada") cancelados += 1;
       else if (s.status === "confirmado") realizados += 1;
+      if ((s.remarcado_count ?? 0) > 0) remarcados += 1;
     }
-    // remarcados: pega via shows.remarcado_count > 0 (não temos direto aqui, mantemos zero por ora)
     return { realizados, cancelados, remarcados };
   }, [filtered]);
+
+  // Lista de shows do período (semana/mês) — independente do filtro de mês acima
+  const periodRange = useMemo(() => {
+    if (periodo === "semana") return getWeekRange(weekRef);
+    const y = Number(year !== "all" ? year : now.getFullYear());
+    const m = Number(month !== "all" ? month : (now.getMonth() + 1));
+    const start = new Date(y, m - 1, 1);
+    const end = new Date(y, m, 0);
+    return { start: toIsoDate(start), end: toIsoDate(end) };
+  }, [periodo, weekRef, year, month]);
+
+  const periodShows = useMemo(() => {
+    return shows
+      .filter((s) => s.data_show && s.data_show >= periodRange.start && s.data_show <= periodRange.end)
+      .filter((s) => artistId === "all" || s.artist_id === artistId)
+      .sort((a, b) => a.data_show.localeCompare(b.data_show));
+  }, [shows, periodRange, artistId]);
+
+  const periodTotals = useMemo(() => {
+    let cache = 0, pago = 0, pend = 0, realizados = 0, aRealizar = 0, cancelados = 0, remarcados = 0;
+    const today = toIsoDate(new Date());
+    for (const s of periodShows) {
+      const c = Number(s.cache_total ?? 0);
+      const p = Number(s.total_pago ?? 0);
+      if (s.status !== "cancelada") {
+        cache += c; pago += p; pend += Math.max(c - p, 0);
+      }
+      if (s.status === "cancelada") cancelados += 1;
+      else if (s.status === "confirmado" || s.data_show < today) realizados += 1;
+      else aRealizar += 1;
+      if ((s.remarcado_count ?? 0) > 0) remarcados += 1;
+    }
+    return { cache, pago, pend, realizados, aRealizar, cancelados, remarcados };
+  }, [periodShows]);
+
 
   const years = useMemo(() => {
     const y = new Set<string>();
