@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { StatCard } from "./StatCard";
 import { PeriodFilter } from "./PeriodFilter";
+import { AlertDetailSheet, type AlertShow } from "./AlertDetailSheet";
 import {
   Period, fmtBRL, fmtDate, getMonthRange, getRangeFor, inRange, isApprovedStatus,
   sumCache, monthLabel, DASHBOARD_THRESHOLDS, PERIOD_LABEL,
