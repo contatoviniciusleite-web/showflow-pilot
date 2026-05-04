@@ -23,12 +23,36 @@ interface RShow {
   status: string;
   vendedor: string | null;
   created_by: string | null;
+  local?: string | null;
+  cidade?: string | null;
+  remarcado_count?: number | null;
+  cancelado_motivo?: string | null;
+  cancelado_em?: string | null;
+  ultima_remarcacao_em?: string | null;
 }
 
 const fmtBRL = (n: number) =>
   Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function toIsoDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function getWeekRange(refIso: string) {
+  const [y, m, day] = refIso.split("-").map(Number);
+  const d = new Date(y, m - 1, day);
+  const dow = d.getDay(); // 0=Dom..6=Sab
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  const start = new Date(d); start.setDate(d.getDate() + diffToMonday);
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  return { start: toIsoDate(start), end: toIsoDate(end) };
+}
+
+function fmtBR(dateIso: string) {
+  return dateIso.split("-").reverse().join("/");
+}
 
 export default function Relatorios() {
   const { roles } = useAuth();
@@ -41,8 +65,10 @@ export default function Relatorios() {
 
   const now = new Date();
   const [year, setYear] = useState<string>(String(now.getFullYear()));
-  const [month, setMonth] = useState<string>("all");
+  const [month, setMonth] = useState<string>(String(now.getMonth() + 1).padStart(2, "0"));
   const [artistId, setArtistId] = useState<string>("all");
+  const [periodo, setPeriodo] = useState<"semana" | "mes">("mes");
+  const [weekRef, setWeekRef] = useState<string>(toIsoDate(now)); // any date inside the week
 
   useEffect(() => {
     (async () => {
@@ -124,10 +150,45 @@ export default function Relatorios() {
     for (const s of filtered) {
       if (s.status === "cancelada") cancelados += 1;
       else if (s.status === "confirmado") realizados += 1;
+      if ((s.remarcado_count ?? 0) > 0) remarcados += 1;
     }
-    // remarcados: pega via shows.remarcado_count > 0 (não temos direto aqui, mantemos zero por ora)
     return { realizados, cancelados, remarcados };
   }, [filtered]);
+
+  // Lista de shows do período (semana/mês) — independente do filtro de mês acima
+  const periodRange = useMemo(() => {
+    if (periodo === "semana") return getWeekRange(weekRef);
+    const y = Number(year !== "all" ? year : now.getFullYear());
+    const m = Number(month !== "all" ? month : (now.getMonth() + 1));
+    const start = new Date(y, m - 1, 1);
+    const end = new Date(y, m, 0);
+    return { start: toIsoDate(start), end: toIsoDate(end) };
+  }, [periodo, weekRef, year, month]);
+
+  const periodShows = useMemo(() => {
+    return shows
+      .filter((s) => s.data_show && s.data_show >= periodRange.start && s.data_show <= periodRange.end)
+      .filter((s) => artistId === "all" || s.artist_id === artistId)
+      .sort((a, b) => a.data_show.localeCompare(b.data_show));
+  }, [shows, periodRange, artistId]);
+
+  const periodTotals = useMemo(() => {
+    let cache = 0, pago = 0, pend = 0, realizados = 0, aRealizar = 0, cancelados = 0, remarcados = 0;
+    const today = toIsoDate(new Date());
+    for (const s of periodShows) {
+      const c = Number(s.cache_total ?? 0);
+      const p = Number(s.total_pago ?? 0);
+      if (s.status !== "cancelada") {
+        cache += c; pago += p; pend += Math.max(c - p, 0);
+      }
+      if (s.status === "cancelada") cancelados += 1;
+      else if (s.status === "confirmado" || s.data_show < today) realizados += 1;
+      else aRealizar += 1;
+      if ((s.remarcado_count ?? 0) > 0) remarcados += 1;
+    }
+    return { cache, pago, pend, realizados, aRealizar, cancelados, remarcados };
+  }, [periodShows]);
+
 
   const years = useMemo(() => {
     const y = new Set<string>();
@@ -148,7 +209,8 @@ export default function Relatorios() {
   const showArtistTab = isManager || isFinanceiro || isVendedor;
   const showVendedoresTab = isManager || isFinanceiro;
   const showGeralTab = isManager || isFinanceiro;
-  const defaultTab = showArtistTab ? "artista" : showVendedoresTab ? "vendedores" : "geral";
+  const showShowsTab = isManager || isFinanceiro || isVendedor;
+  const defaultTab = showShowsTab ? "shows" : showArtistTab ? "artista" : showVendedoresTab ? "vendedores" : "geral";
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -195,10 +257,114 @@ export default function Relatorios() {
 
       <Tabs defaultValue={defaultTab}>
         <TabsList>
+          {showShowsTab && <TabsTrigger value="shows">Shows do período</TabsTrigger>}
           {showArtistTab && <TabsTrigger value="artista">Por artista</TabsTrigger>}
           {showVendedoresTab && <TabsTrigger value="vendedores">Vendedores</TabsTrigger>}
           {showGeralTab && <TabsTrigger value="geral">Geral da produtora</TabsTrigger>}
         </TabsList>
+
+        {showShowsTab && (
+          <TabsContent value="shows" className="space-y-4 mt-4">
+            <Card className="p-4 shadow-soft flex flex-wrap gap-3 items-end">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Período</label>
+                <Select value={periodo} onValueChange={(v) => setPeriodo(v as "semana" | "mes")}>
+                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="semana">Semanal</SelectItem>
+                    <SelectItem value="mes">Mensal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {periodo === "semana" && (
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Semana de</label>
+                  <Input
+                    type="date"
+                    className="w-[180px]"
+                    value={weekRef}
+                    onChange={(e) => setWeekRef(e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="text-sm text-muted-foreground ml-auto">
+                {fmtBR(periodRange.start)} — {fmtBR(periodRange.end)}
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <SimpleStat title="Shows no período" value={periodShows.length} />
+              <SimpleStat title="Realizados" value={periodTotals.realizados} />
+              <SimpleStat title="A realizar" value={periodTotals.aRealizar} />
+              <SimpleStat title="Cancelados / Remarcados" value={`${periodTotals.cancelados} / ${periodTotals.remarcados}`} />
+              <SimpleStat title="Cachê total" value={fmtBRL(periodTotals.cache)} />
+              <SimpleStat title="Recebido" value={fmtBRL(periodTotals.pago)} />
+              <SimpleStat title="Pendente" value={fmtBRL(periodTotals.pend)} />
+            </div>
+
+            <Card className="p-4 shadow-soft">
+              <h3 className="font-medium mb-3">Shows do período</h3>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Show / Artista</TableHead>
+                      <TableHead>Vendedor</TableHead>
+                      <TableHead>Local</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Situação</TableHead>
+                      <TableHead className="text-right">Cachê</TableHead>
+                      <TableHead className="text-right">Pendente</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+                    ) : periodShows.length === 0 ? (
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sem shows no período.</TableCell></TableRow>
+                    ) : periodShows.map((s) => {
+                      const cache = Number(s.cache_total ?? 0);
+                      const pago = Number(s.total_pago ?? 0);
+                      const pendente = s.status === "cancelada" ? 0 : Math.max(cache - pago, 0);
+                      const today = toIsoDate(new Date());
+                      const realizado = s.status !== "cancelada" && (s.status === "confirmado" || s.data_show < today);
+                      const remarcado = (s.remarcado_count ?? 0) > 0;
+                      const cancelado = s.status === "cancelada";
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell className="whitespace-nowrap">{fmtBR(s.data_show)}</TableCell>
+                          <TableCell className="font-medium">{s.artist_nome ?? "—"}</TableCell>
+                          <TableCell className="text-muted-foreground">{s.vendedor ?? "—"}</TableCell>
+                          <TableCell className="text-muted-foreground max-w-[240px] truncate">
+                            {[s.local, s.cidade].filter(Boolean).join(" · ") || "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={(STATUS_CLASS as any)[s.status] ?? ""}>
+                              {(STATUS_LABEL as any)[s.status] ?? s.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {cancelado && <Badge variant="destructive">Cancelado</Badge>}
+                              {remarcado && <Badge variant="secondary">Remarcado{(s.remarcado_count ?? 0) > 1 ? ` ${s.remarcado_count}x` : ""}</Badge>}
+                              {!cancelado && realizado && <Badge variant="outline">Realizado</Badge>}
+                              {!cancelado && !realizado && <Badge variant="outline">A realizar</Badge>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">{fmtBRL(cache)}</TableCell>
+                          <TableCell className={`text-right whitespace-nowrap font-medium ${pendente > 0 ? "text-destructive" : "text-emerald-600"}`}>
+                            {fmtBRL(pendente)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+        )}
 
         {showArtistTab && (
           <TabsContent value="artista" className="space-y-4 mt-4">
