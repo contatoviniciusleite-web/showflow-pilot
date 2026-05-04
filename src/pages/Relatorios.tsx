@@ -505,7 +505,14 @@ export default function Relatorios() {
         {showArtistTab && (
           <TabsContent value="artista" className="space-y-4 mt-4">
             <Card className="p-4 shadow-soft">
-              <h3 className="font-medium mb-3">Resumo por artista</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Resumo por artista</h3>
+                <ExportMenu
+                  onExportPDF={() => exportArtistas("pdf")}
+                  onExportCSV={() => exportArtistas("csv")}
+                  disabled={byArtist.length === 0}
+                />
+              </div>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -577,7 +584,14 @@ export default function Relatorios() {
         {showVendedoresTab && (
           <TabsContent value="vendedores" className="space-y-4 mt-4">
             <Card className="p-4 shadow-soft">
-              <h3 className="font-medium mb-3">Ranking de vendedores</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Ranking de vendedores</h3>
+                <ExportMenu
+                  onExportPDF={() => exportVendedores("pdf")}
+                  onExportCSV={() => exportVendedores("csv")}
+                  disabled={byVendedor.length === 0}
+                />
+              </div>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byVendedor.slice(0, 10)}>
@@ -633,7 +647,14 @@ export default function Relatorios() {
             </div>
 
             <Card className="p-4 shadow-soft">
-              <h3 className="font-medium mb-3">Evolução mensal de faturamento</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Evolução mensal de faturamento</h3>
+                <ExportMenu
+                  onExportPDF={() => exportGeral("pdf")}
+                  onExportCSV={() => exportGeral("csv")}
+                  disabled={monthlyEvolution.length === 0}
+                />
+              </div>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={monthlyEvolution}>
