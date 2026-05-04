@@ -843,12 +843,18 @@ Deno.serve(async (req) => {
       if (!showRowsPre.length) return json({ error: "Show não encontrado" }, 404);
       const sh: any = showRowsPre[0];
       if (sh.status === "cancelada") return json({ error: "Show cancelado" }, 400);
-      const totalRows = await sql`select coalesce(sum(valor),0)::numeric as total from public.show_payments where show_id = ${body.show_id}`;
-      const totalPago = Number((totalRows[0] as any)?.total ?? 0);
-      const cacheTotal = Number(sh.cache_total ?? 0);
-      const saldo = Math.max(0, cacheTotal - totalPago);
+      // Calcula totais com precisão direto no SQL
+      const sumPre = await sql`
+        select
+          coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
+          coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0)::numeric(15,2) as total_pago
+        from public.shows s where s.id = ${body.show_id}
+      `;
+      const pre: any = sumPre[0] ?? {};
+      const cacheTotal = Number(pre.cache_total ?? 0);
+      const totalPago = Number(pre.total_pago ?? 0);
+      const saldo = Math.max(0, Math.round((cacheTotal - totalPago) * 100) / 100);
       if (saldo <= 0) return json({ error: "Pagamento já está quitado." }, 400);
-      // Tolerância de 1 centavo p/ arredondamento
       if (valor > saldo + 0.005) {
         return json({ error: `O valor informado é maior que o saldo em aberto (R$ ${saldo.toFixed(2).replace(".", ",")}). Verifique o valor.` }, 400);
       }
@@ -858,12 +864,20 @@ Deno.serve(async (req) => {
 
       const ins = await sql`
         insert into public.show_payments (show_id, valor, data_pagamento, forma_pagamento, conta_destino, observacoes, attachment_id, registrado_por, registrado_por_nome)
-        values (${body.show_id}, ${valor}, ${dataPg}, ${forma}, ${conta}, ${obs}, ${attachmentId}, ${userId}, ${finNome})
+        values (${body.show_id}, ${valor}::numeric(15,2), ${dataPg}, ${forma}, ${conta}, ${obs}, ${attachmentId}, ${userId}, ${finNome})
         returning *
       `;
 
-      const novoTotal = totalPago + valor;
-      const quitado = novoTotal + 0.005 >= cacheTotal && cacheTotal > 0;
+      // Recalcula no SQL após o insert (sem somas em JS)
+      const sumPos = await sql`
+        select
+          coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0)::numeric(15,2) as total_pago,
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0), 0)::numeric(15,2) as saldo_aberto
+        from public.shows s where s.id = ${body.show_id}
+      `;
+      const pos: any = sumPos[0] ?? {};
+      const novoSaldo = Number(pos.saldo_aberto ?? 0);
+      const quitado = novoSaldo <= 0.005 && cacheTotal > 0;
 
       if (quitado && sh.status !== "confirmado") {
         await sql`
@@ -880,11 +894,11 @@ Deno.serve(async (req) => {
         if (sh.created_by) await notify(sql, sh.created_by, "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
         await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
       } else {
-        const msg = `${finNome} registrou baixa de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}. Saldo em aberto: R$ ${(cacheTotal - novoTotal).toFixed(2)}.`;
+        const msg = `${finNome} registrou baixa de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}. Saldo em aberto: R$ ${novoSaldo.toFixed(2)}.`;
         if (sh.created_by) await notify(sql, sh.created_by, "pagamento_registrado", "Baixa registrada", msg, sh.id);
         await notifyByRoles(sql, ["gerente"], "pagamento_registrado", "Baixa registrada", msg, sh.id);
       }
-      return json({ payment: ins[0], saldo_aberto: Math.max(0, cacheTotal - novoTotal), quitado });
+      return json({ payment: ins[0], total_pago: pos.total_pago ?? "0.00", saldo_aberto: pos.saldo_aberto ?? "0.00", quitado });
     }
 
     if (action === "delete_payment") {
