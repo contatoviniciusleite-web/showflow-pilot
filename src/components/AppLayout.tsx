@@ -58,8 +58,21 @@ export function AppLayout() {
       queryClient.prefetchQuery({
         queryKey: ["shows", user?.id, roles.join(",")],
         queryFn: async () => {
-          const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
-          return { shows: r.data?.shows ?? [], outras: r.data?.outras_aprovadas ?? [], artists: [] };
+          const isArtistaOnly = roles.includes("artista")
+            && !roles.some((r) => ["gerente", "equipe", "diretor", "financeiro", "vendedor"].includes(r));
+          const [showsRes, artistsRes] = await Promise.all([
+            supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
+            isArtistaOnly
+              ? Promise.resolve({ data: { artists: [] }, error: null } as any)
+              : supabase.functions.invoke("shows-admin", { body: { action: "artists" } }),
+          ]);
+          if (showsRes.error) throw new Error(showsRes.error.message);
+          if (artistsRes.error) throw new Error(artistsRes.error.message);
+          return {
+            shows: showsRes.data?.shows ?? [],
+            outras: showsRes.data?.outras_aprovadas ?? [],
+            artists: artistsRes.data?.artists ?? [],
+          };
         },
       });
     } else if (to === "/financeiro") {
