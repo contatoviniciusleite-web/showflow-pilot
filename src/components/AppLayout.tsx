@@ -137,6 +137,7 @@ export function AppLayout() {
             key={item.to}
             to={item.to}
             end={item.to === "/"}
+            onTouchStart={() => prefetchRoute(item.to)}
             className={({ isActive }) =>
               cn(
                 "flex min-w-16 flex-1 flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium",
