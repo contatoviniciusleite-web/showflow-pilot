@@ -106,7 +106,7 @@ function validateShow(input: any, opts: { strictBasic?: boolean } = {}) {
     hosp_hospedagem: bool(input.hosp_hospedagem),
     hosp_traslado: bool(input.hosp_traslado),
     camarins_rider: txt(input.camarins_rider, 5000),
-    autorizado_por: txt(input.autorizado_por, 120) ?? "Vitor D.",
+    autorizado_por: txt(input.autorizado_por, 120),
   };
 }
 
@@ -216,13 +216,14 @@ Deno.serve(async (req) => {
     const roleRows = await sql`select role::text as role from public.user_roles where user_id = ${userId}`;
     const roles = roleRows.map((r: any) => r.role);
     const isManager = roles.includes("gerente");
+    const isDiretor = roles.includes("diretor");
     const isStaff = roles.includes("equipe");
     const isVendedor = roles.includes("vendedor");
     const isArtista = roles.includes("artista");
     const isFinanceiro = roles.includes("financeiro");
-    const canCreate = roles.some((r: string) => ALLOWED_CREATE_ROLES.has(r));
-    const isEditor = isManager || isStaff;
-    const canSeeAll = isManager || isStaff || isFinanceiro;
+    const canCreate = roles.some((r: string) => ALLOWED_CREATE_ROLES.has(r)) || isDiretor;
+    const isEditor = isManager || isStaff || isDiretor;
+    const canSeeAll = isManager || isStaff || isFinanceiro || isDiretor;
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
