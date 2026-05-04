@@ -10,6 +10,8 @@ import { Clock, MapPin } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { cn } from "@/lib/utils";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { ExportMenu } from "@/components/ExportMenu";
+import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 
 interface FShow {
   id: string;
