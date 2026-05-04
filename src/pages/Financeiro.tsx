@@ -346,7 +346,13 @@ export default function Financeiro() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 8 }).map((__, j) => (
+                      <TableCell key={j}><div className="h-4 w-full bg-muted rounded animate-pulse" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhum show encontrado.</TableCell></TableRow>
               ) : filtered.map((s) => {
