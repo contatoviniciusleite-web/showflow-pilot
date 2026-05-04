@@ -243,13 +243,13 @@ export default function Relatorios() {
           return "A realizar";
         },
       },
-      { header: "Cachê", key: (r: RShow) => fmtBRLnum(Number(r.cache_total)), align: "right" },
+      { header: "Cachê", key: (r: RShow) => fmtBRL(Number(r.cache_total)), align: "right" },
       {
         header: "Pendente",
         key: (r: RShow) =>
           r.status === "cancelada"
-            ? fmtBRLnum(0)
-            : fmtBRLnum(Math.max(Number(r.cache_total) - Number(r.total_pago), 0)),
+            ? fmtBRL(0)
+            : fmtBRL(Math.max(Number(r.cache_total) - Number(r.total_pago), 0)),
         align: "right",
       },
     ];
@@ -264,9 +264,9 @@ export default function Relatorios() {
         { label: "A realizar", value: String(periodTotals.aRealizar) },
         { label: "Cancelados", value: String(periodTotals.cancelados) },
         { label: "Remarcados", value: String(periodTotals.remarcados) },
-        { label: "Cachê total", value: fmtBRLnum(periodTotals.cache) },
-        { label: "Recebido", value: fmtBRLnum(periodTotals.pago) },
-        { label: "Pendente", value: fmtBRLnum(periodTotals.pend) },
+        { label: "Cachê total", value: fmtBRL(periodTotals.cache) },
+        { label: "Recebido", value: fmtBRL(periodTotals.pago) },
+        { label: "Pendente", value: fmtBRL(periodTotals.pend) },
       ],
     };
     if (kind === "pdf") exportPDF(periodShows, cols, meta);
@@ -277,18 +277,18 @@ export default function Relatorios() {
     const cols: Column[] = [
       { header: "Artista", key: "nome" },
       { header: "Shows", key: "shows", align: "right" },
-      { header: "Bruto", key: (r: any) => fmtBRLnum(r.bruto), align: "right" },
-      { header: "Despesas", key: (r: any) => fmtBRLnum(r.despesas), align: "right" },
-      { header: "Líquido", key: (r: any) => fmtBRLnum(r.liquido), align: "right" },
+      { header: "Bruto", key: (r: any) => fmtBRL(r.bruto), align: "right" },
+      { header: "Despesas", key: (r: any) => fmtBRL(r.despesas), align: "right" },
+      { header: "Líquido", key: (r: any) => fmtBRL(r.liquido), align: "right" },
     ];
     const meta = {
       title: "Resumo por artista",
       filters: filterDesc(),
       filename: `relatorio-artistas-${year}-${month}`,
       summary: [
-        { label: "Total bruto", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.bruto, 0)) },
-        { label: "Total despesas", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.despesas, 0)) },
-        { label: "Total líquido", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.liquido, 0)) },
+        { label: "Total bruto", value: fmtBRL(byArtist.reduce((a, r) => a + r.bruto, 0)) },
+        { label: "Total despesas", value: fmtBRL(byArtist.reduce((a, r) => a + r.despesas, 0)) },
+        { label: "Total líquido", value: fmtBRL(byArtist.reduce((a, r) => a + r.liquido, 0)) },
       ],
     };
     if (kind === "pdf") exportPDF(byArtist, cols, meta);
@@ -306,14 +306,14 @@ export default function Relatorios() {
         key: (r: any) => (r.total ? `${Math.round((r.aprovados / r.total) * 100)}%` : "—"),
         align: "right",
       },
-      { header: "Volume", key: (r: any) => fmtBRLnum(r.volume), align: "right" },
+      { header: "Volume", key: (r: any) => fmtBRL(r.volume), align: "right" },
     ];
     const meta = {
       title: "Ranking de vendedores",
       filters: filterDesc(),
       filename: `relatorio-vendedores-${year}-${month}`,
       summary: [
-        { label: "Volume total", value: fmtBRLnum(byVendedor.reduce((a, r) => a + r.volume, 0)) },
+        { label: "Volume total", value: fmtBRL(byVendedor.reduce((a, r) => a + r.volume, 0)) },
       ],
     };
     if (kind === "pdf") exportPDF(byVendedor, cols, meta);
@@ -323,8 +323,8 @@ export default function Relatorios() {
   const exportGeral = (kind: "pdf" | "csv") => {
     const cols: Column[] = [
       { header: "Mês", key: "label" },
-      { header: "Bruto", key: (r: any) => fmtBRLnum(r.bruto), align: "right" },
-      { header: "Pago", key: (r: any) => fmtBRLnum(r.pago), align: "right" },
+      { header: "Bruto", key: (r: any) => fmtBRL(r.bruto), align: "right" },
+      { header: "Pago", key: (r: any) => fmtBRL(r.pago), align: "right" },
     ];
     const meta = {
       title: "Geral da produtora — Evolução mensal",
@@ -333,7 +333,7 @@ export default function Relatorios() {
       summary: [
         { label: "Shows realizados", value: String(consolidado.realizados) },
         { label: "Shows cancelados", value: String(consolidado.cancelados) },
-        { label: "Faturamento bruto", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.bruto, 0)) },
+        { label: "Faturamento bruto", value: fmtBRL(byArtist.reduce((a, r) => a + r.bruto, 0)) },
       ],
     };
     if (kind === "pdf") exportPDF(monthlyEvolution, cols, meta);
