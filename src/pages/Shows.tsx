@@ -263,7 +263,6 @@ export default function Shows() {
 
 
 
-  const [artists, setArtists] = useState<ArtistLite[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Show | null>(null);
   const [saving, setSaving] = useState(false);
