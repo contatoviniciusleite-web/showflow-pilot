@@ -52,6 +52,7 @@ export function GerenciaDashboard() {
   const [chartScale, setChartScale] = useState<"mes" | "ano">("mes");
   const [auditPeriod, setAuditPeriod] = useState<Period>("mes");
   const [profileMap, setProfileMap] = useState<Record<string, string>>({});
+  const [alertOpen, setAlertOpen] = useState<null | "atrasado" | "contratos" | "cancelados" | "aguardando">(null);
 
   const isFinanceiro = roles.includes("financeiro") && !roles.includes("gerente");
 
