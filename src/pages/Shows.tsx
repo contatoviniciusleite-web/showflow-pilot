@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -203,6 +203,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function Shows() {
   const { roles, user } = useAuth();
+  const queryClient = useQueryClient();
   const isManager = roles.includes("gerente");
   const isDiretor = roles.includes("diretor");
   const isStaff = roles.includes("equipe");
@@ -574,12 +575,45 @@ export default function Shows() {
     load();
   };
 
+  // ===== Optimistic update helper =====
+  // Aplica patch local imediatamente; em caso de erro, reverte e re-fetch.
+  const showsQueryKey = ["shows", user?.id, roles.join(","), "bootstrap-v1"];
+  const optimisticUpdate = async (
+    showId: string,
+    patch: Partial<Show>,
+    invoke: () => Promise<{ error: any }>,
+    successMsg: string,
+  ) => {
+    const prev = queryClient.getQueryData<any>(showsQueryKey);
+    queryClient.setQueryData(showsQueryKey, (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        shows: (old.shows ?? []).map((s: Show) => (s.id === showId ? { ...s, ...patch } : s)),
+      };
+    });
+    const { error } = await invoke();
+    if (error) {
+      // Rollback
+      if (prev) queryClient.setQueryData(showsQueryKey, prev);
+      toast.error(error.message ?? "Erro ao atualizar");
+      queryClient.invalidateQueries({ queryKey: showsQueryKey });
+      return false;
+    }
+    toast.success(successMsg);
+    // Garante consistência (campos derivados, notificações etc.)
+    queryClient.invalidateQueries({ queryKey: showsQueryKey });
+    return true;
+  };
+
   const approve = async (s: Show) => {
     if (!confirm(`Aprovar minuta de ${s.artist_nome ?? "show"}?`)) return;
-    const { error } = await supabase.functions.invoke("shows-admin", { body: { action: "approve", id: s.id } });
-    if (error) return toast.error(error.message);
-    toast.success("Minuta aprovada — vendedor notificado");
-    load();
+    await optimisticUpdate(
+      s.id,
+      { status: "aprovada" as ShowStatus },
+      () => supabase.functions.invoke("shows-admin", { body: { action: "approve", id: s.id } }),
+      "Minuta aprovada — vendedor notificado",
+    );
   };
 
   const openReject = (s: Show) => {
@@ -590,14 +624,17 @@ export default function Shows() {
   const confirmReject = async () => {
     if (!rejectTarget) return;
     if (!rejectMotivo.trim()) return toast.error("Informe o motivo da rejeição");
-    const { error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "reject", id: rejectTarget.id, motivo: rejectMotivo.trim() },
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Minuta rejeitada — vendedor notificado");
+    const target = rejectTarget;
     setRejectOpen(false);
     setRejectTarget(null);
-    load();
+    await optimisticUpdate(
+      target.id,
+      { status: "rejeitada" as ShowStatus },
+      () => supabase.functions.invoke("shows-admin", {
+        body: { action: "reject", id: target.id, motivo: rejectMotivo.trim() },
+      }),
+      "Minuta rejeitada — vendedor notificado",
+    );
   };
 
   // ===== Cancelamento =====
@@ -609,16 +646,20 @@ export default function Shows() {
   const confirmCancel = async () => {
     if (!cancelTarget) return;
     if (!cancelMotivo.trim()) return toast.error("Informe o motivo do cancelamento");
+    const target = cancelTarget;
+    const motivo = cancelMotivo.trim();
     setCancelling(true);
-    const { error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "cancel", id: cancelTarget.id, motivo: cancelMotivo.trim() },
-    });
-    setCancelling(false);
-    if (error) return toast.error(error.message);
-    toast.success("Show cancelado — usuários notificados");
     setCancelOpen(false);
     setCancelTarget(null);
-    load();
+    await optimisticUpdate(
+      target.id,
+      { status: "cancelada" as ShowStatus, cancelado_motivo: motivo, cancelado_em: new Date().toISOString() },
+      () => supabase.functions.invoke("shows-admin", {
+        body: { action: "cancel", id: target.id, motivo },
+      }),
+      "Show cancelado — usuários notificados",
+    );
+    setCancelling(false);
   };
 
   // ===== Remarcação =====
@@ -638,22 +679,28 @@ export default function Shows() {
     if (!reschedData) return toast.error("Informe a nova data");
     if (!reschedHora) return toast.error("Informe o novo horário");
     if (!reschedMotivo.trim()) return toast.error("Informe o motivo da remarcação");
+    const target = reschedTarget;
+    const novaData = reschedData;
+    const novoHora = reschedHora;
+    const motivo = reschedMotivo.trim();
     setRescheduling(true);
-    const { error } = await supabase.functions.invoke("shows-admin", {
-      body: {
-        action: "reschedule",
-        id: reschedTarget.id,
-        nova_data: reschedData,
-        novo_horario: reschedHora,
-        motivo: reschedMotivo.trim(),
-      },
-    });
-    setRescheduling(false);
-    if (error) return toast.error(error.message);
-    toast.success("Show remarcado — usuários notificados");
     setReschedOpen(false);
     setReschedTarget(null);
-    load();
+    await optimisticUpdate(
+      target.id,
+      {
+        data_show: novaData,
+        horario: `${novoHora}:00`,
+        ultima_remarcacao_motivo: motivo,
+        ultima_remarcacao_em: new Date().toISOString(),
+        remarcado_count: (target.remarcado_count ?? 0) + 1,
+      },
+      () => supabase.functions.invoke("shows-admin", {
+        body: { action: "reschedule", id: target.id, nova_data: novaData, novo_horario: novoHora, motivo },
+      }),
+      "Show remarcado — usuários notificados",
+    );
+    setRescheduling(false);
   };
 
   // ===== Histórico =====
