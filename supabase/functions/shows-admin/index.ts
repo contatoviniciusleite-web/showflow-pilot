@@ -775,7 +775,8 @@ Deno.serve(async (req) => {
         select s.id, s.artist_id, s.data_show::text as data_show, s.local, s.cidade,
                s.cache_total, s.status::text as status, s.vendedor, s.created_by,
                s.confirmado_em, s.confirmado_por_nome, s.prazo_comprovante_em,
-               s.aprovado_em,
+               s.aprovado_em, s.remarcado_count, s.cancelado_motivo,
+               s.cancelado_em, s.ultima_remarcacao_em,
                a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo,
                coalesce(p.total_pago, 0) as total_pago,
                coalesce(e.total_despesas, 0) as total_despesas
