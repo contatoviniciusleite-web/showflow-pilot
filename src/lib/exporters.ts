@@ -209,7 +209,7 @@ export function exportDocumentPDF(opts: {
     doc.setFontSize(10);
     for (const ln of sec.lines) {
       const text = `${ln.label}: ${ln.value || "—"}`;
-      const wrapped = doc.splitTextToSize(text, pageWidth - 28);
+      const wrapped = doc.splitTextToSize(text, pageWidth - 28) as string[];
       if (y + wrapped.length * 5 > pageHeight - 20) {
         doc.addPage();
         y = 20;
