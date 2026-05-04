@@ -969,7 +969,7 @@ export default function Shows() {
             <DialogTitle>Rejeitar minuta</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Ao rejeitar, a minuta será excluída e o vendedor receberá uma notificação com o motivo.
+            Ao rejeitar, a minuta ficará marcada como <strong>Rejeitada</strong> e o vendedor será notificado com o motivo.
           </p>
           <div className="space-y-1.5">
             <Label>Motivo *</Label>
@@ -977,7 +977,7 @@ export default function Shows() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={confirmReject}>Rejeitar e excluir</Button>
+            <Button variant="destructive" onClick={confirmReject}>Rejeitar minuta</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
