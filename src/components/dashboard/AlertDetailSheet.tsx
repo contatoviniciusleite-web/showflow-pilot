@@ -131,7 +131,11 @@ export function AlertDetailSheet({
           <span className="text-muted-foreground">
             {filtered.length} show(s) · {fmtBRL(total)}
           </span>
-          <ExportMenu onExport={handleExport} disabled={filtered.length === 0} />
+          <ExportMenu
+            onExportPDF={() => exportPDF(filtered, exportColumns, buildMeta())}
+            onExportCSV={() => exportCSV(filtered, exportColumns, buildMeta())}
+            disabled={filtered.length === 0}
+          />
         </div>
 
         {filtered.length === 0 ? (
