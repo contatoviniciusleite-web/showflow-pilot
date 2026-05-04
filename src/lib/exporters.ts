@@ -200,7 +200,7 @@ export function exportDocumentPDF(opts: {
     }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.setFillColor(240);
+    doc.setFillColor(240, 240, 240);
     doc.rect(14, y - 4, pageWidth - 28, 6, "F");
     doc.text(sec.title, 16, y);
     y += 6;
