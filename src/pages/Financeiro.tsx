@@ -15,6 +15,7 @@ import { AlertTriangle, Clock, DollarSign, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface FinShow {
   id: string;
