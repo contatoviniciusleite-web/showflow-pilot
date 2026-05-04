@@ -890,8 +890,52 @@ Deno.serve(async (req) => {
     if (action === "delete_payment") {
       if (!isFinanceiro) return json({ error: "Apenas o financeiro pode excluir pagamentos" }, 403);
       if (typeof body.id !== "string") return json({ error: "Pagamento inválido" }, 400);
+
+      // Busca o pagamento e o show vinculado antes de excluir
+      const payRows = await sql`select * from public.show_payments where id = ${body.id}`;
+      if (!payRows.length) return json({ error: "Pagamento não encontrado" }, 404);
+      const pay: any = payRows[0];
+      const showRows = await sql`select s.*, a.nome as artist_nome from public.shows s left join public.artists a on a.id = s.artist_id where s.id = ${pay.show_id}`;
+      if (!showRows.length) return json({ error: "Show não encontrado" }, 404);
+      const sh: any = showRows[0];
+
       await sql`delete from public.show_payments where id = ${body.id}`;
-      return json({ ok: true });
+
+      // Recalcula saldo no banco com precisão
+      const sumRows = await sql`
+        select
+          coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
+          coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0)::numeric(15,2) as total_pago,
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0), 0)::numeric(15,2) as saldo_aberto
+        from public.shows s where s.id = ${pay.show_id}
+      `;
+      const r: any = sumRows[0] ?? {};
+      const saldo = Number(r.saldo_aberto ?? 0);
+
+      // Se reabriu saldo e o show estava confirmado → volta para aguardando_pagamento
+      if (saldo > 0.01 && sh.status === "confirmado") {
+        await sql`
+          update public.shows set
+            status = 'aguardando_pagamento'::show_status,
+            confirmado_por = null,
+            confirmado_por_nome = null,
+            confirmado_em = null,
+            updated_at = now()
+          where id = ${pay.show_id}
+        `;
+        const local = sh.local ?? "local não informado";
+        const msg = `Atenção: uma baixa do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} foi estornada. Saldo em aberto: R$ ${saldo.toFixed(2).replace(".", ",")}. O show voltou ao status Aguardando Pagamento.`;
+        if (sh.created_by) await notify(sql, sh.created_by, "baixa_estornada", "Baixa estornada", msg, sh.id);
+        await notifyByRoles(sql, ["gerente"], "baixa_estornada", "Baixa estornada", msg, sh.id);
+      }
+
+      return json({
+        ok: true,
+        cache_total: r.cache_total ?? "0.00",
+        total_pago: r.total_pago ?? "0.00",
+        saldo_aberto: r.saldo_aberto ?? "0.00",
+        reaberto: saldo > 0.01 && sh.status === "confirmado",
+      });
     }
 
     // ============================================================
