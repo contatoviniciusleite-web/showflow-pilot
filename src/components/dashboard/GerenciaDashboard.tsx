@@ -361,7 +361,17 @@ export function GerenciaDashboard() {
       </div>
       <Card className="p-6 shadow-soft mb-8">
         {loading ? (
-          <p className="text-sm text-muted-foreground">Carregando...</p>
+          <ul className="divide-y">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <li key={i} className="py-3 flex items-center justify-between gap-3">
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 w-1/3 bg-muted rounded animate-pulse" />
+                  <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="h-6 w-20 bg-muted rounded animate-pulse" />
+              </li>
+            ))}
+          </ul>
         ) : filtrados.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum show no mês com esses filtros. <Link to="/shows" className="text-accent underline">Ver todos</Link>.</p>
         ) : (
