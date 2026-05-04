@@ -56,7 +56,7 @@ export function AppLayout() {
   const prefetchData = (to: string) => {
     if (to === "/shows") {
       queryClient.prefetchQuery({
-        queryKey: ["shows", user?.id, roles.join(",")],
+        queryKey: ["shows", user?.id, roles.join(","), "with-artists-v2"],
         queryFn: async () => {
           const isArtistaOnly = roles.includes("artista")
             && !roles.some((r) => ["gerente", "equipe", "diretor", "financeiro", "vendedor"].includes(r));
