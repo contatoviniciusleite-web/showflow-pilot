@@ -203,6 +203,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function Shows() {
   const { roles, user } = useAuth();
+  const queryClient = useQueryClient();
   const isManager = roles.includes("gerente");
   const isDiretor = roles.includes("diretor");
   const isStaff = roles.includes("equipe");
