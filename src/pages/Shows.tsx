@@ -414,21 +414,8 @@ export default function Shows() {
   };
 
   const load = async () => {
-    setLoading(true);
-    const [showsRes, artistsRes] = await Promise.all([
-      supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
-      canCreate
-        ? supabase.functions.invoke("shows-admin", { body: { action: "artists" } })
-        : Promise.resolve({ data: { artists: [] }, error: null } as any),
-    ]);
-    if (showsRes.error) toast.error(showsRes.error.message);
-    if (artistsRes.error) toast.error(artistsRes.error.message);
-    setShows((showsRes.data?.shows ?? []) as Show[]);
-    setOutras((showsRes.data?.outras_aprovadas ?? []) as ShowPublic[]);
-    setArtists((artistsRes.data?.artists ?? []) as ArtistLite[]);
-    setLoading(false);
+    await showsQuery.refetch();
   };
-  useEffect(() => { load(); }, []);
 
   // Pré-popula nova minuta a partir da agenda (?new=1&artist=...&data=...)
   const [searchParams, setSearchParams] = useSearchParams();
