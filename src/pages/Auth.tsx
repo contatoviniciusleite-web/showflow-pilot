@@ -32,7 +32,7 @@ export default function Auth() {
       return;
     }
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/", { replace: true });
+      if (session) navigate("/app", { replace: true });
     });
   }, [navigate]);
 
@@ -49,7 +49,7 @@ export default function Auth() {
     if (error) {
       toast.error(error.message === "Invalid login credentials" ? "E-mail ou senha incorretos" : error.message);
     } else {
-      navigate("/", { replace: true });
+      navigate("/app", { replace: true });
     }
   };
 

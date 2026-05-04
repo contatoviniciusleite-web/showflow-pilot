@@ -26,7 +26,7 @@ export function ProtectedRoute({ children, requireRoles }: Props) {
 
   if (requireRoles && requireRoles.length > 0) {
     const ok = requireRoles.some((r) => roles.includes(r));
-    if (!ok) return <Navigate to="/" replace />;
+    if (!ok) return <Navigate to="/app" replace />;
   }
 
   return <>{children}</>;
