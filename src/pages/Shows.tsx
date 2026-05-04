@@ -270,7 +270,7 @@ export default function Shows() {
   const [myName, setMyName] = useState<string>("");
 
   const showsQuery = useQuery({
-    queryKey: ["shows", user?.id, roles.join(",")],
+    queryKey: ["shows", user?.id, roles.join(","), "with-artists-v2"],
     queryFn: async () => {
       const [showsRes, artistsRes] = await Promise.all([
         supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
