@@ -285,9 +285,7 @@ export default function Shows() {
   });
   const shows = showsQuery.data?.shows ?? [];
   const outras = showsQuery.data?.outras ?? [];
-  useEffect(() => {
-    if (showsQuery.data?.artists) setArtists(showsQuery.data.artists);
-  }, [showsQuery.data?.artists]);
+  const artists = showsQuery.data?.artists ?? [];
   const loading = showsQuery.isLoading;
 
   // Carrega o nome do usuário logado para autopreencher "Vendedor responsável"
