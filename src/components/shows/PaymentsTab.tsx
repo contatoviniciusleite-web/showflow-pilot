@@ -270,7 +270,7 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
       {showConfirmedBy && (
         <div className="rounded-md bg-green-500/10 border border-green-500/30 p-3 text-sm">
           ✓ Confirmado por <strong>{confirmadoPorNome}</strong>
-          {confirmadoEm && <> em {format(new Date(confirmadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>}
+          {confirmadoEm && <> em {safeFmt(confirmadoEm, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>}
         </div>
       )}
 
