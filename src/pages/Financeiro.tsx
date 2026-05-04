@@ -261,11 +261,17 @@ export default function Financeiro() {
           <Button variant="ghost" onClick={() => { setFArtist("all"); setFStatus("all"); setFFrom(""); setFTo(""); }}>
             Limpar
           </Button>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
             <ExportMenu
+              label="Exportar shows"
               disabled={filtered.length === 0}
               onExportPDF={() => exportFinanceiro("pdf")}
               onExportCSV={() => exportFinanceiro("csv")}
+            />
+            <ExportMenu
+              label="Extrato consolidado"
+              onExportPDF={() => exportConsolidado("pdf")}
+              onExportCSV={() => exportConsolidado("csv")}
             />
           </div>
         </div>
