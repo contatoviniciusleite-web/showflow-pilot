@@ -317,16 +317,18 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
 
           {!isArtista && (
             <TabsContent value="financeiro">
-              <PaymentsTab
-                showId={show.id}
-                status={show.status}
-                confirmadoPorNome={show.confirmado_por_nome}
-                confirmadoEm={show.confirmado_em}
-                artistNome={show.artist_nome}
-                showDate={show.data_show}
-                showLocal={[show.local, show.cidade].filter(Boolean).join(" · ") || null}
-                onChanged={onChanged}
-              />
+              <ErrorBoundary label="PaymentsTab">
+                <PaymentsTab
+                  showId={show.id}
+                  status={show.status}
+                  confirmadoPorNome={show.confirmado_por_nome}
+                  confirmadoEm={show.confirmado_em}
+                  artistNome={show.artist_nome}
+                  showDate={show.data_show}
+                  showLocal={[show.local, show.cidade].filter(Boolean).join(" · ") || null}
+                  onChanged={onChanged}
+                />
+              </ErrorBoundary>
             </TabsContent>
           )}
 
