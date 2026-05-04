@@ -797,17 +797,28 @@ Deno.serve(async (req) => {
     if (action === "list_payments") {
       if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
       if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
-      const rows = await sql`select * from public.show_payments where show_id = ${body.show_id} order by data_pagamento desc, created_at desc`;
-      const showRows = await sql`select cache_total, status::text as status from public.shows where id = ${body.show_id}`;
-      const totalRows = await sql`select coalesce(sum(valor),0)::numeric as total from public.show_payments where show_id = ${body.show_id}`;
-      const cache_total = Number((showRows[0] as any)?.cache_total ?? 0);
-      const total_pago = Number((totalRows[0] as any)?.total ?? 0);
+      const rows = await sql`
+        select p.*, a.file_name as attachment_file_name, a.mime_type as attachment_mime_type
+        from public.show_payments p
+        left join public.show_attachments a on a.id = p.attachment_id
+        where p.show_id = ${body.show_id}
+        order by p.data_pagamento desc, p.created_at desc
+      `;
+      const sumRows = await sql`
+        select
+          coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
+          coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0)::numeric(15,2) as total_pago,
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0), 0)::numeric(15,2) as saldo_aberto,
+          s.status::text as status
+        from public.shows s where s.id = ${body.show_id}
+      `;
+      const r: any = sumRows[0] ?? {};
       return json({
         payments: rows,
-        cache_total,
-        total_pago,
-        saldo_aberto: Math.max(0, cache_total - total_pago),
-        status: (showRows[0] as any)?.status ?? null,
+        cache_total: r.cache_total ?? "0.00",
+        total_pago: r.total_pago ?? "0.00",
+        saldo_aberto: r.saldo_aberto ?? "0.00",
+        status: r.status ?? null,
       });
     }
 
