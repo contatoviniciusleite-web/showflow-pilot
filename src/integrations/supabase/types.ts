@@ -539,7 +539,10 @@ export type Database = {
           artist_id: string
           auto_aprovado: boolean
           auto_aprovado_em: string | null
+          autorizado_em: string | null
           autorizado_por: string | null
+          autorizado_por_nome: string | null
+          autorizado_por_user_id: string | null
           aviso_12h_enviado_em: string | null
           cache_total: number
           camarins_rider: string | null
@@ -607,7 +610,10 @@ export type Database = {
           artist_id: string
           auto_aprovado?: boolean
           auto_aprovado_em?: string | null
+          autorizado_em?: string | null
           autorizado_por?: string | null
+          autorizado_por_nome?: string | null
+          autorizado_por_user_id?: string | null
           aviso_12h_enviado_em?: string | null
           cache_total?: number
           camarins_rider?: string | null
@@ -675,7 +681,10 @@ export type Database = {
           artist_id?: string
           auto_aprovado?: boolean
           auto_aprovado_em?: string | null
+          autorizado_em?: string | null
           autorizado_por?: string | null
+          autorizado_por_nome?: string | null
+          autorizado_por_user_id?: string | null
           aviso_12h_enviado_em?: string | null
           cache_total?: number
           camarins_rider?: string | null
