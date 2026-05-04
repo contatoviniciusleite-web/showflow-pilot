@@ -36,6 +36,24 @@ const fmtBRL = (n: number) =>
 
 const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
+function toIsoDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function getWeekRange(refIso: string) {
+  const [y, m, day] = refIso.split("-").map(Number);
+  const d = new Date(y, m - 1, day);
+  const dow = d.getDay(); // 0=Dom..6=Sab
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  const start = new Date(d); start.setDate(d.getDate() + diffToMonday);
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  return { start: toIsoDate(start), end: toIsoDate(end) };
+}
+
+function fmtBR(dateIso: string) {
+  return dateIso.split("-").reverse().join("/");
+}
+
 export default function Relatorios() {
   const { roles } = useAuth();
   const isManager = roles.includes("gerente");
