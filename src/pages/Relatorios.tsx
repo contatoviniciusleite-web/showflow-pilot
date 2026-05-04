@@ -257,10 +257,114 @@ export default function Relatorios() {
 
       <Tabs defaultValue={defaultTab}>
         <TabsList>
+          {showShowsTab && <TabsTrigger value="shows">Shows do período</TabsTrigger>}
           {showArtistTab && <TabsTrigger value="artista">Por artista</TabsTrigger>}
           {showVendedoresTab && <TabsTrigger value="vendedores">Vendedores</TabsTrigger>}
           {showGeralTab && <TabsTrigger value="geral">Geral da produtora</TabsTrigger>}
         </TabsList>
+
+        {showShowsTab && (
+          <TabsContent value="shows" className="space-y-4 mt-4">
+            <Card className="p-4 shadow-soft flex flex-wrap gap-3 items-end">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Período</label>
+                <Select value={periodo} onValueChange={(v) => setPeriodo(v as "semana" | "mes")}>
+                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="semana">Semanal</SelectItem>
+                    <SelectItem value="mes">Mensal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {periodo === "semana" && (
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Semana de</label>
+                  <Input
+                    type="date"
+                    className="w-[180px]"
+                    value={weekRef}
+                    onChange={(e) => setWeekRef(e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="text-sm text-muted-foreground ml-auto">
+                {fmtBR(periodRange.start)} — {fmtBR(periodRange.end)}
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <SimpleStat title="Shows no período" value={periodShows.length} />
+              <SimpleStat title="Realizados" value={periodTotals.realizados} />
+              <SimpleStat title="A realizar" value={periodTotals.aRealizar} />
+              <SimpleStat title="Cancelados / Remarcados" value={`${periodTotals.cancelados} / ${periodTotals.remarcados}`} />
+              <SimpleStat title="Cachê total" value={fmtBRL(periodTotals.cache)} />
+              <SimpleStat title="Recebido" value={fmtBRL(periodTotals.pago)} />
+              <SimpleStat title="Pendente" value={fmtBRL(periodTotals.pend)} />
+            </div>
+
+            <Card className="p-4 shadow-soft">
+              <h3 className="font-medium mb-3">Shows do período</h3>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Show / Artista</TableHead>
+                      <TableHead>Vendedor</TableHead>
+                      <TableHead>Local</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Situação</TableHead>
+                      <TableHead className="text-right">Cachê</TableHead>
+                      <TableHead className="text-right">Pendente</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+                    ) : periodShows.length === 0 ? (
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sem shows no período.</TableCell></TableRow>
+                    ) : periodShows.map((s) => {
+                      const cache = Number(s.cache_total ?? 0);
+                      const pago = Number(s.total_pago ?? 0);
+                      const pendente = s.status === "cancelada" ? 0 : Math.max(cache - pago, 0);
+                      const today = toIsoDate(new Date());
+                      const realizado = s.status !== "cancelada" && (s.status === "confirmado" || s.data_show < today);
+                      const remarcado = (s.remarcado_count ?? 0) > 0;
+                      const cancelado = s.status === "cancelada";
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell className="whitespace-nowrap">{fmtBR(s.data_show)}</TableCell>
+                          <TableCell className="font-medium">{s.artist_nome ?? "—"}</TableCell>
+                          <TableCell className="text-muted-foreground">{s.vendedor ?? "—"}</TableCell>
+                          <TableCell className="text-muted-foreground max-w-[240px] truncate">
+                            {[s.local, s.cidade].filter(Boolean).join(" · ") || "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={(STATUS_CLASS as any)[s.status] ?? ""}>
+                              {(STATUS_LABEL as any)[s.status] ?? s.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {cancelado && <Badge variant="destructive">Cancelado</Badge>}
+                              {remarcado && <Badge variant="secondary">Remarcado{(s.remarcado_count ?? 0) > 1 ? ` ${s.remarcado_count}x` : ""}</Badge>}
+                              {!cancelado && realizado && <Badge variant="outline">Realizado</Badge>}
+                              {!cancelado && !realizado && <Badge variant="outline">A realizar</Badge>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">{fmtBRL(cache)}</TableCell>
+                          <TableCell className={`text-right whitespace-nowrap font-medium ${pendente > 0 ? "text-destructive" : "text-emerald-600"}`}>
+                            {fmtBRL(pendente)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+        )}
 
         {showArtistTab && (
           <TabsContent value="artista" className="space-y-4 mt-4">
