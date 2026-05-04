@@ -67,7 +67,7 @@ export function AppLayout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/"}
+              end={item.to === "/app"}
               onMouseEnter={() => prefetchRoute(item.to)}
               onFocus={() => prefetchRoute(item.to)}
               className={({ isActive }) =>
@@ -136,7 +136,7 @@ export function AppLayout() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/"}
+            end={item.to === "/app"}
             onTouchStart={() => prefetchRoute(item.to)}
             className={({ isActive }) =>
               cn(
