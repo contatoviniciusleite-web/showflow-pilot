@@ -56,22 +56,14 @@ export function AppLayout() {
   const prefetchData = (to: string) => {
     if (to === "/shows") {
       queryClient.prefetchQuery({
-        queryKey: ["shows", user?.id, roles.join(","), "with-artists-v2"],
+        queryKey: ["shows", user?.id, roles.join(","), "bootstrap-v1"],
         queryFn: async () => {
-          const isArtistaOnly = roles.includes("artista")
-            && !roles.some((r) => ["gerente", "equipe", "diretor", "financeiro", "vendedor"].includes(r));
-          const [showsRes, artistsRes] = await Promise.all([
-            supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
-            isArtistaOnly
-              ? Promise.resolve({ data: { artists: [] }, error: null } as any)
-              : supabase.functions.invoke("shows-admin", { body: { action: "artists" } }),
-          ]);
-          if (showsRes.error) throw new Error(showsRes.error.message);
-          if (artistsRes.error) throw new Error(artistsRes.error.message);
+          const res = await supabase.functions.invoke("shows-admin", { body: { action: "bootstrap" } });
+          if (res.error) throw new Error(res.error.message);
           return {
-            shows: showsRes.data?.shows ?? [],
-            outras: showsRes.data?.outras_aprovadas ?? [],
-            artists: artistsRes.data?.artists ?? [],
+            shows: res.data?.shows ?? [],
+            outras: res.data?.outras_aprovadas ?? [],
+            artists: res.data?.artists ?? [],
           };
         },
       });
