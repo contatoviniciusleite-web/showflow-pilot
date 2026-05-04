@@ -47,8 +47,10 @@ export default function Relatorios() {
 
   const now = new Date();
   const [year, setYear] = useState<string>(String(now.getFullYear()));
-  const [month, setMonth] = useState<string>("all");
+  const [month, setMonth] = useState<string>(String(now.getMonth() + 1).padStart(2, "0"));
   const [artistId, setArtistId] = useState<string>("all");
+  const [periodo, setPeriodo] = useState<"semana" | "mes">("mes");
+  const [weekRef, setWeekRef] = useState<string>(toIsoDate(now)); // any date inside the week
 
   useEffect(() => {
     (async () => {
