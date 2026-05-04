@@ -664,9 +664,38 @@ export default function Shows() {
     setHistRows((data?.reschedules ?? []) as any[]);
   };
 
+  // Filtros (com persistência via URL)
+  const filters: FiltersState = useMemo(
+    () => filtersFromParams(searchParams),
+    [searchParams],
+  );
+  const setFilters = (next: FiltersState) => {
+    const newParams = filtersToParams(next);
+    // preserva params não relacionados a filtro (ex: ?new=1)
+    searchParams.forEach((v, k) => {
+      if (!["artista", "periodo", "status", "de", "ate"].includes(k)) {
+        newParams.set(k, v);
+      }
+    });
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const filteredShows = useMemo(() => applyFilters(shows, filters), [shows, filters]);
+
+  // Lista de artistas para o dropdown — respeita as permissões do RLS:
+  // o backend já entrega `artists` apenas com os que o usuário pode ver.
+  // Para vendedor, restringimos ainda aos artistas presentes nas próprias minutas.
+  const artistsForFilter = useMemo(() => {
+    if (isVendedor && !isEditor && !isFinanceiro) {
+      const ids = new Set(shows.map((s) => s.artist_id));
+      return artists.filter((a) => ids.has(a.id));
+    }
+    return artists;
+  }, [artists, shows, isVendedor, isEditor, isFinanceiro]);
+
   const upcoming = useMemo(
-    () => shows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
-    [shows],
+    () => filteredShows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
+    [filteredShows],
   );
 
   const titulo = isVendedor && !isEditor ? "Minhas minutas" : "Minutas de show";
