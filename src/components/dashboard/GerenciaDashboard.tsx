@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -82,14 +83,12 @@ export function GerenciaDashboard() {
     })();
   }, [shows]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("gerencia-dash")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" },
-        () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }))
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [queryClient]);
+  useRealtimeInvalidate({
+    channel: "gerencia-dash",
+    tables: ["shows"],
+    queryKeys: [["dashboard"]],
+    debounceMs: 400,
+  });
 
   const range = useMemo(() => getRangeFor(period), [period]);
   const month = useMemo(() => getMonthRange(), []);

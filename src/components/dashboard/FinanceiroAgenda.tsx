@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,14 +61,14 @@ export function FinanceiroAgenda() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-    const ch = supabase
-      .channel("financeiro-agenda")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+  useEffect(() => { load(); }, []);
+  useRealtimeInvalidate({
+    channel: "financeiro-agenda",
+    tables: ["shows"],
+    queryKeys: [],
+    debounceMs: 400,
+    onEvent: load,
+  });
 
   const byDay = useMemo(() => {
     const m = new Map<string, FShow[]>();
