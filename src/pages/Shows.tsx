@@ -738,7 +738,16 @@ export default function Shows() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-5 shadow-soft space-y-3">
+              <div className="h-5 w-1/2 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-1/3 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+              <div className="h-8 w-24 bg-muted rounded animate-pulse" />
+            </Card>
+          ))}
+        </div>
       ) : shows.length === 0 ? (
         <Card className="p-12 text-center shadow-soft">
           <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
