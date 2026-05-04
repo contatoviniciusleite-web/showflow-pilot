@@ -10,6 +10,8 @@ import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
 import { AlertTriangle, Clock, DollarSign, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ExportMenu } from "@/components/ExportMenu";
+import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 
 interface FinShow {
   id: string;
