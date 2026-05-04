@@ -81,18 +81,12 @@ export default function Financeiro() {
   const loading = finQuery.isLoading;
   const load = () => queryClient.invalidateQueries({ queryKey: ["financeiro"] });
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("financeiro-page")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" },
-        () => queryClient.invalidateQueries({ queryKey: ["financeiro"] }))
-      .on("postgres_changes", { event: "*", schema: "public", table: "show_payments" },
-        () => queryClient.invalidateQueries({ queryKey: ["financeiro"] }))
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [queryClient]);
+  useRealtimeInvalidate({
+    channel: "financeiro-page",
+    tables: ["shows", "show_payments"],
+    queryKeys: [["financeiro"]],
+    debounceMs: 400,
+  });
 
   const artists = useMemo(() => {
     const m = new Map<string, string>();
