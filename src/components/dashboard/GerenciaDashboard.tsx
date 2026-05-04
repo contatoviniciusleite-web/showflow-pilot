@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { StatCard } from "./StatCard";
 import { PeriodFilter } from "./PeriodFilter";
+import { AlertDetailSheet, type AlertShow } from "./AlertDetailSheet";
 import {
   Period, fmtBRL, fmtDate, getMonthRange, getRangeFor, inRange, isApprovedStatus,
   sumCache, monthLabel, DASHBOARD_THRESHOLDS, PERIOD_LABEL,
@@ -51,6 +52,7 @@ export function GerenciaDashboard() {
   const [chartScale, setChartScale] = useState<"mes" | "ano">("mes");
   const [auditPeriod, setAuditPeriod] = useState<Period>("mes");
   const [profileMap, setProfileMap] = useState<Record<string, string>>({});
+  const [alertOpen, setAlertOpen] = useState<null | "atrasado" | "contratos" | "cancelados" | "aguardando">(null);
 
   const isFinanceiro = roles.includes("financeiro") && !roles.includes("gerente");
 
@@ -189,11 +191,32 @@ export function GerenciaDashboard() {
       {/* ===== Alertas ===== */}
       <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-3">Alertas</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Pagamento atrasado" value={String(pagAtrasado.length)} icon={AlertTriangle} tone="red" highlight />
-        <StatCard label={`Contratos pendentes >${DASHBOARD_THRESHOLDS.contratoPendenteDias}d`} value={String(contratosVelhos.length)} icon={Clock} tone="amber" />
-        <StatCard label="Cancelados no mês" value={String(canceladosMes.length)} icon={XCircle} tone="red" />
-        <StatCard label="Aguardando aprovação" value={String(aguardandoAprov.length)} icon={FileText} tone="orange" />
+        <StatCard label="Pagamento atrasado" value={String(pagAtrasado.length)} icon={AlertTriangle} tone="red" highlight onClick={() => setAlertOpen("atrasado")} hint="Clique para ver lista" />
+        <StatCard label={`Contratos pendentes >${DASHBOARD_THRESHOLDS.contratoPendenteDias}d`} value={String(contratosVelhos.length)} icon={Clock} tone="amber" onClick={() => setAlertOpen("contratos")} hint="Clique para ver lista" />
+        <StatCard label="Cancelados no mês" value={String(canceladosMes.length)} icon={XCircle} tone="red" onClick={() => setAlertOpen("cancelados")} hint="Clique para ver lista" />
+        <StatCard label="Aguardando aprovação" value={String(aguardandoAprov.length)} icon={FileText} tone="orange" onClick={() => setAlertOpen("aguardando")} hint="Clique para ver lista" />
       </div>
+
+      {(() => {
+        const cfg = {
+          atrasado: { title: "Pagamentos atrasados", description: "Shows aguardando pagamento com prazo de comprovante já vencido.", data: pagAtrasado, extra: "prazo" as const },
+          contratos: { title: `Contratos pendentes há mais de ${DASHBOARD_THRESHOLDS.contratoPendenteDias} dias`, description: "Minutas criadas que continuam pendentes de aprovação.", data: contratosVelhos, extra: "criado" as const },
+          cancelados: { title: "Shows cancelados no mês", description: "Shows com status cancelada no mês corrente.", data: canceladosMes, extra: "cancelado_em" as const },
+          aguardando: { title: "Shows aguardando aprovação", description: "Minutas pendentes de autorização.", data: aguardandoAprov, extra: "criado" as const },
+        };
+        const current = alertOpen ? cfg[alertOpen] : null;
+        return (
+          <AlertDetailSheet
+            open={alertOpen !== null}
+            onOpenChange={(o) => { if (!o) setAlertOpen(null); }}
+            title={current?.title ?? ""}
+            description={current?.description}
+            shows={(current?.data ?? []) as AlertShow[]}
+            artists={artistList.map((a) => ({ id: a.id, nome: a.nome }))}
+            extraColumn={current?.extra}
+          />
+        );
+      })()}
 
       {/* ===== Por artista ===== */}
       <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-3">Artistas — mês atual</h2>
