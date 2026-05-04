@@ -154,7 +154,8 @@ export default function Relatorios() {
   const showArtistTab = isManager || isFinanceiro || isVendedor;
   const showVendedoresTab = isManager || isFinanceiro;
   const showGeralTab = isManager || isFinanceiro;
-  const defaultTab = showArtistTab ? "artista" : showVendedoresTab ? "vendedores" : "geral";
+  const showShowsTab = isManager || isFinanceiro || isVendedor;
+  const defaultTab = showShowsTab ? "shows" : showArtistTab ? "artista" : showVendedoresTab ? "vendedores" : "geral";
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
