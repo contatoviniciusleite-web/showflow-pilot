@@ -794,20 +794,73 @@ Deno.serve(async (req) => {
       return json({ shows: rows });
     }
 
+    if (action === "list_payments_consolidated") {
+      // Extrato consolidado: todas as baixas no período, com info do show
+      if (!isManager && !isFinanceiro && !isDiretor) return json({ error: "Acesso negado" }, 403);
+      const from = dateOrNull(body.from);
+      const to = dateOrNull(body.to);
+      const artistId = body.artist_id && body.artist_id !== "all" ? txt(body.artist_id, 64) : null;
+      const statusFilter = txt(body.status, 30); // "all" | "confirmado" | "em_aberto" | null
+      const rows = await sql`
+        select
+          p.id as payment_id,
+          p.valor::numeric(15,2) as valor,
+          p.data_pagamento::text as data_pagamento,
+          p.forma_pagamento,
+          p.conta_destino,
+          p.observacoes,
+          p.registrado_por_nome as confirmado_por,
+          p.created_at as registrado_em,
+          s.id as show_id,
+          s.data_show::text as data_show,
+          s.local, s.cidade,
+          s.cache_total::numeric(15,2) as cache_total,
+          s.status::text as status,
+          a.nome as artist_nome,
+          (s.cache_total - coalesce((select sum(valor) from public.show_payments where show_id = s.id), 0))::numeric(15,2) as saldo_aberto,
+          coalesce((select sum(valor) from public.show_payments where show_id = s.id), 0)::numeric(15,2) as total_pago_show
+        from public.show_payments p
+        join public.shows s on s.id = p.show_id
+        left join public.artists a on a.id = s.artist_id
+        where (${from}::date is null or p.data_pagamento >= ${from}::date)
+          and (${to}::date is null or p.data_pagamento <= ${to}::date)
+          and (${artistId}::uuid is null or s.artist_id = ${artistId}::uuid)
+          and (
+            ${statusFilter}::text is null
+            or ${statusFilter}::text = 'all'
+            or (${statusFilter}::text = 'confirmado' and s.status::text = 'confirmado')
+            or (${statusFilter}::text = 'em_aberto' and s.status::text <> 'confirmado')
+          )
+        order by s.data_show desc nulls last, p.data_pagamento desc, p.created_at desc
+      `;
+      return json({ rows });
+    }
+
     if (action === "list_payments") {
       if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
       if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
-      const rows = await sql`select * from public.show_payments where show_id = ${body.show_id} order by data_pagamento desc, created_at desc`;
-      const showRows = await sql`select cache_total, status::text as status from public.shows where id = ${body.show_id}`;
-      const totalRows = await sql`select coalesce(sum(valor),0)::numeric as total from public.show_payments where show_id = ${body.show_id}`;
-      const cache_total = Number((showRows[0] as any)?.cache_total ?? 0);
-      const total_pago = Number((totalRows[0] as any)?.total ?? 0);
+      const rows = await sql`
+        select p.*, a.file_name as attachment_file_name, a.mime_type as attachment_mime_type
+        from public.show_payments p
+        left join public.show_attachments a on a.id = p.attachment_id
+        where p.show_id = ${body.show_id}
+        order by p.data_pagamento desc, p.created_at desc
+      `;
+      const sumRows = await sql`
+        select
+          coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
+          coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0)::numeric(15,2) as total_pago,
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0), 0)::numeric(15,2) as saldo_aberto,
+          s.status::text as status
+        from public.shows s where s.id = ${body.show_id}
+      `;
+      const r: any = sumRows[0] ?? {};
       return json({
         payments: rows,
-        cache_total,
-        total_pago,
-        saldo_aberto: Math.max(0, cache_total - total_pago),
-        status: (showRows[0] as any)?.status ?? null,
+        cache_total: r.cache_total ?? "0.00",
+        total_pago: r.total_pago ?? "0.00",
+        saldo_aberto: r.saldo_aberto ?? "0.00",
+        status: r.status ?? null,
       });
     }
 
@@ -832,12 +885,18 @@ Deno.serve(async (req) => {
       if (!showRowsPre.length) return json({ error: "Show não encontrado" }, 404);
       const sh: any = showRowsPre[0];
       if (sh.status === "cancelada") return json({ error: "Show cancelado" }, 400);
-      const totalRows = await sql`select coalesce(sum(valor),0)::numeric as total from public.show_payments where show_id = ${body.show_id}`;
-      const totalPago = Number((totalRows[0] as any)?.total ?? 0);
-      const cacheTotal = Number(sh.cache_total ?? 0);
-      const saldo = Math.max(0, cacheTotal - totalPago);
+      // Calcula totais com precisão direto no SQL
+      const sumPre = await sql`
+        select
+          coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
+          coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0)::numeric(15,2) as total_pago
+        from public.shows s where s.id = ${body.show_id}
+      `;
+      const pre: any = sumPre[0] ?? {};
+      const cacheTotal = Number(pre.cache_total ?? 0);
+      const totalPago = Number(pre.total_pago ?? 0);
+      const saldo = Math.max(0, Math.round((cacheTotal - totalPago) * 100) / 100);
       if (saldo <= 0) return json({ error: "Pagamento já está quitado." }, 400);
-      // Tolerância de 1 centavo p/ arredondamento
       if (valor > saldo + 0.005) {
         return json({ error: `O valor informado é maior que o saldo em aberto (R$ ${saldo.toFixed(2).replace(".", ",")}). Verifique o valor.` }, 400);
       }
@@ -847,12 +906,20 @@ Deno.serve(async (req) => {
 
       const ins = await sql`
         insert into public.show_payments (show_id, valor, data_pagamento, forma_pagamento, conta_destino, observacoes, attachment_id, registrado_por, registrado_por_nome)
-        values (${body.show_id}, ${valor}, ${dataPg}, ${forma}, ${conta}, ${obs}, ${attachmentId}, ${userId}, ${finNome})
+        values (${body.show_id}, ${valor}::numeric(15,2), ${dataPg}, ${forma}, ${conta}, ${obs}, ${attachmentId}, ${userId}, ${finNome})
         returning *
       `;
 
-      const novoTotal = totalPago + valor;
-      const quitado = novoTotal + 0.005 >= cacheTotal && cacheTotal > 0;
+      // Recalcula no SQL após o insert (sem somas em JS)
+      const sumPos = await sql`
+        select
+          coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0)::numeric(15,2) as total_pago,
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${body.show_id}), 0), 0)::numeric(15,2) as saldo_aberto
+        from public.shows s where s.id = ${body.show_id}
+      `;
+      const pos: any = sumPos[0] ?? {};
+      const novoSaldo = Number(pos.saldo_aberto ?? 0);
+      const quitado = novoSaldo <= 0.005 && cacheTotal > 0;
 
       if (quitado && sh.status !== "confirmado") {
         await sql`
@@ -869,18 +936,62 @@ Deno.serve(async (req) => {
         if (sh.created_by) await notify(sql, sh.created_by, "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
         await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
       } else {
-        const msg = `${finNome} registrou baixa de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}. Saldo em aberto: R$ ${(cacheTotal - novoTotal).toFixed(2)}.`;
+        const msg = `${finNome} registrou baixa de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}. Saldo em aberto: R$ ${novoSaldo.toFixed(2)}.`;
         if (sh.created_by) await notify(sql, sh.created_by, "pagamento_registrado", "Baixa registrada", msg, sh.id);
         await notifyByRoles(sql, ["gerente"], "pagamento_registrado", "Baixa registrada", msg, sh.id);
       }
-      return json({ payment: ins[0], saldo_aberto: Math.max(0, cacheTotal - novoTotal), quitado });
+      return json({ payment: ins[0], total_pago: pos.total_pago ?? "0.00", saldo_aberto: pos.saldo_aberto ?? "0.00", quitado });
     }
 
     if (action === "delete_payment") {
       if (!isFinanceiro) return json({ error: "Apenas o financeiro pode excluir pagamentos" }, 403);
       if (typeof body.id !== "string") return json({ error: "Pagamento inválido" }, 400);
+
+      // Busca o pagamento e o show vinculado antes de excluir
+      const payRows = await sql`select * from public.show_payments where id = ${body.id}`;
+      if (!payRows.length) return json({ error: "Pagamento não encontrado" }, 404);
+      const pay: any = payRows[0];
+      const showRows = await sql`select s.*, a.nome as artist_nome from public.shows s left join public.artists a on a.id = s.artist_id where s.id = ${pay.show_id}`;
+      if (!showRows.length) return json({ error: "Show não encontrado" }, 404);
+      const sh: any = showRows[0];
+
       await sql`delete from public.show_payments where id = ${body.id}`;
-      return json({ ok: true });
+
+      // Recalcula saldo no banco com precisão
+      const sumRows = await sql`
+        select
+          coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
+          coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0)::numeric(15,2) as total_pago,
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0), 0)::numeric(15,2) as saldo_aberto
+        from public.shows s where s.id = ${pay.show_id}
+      `;
+      const r: any = sumRows[0] ?? {};
+      const saldo = Number(r.saldo_aberto ?? 0);
+
+      // Se reabriu saldo e o show estava confirmado → volta para aguardando_pagamento
+      if (saldo > 0.01 && sh.status === "confirmado") {
+        await sql`
+          update public.shows set
+            status = 'aguardando_pagamento'::show_status,
+            confirmado_por = null,
+            confirmado_por_nome = null,
+            confirmado_em = null,
+            updated_at = now()
+          where id = ${pay.show_id}
+        `;
+        const local = sh.local ?? "local não informado";
+        const msg = `Atenção: uma baixa do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} foi estornada. Saldo em aberto: R$ ${saldo.toFixed(2).replace(".", ",")}. O show voltou ao status Aguardando Pagamento.`;
+        if (sh.created_by) await notify(sql, sh.created_by, "baixa_estornada", "Baixa estornada", msg, sh.id);
+        await notifyByRoles(sql, ["gerente"], "baixa_estornada", "Baixa estornada", msg, sh.id);
+      }
+
+      return json({
+        ok: true,
+        cache_total: r.cache_total ?? "0.00",
+        total_pago: r.total_pago ?? "0.00",
+        saldo_aberto: r.saldo_aberto ?? "0.00",
+        reaberto: saldo > 0.01 && sh.status === "confirmado",
+      });
     }
 
     // ============================================================

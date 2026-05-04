@@ -184,6 +184,54 @@ export default function Financeiro() {
     else exportCSV(filtered, cols, meta);
   };
 
+  const exportConsolidado = async (kind: "pdf" | "csv") => {
+    const { data, error } = await supabase.functions.invoke("shows-admin", {
+      body: {
+        action: "list_payments_consolidated",
+        from: fFrom || null,
+        to: fTo || null,
+        artist_id: fArtist,
+        status: fStatus === "all" ? "all" : fStatus === "confirmado" ? "confirmado" : "em_aberto",
+      },
+    });
+    if (error) return;
+    const rows = (data?.rows ?? []) as any[];
+    if (rows.length === 0) return;
+    const cols: Column[] = [
+      { header: "Artista", key: (r: any) => r.artist_nome ?? "—" },
+      { header: "Data show", key: (r: any) => fmtDate(r.data_show) },
+      { header: "Local", key: (r: any) => [r.local, r.cidade].filter(Boolean).join(" · ") || "—" },
+      { header: "Cachê", key: (r: any) => fmtBRL(Number(r.cache_total)), align: "right" },
+      { header: "Total pago", key: (r: any) => fmtBRL(Number(r.total_pago_show)), align: "right" },
+      { header: "Saldo", key: (r: any) => fmtBRL(Math.max(0, Number(r.saldo_aberto))), align: "right" },
+      { header: "Status", key: (r: any) => (STATUS_LABEL as any)[r.status] ?? r.status },
+      { header: "Data baixa", key: (r: any) => fmtDate(r.data_pagamento) },
+      { header: "Valor baixa", key: (r: any) => fmtBRL(Number(r.valor)), align: "right" },
+      { header: "Forma", key: (r: any) => r.forma_pagamento },
+      { header: "Confirmado por", key: (r: any) => r.confirmado_por ?? "—" },
+    ];
+    const totalBaixas = rows.reduce((a, r) => a + Number(r.valor || 0), 0);
+    const filterLines: string[] = [];
+    if (fArtist !== "all") {
+      const a = artists.find((x) => x.id === fArtist);
+      filterLines.push(`Artista: ${a?.nome ?? "—"}`);
+    }
+    if (fStatus !== "all") filterLines.push(`Status: ${fStatus}`);
+    if (fFrom) filterLines.push(`De: ${fmtDate(fFrom)}`);
+    if (fTo) filterLines.push(`Até: ${fmtDate(fTo)}`);
+    const meta = {
+      title: "Extrato consolidado de baixas",
+      filters: filterLines,
+      filename: `extrato-consolidado-${new Date().toISOString().slice(0, 10)}`,
+      summary: [
+        { label: "Total de baixas", value: String(rows.length) },
+        { label: "Valor total das baixas", value: fmtBRL(totalBaixas) },
+      ],
+    };
+    if (kind === "pdf") exportPDF(rows, cols, meta);
+    else exportCSV(rows, cols, meta);
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       <header>
@@ -261,11 +309,17 @@ export default function Financeiro() {
           <Button variant="ghost" onClick={() => { setFArtist("all"); setFStatus("all"); setFFrom(""); setFTo(""); }}>
             Limpar
           </Button>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
             <ExportMenu
+              label="Exportar shows"
               disabled={filtered.length === 0}
               onExportPDF={() => exportFinanceiro("pdf")}
               onExportCSV={() => exportFinanceiro("csv")}
+            />
+            <ExportMenu
+              label="Extrato consolidado"
+              onExportPDF={() => exportConsolidado("pdf")}
+              onExportCSV={() => exportConsolidado("csv")}
             />
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -7,23 +7,35 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Trash2, CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Trash2, CheckCircle2, Paperclip, Eye, Upload, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { canRegisterPayment, canDeletePayment, canViewConfirmedBy } from "@/lib/permissions";
 import { formatCurrencyBRL } from "@/lib/masks";
+import { ExportMenu } from "@/components/ExportMenu";
+import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 
 interface Payment {
   id: string;
   show_id: string;
-  valor: number;
+  valor: number | string;
   data_pagamento: string;
   forma_pagamento: string;
   conta_destino: string | null;
   observacoes: string | null;
   attachment_id: string | null;
+  attachment_file_name?: string | null;
+  attachment_mime_type?: string | null;
   registrado_por_nome: string | null;
+  created_at: string;
+}
+
+interface Attachment {
+  id: string;
+  file_name: string;
+  mime_type: string | null;
   created_at: string;
 }
 
@@ -33,13 +45,18 @@ interface Props {
   confirmadoPorNome?: string | null;
   confirmadoEm?: string | null;
   onChanged?: () => void;
+  artistNome?: string | null;
+  showDate?: string | null;
+  showLocal?: string | null;
 }
 
 const FORMA_LABEL: Record<string, string> = {
   pix: "PIX", transferencia: "Transferência", especie: "Espécie", outro: "Outro",
 };
 
-export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, confirmadoEm, onChanged }: Props) {
+const toN = (v: any) => Number(v ?? 0);
+
+export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, confirmadoEm, onChanged, artistNome, showDate, showLocal }: Props) {
   const { roles } = useAuth();
   const [items, setItems] = useState<Payment[]>([]);
   const [cacheTotal, setCacheTotal] = useState(0);
@@ -54,6 +71,12 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
   const [forma, setForma] = useState("pix");
   const [conta, setConta] = useState("");
   const [obs, setObs] = useState("");
+  const [attachmentId, setAttachmentId] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [existing, setExisting] = useState<Attachment[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const saldo = useMemo(() => Math.max(0, cacheTotal - totalPago), [cacheTotal, totalPago]);
   const quitado = cacheTotal > 0 && saldo <= 0.005;
@@ -65,8 +88,8 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
     });
     if (error) toast.error(error.message);
     setItems((data?.payments ?? []) as Payment[]);
-    setCacheTotal(Number(data?.cache_total ?? 0));
-    setTotalPago(Number(data?.total_pago ?? 0));
+    setCacheTotal(toN(data?.cache_total));
+    setTotalPago(toN(data?.total_pago));
     if (data?.status) setStatus(data.status);
     setLoading(false);
   };
@@ -79,13 +102,75 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
     // eslint-disable-next-line
   }, [saldo, loading]);
 
+  const openExistingPicker = async () => {
+    const { data, error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "list_attachments", show_id: showId },
+    });
+    if (error) return toast.error(error.message);
+    setExisting((data?.attachments ?? []) as Attachment[]);
+    setPickerOpen(true);
+  };
+
+  const pickExisting = (a: Attachment) => {
+    setAttachmentId(a.id);
+    setAttachmentName(a.file_name);
+    setPickerOpen(false);
+  };
+
+  const handleNewUpload = () => fileRef.current?.click();
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const allowed = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+    if (!allowed.includes(file.type)) return toast.error("Use PDF, JPG, JPEG ou PNG.");
+    if (file.size > 10 * 1024 * 1024) return toast.error("Arquivo excede 10MB.");
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
+      const slug = (artistNome ?? "anexo").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const path = `${showId}/${slug}-${showDate ?? "data"}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("comprovantes").upload(path, file, {
+        contentType: file.type, upsert: false,
+      });
+      if (upErr) throw upErr;
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: {
+          action: "add_attachment", show_id: showId, path,
+          file_name: file.name, mime_type: file.type, size_bytes: file.size, tipo: "comprovante",
+        },
+      });
+      if (error) throw error;
+      const att = data?.attachment;
+      if (att?.id) {
+        setAttachmentId(att.id);
+        setAttachmentName(att.file_name);
+        toast.success("Comprovante anexado");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao enviar");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const viewAttachment = async (id: string) => {
+    const { data, error } = await supabase.functions.invoke("shows-admin", {
+      body: { action: "attachment_signed_url", id },
+    });
+    if (error) return toast.error(error.message);
+    if (data?.url) window.open(data.url, "_blank");
+  };
+
   const submit = async () => {
     if (valor <= 0) return toast.error("Informe o valor");
     if (valor > saldo + 0.005) {
-      return toast.error(`O valor informado é maior que o saldo em aberto (${formatCurrencyBRL(saldo)}). Verifique o valor.`);
+      return toast.error(`O valor informado é maior que o saldo em aberto (${formatCurrencyBRL(saldo)}).`);
     }
     if (!data) return toast.error("Informe a data");
-    if (!obs.trim()) return toast.error("Observações são obrigatórias na baixa manual");
+    if (!attachmentId && !obs.trim()) return toast.error("Anexe um comprovante ou preencha as observações.");
     setSaving(true);
     const { error } = await supabase.functions.invoke("shows-admin", {
       body: {
@@ -93,26 +178,61 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
         show_id: showId,
         valor, data_pagamento: data, forma_pagamento: forma,
         conta_destino: conta, observacoes: obs,
+        attachment_id: attachmentId,
       },
     });
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Baixa registrada");
-    setObs(""); setConta("");
+    setObs(""); setConta(""); setAttachmentId(null); setAttachmentName(null);
     await load();
     onChanged?.();
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Excluir esta baixa?")) return;
-    const { error } = await supabase.functions.invoke("shows-admin", { body: { action: "delete_payment", id } });
+    if (!confirm("Excluir esta baixa? Se isto reabrir o saldo, o show voltará para 'Aguardando pagamento'.")) return;
+    const { data, error } = await supabase.functions.invoke("shows-admin", { body: { action: "delete_payment", id } });
     if (error) return toast.error(error.message);
-    toast.success("Baixa excluída"); load(); onChanged?.();
+    if (data?.reaberto) toast.success("Baixa excluída — show voltou para Aguardando pagamento");
+    else toast.success("Baixa excluída");
+    load(); onChanged?.();
   };
 
   const canRegister = canRegisterPayment(roles);
   const canDelete = canDeletePayment(roles);
+  const canExport = roles.includes("financeiro") || roles.includes("gerente") || roles.includes("diretor");
   const showConfirmedBy = canViewConfirmedBy(roles) && status === "confirmado" && confirmadoPorNome;
+
+  const exportExtrato = (kind: "pdf" | "csv") => {
+    const cols: Column[] = [
+      { header: "Data", key: (r: Payment) => format(new Date(r.data_pagamento + "T00:00:00"), "dd/MM/yyyy") },
+      { header: "Valor", key: (r: Payment) => formatCurrencyBRL(toN(r.valor)), align: "right" },
+      { header: "Forma", key: (r: Payment) => FORMA_LABEL[r.forma_pagamento] ?? r.forma_pagamento },
+      { header: "Conta", key: (r: Payment) => r.conta_destino ?? "—" },
+      { header: "Observações", key: (r: Payment) => r.observacoes ?? "" },
+      { header: "Confirmado por", key: (r: Payment) => r.registrado_por_nome ?? "—" },
+      { header: "Registrado em", key: (r: Payment) => format(new Date(r.created_at), "dd/MM/yyyy HH:mm") },
+      { header: "Comprovante", key: (r: Payment) => r.attachment_file_name ?? "—" },
+    ];
+    const meta = {
+      title: `Extrato de baixas — ${artistNome ?? "Show"}`,
+      subtitle: `${showLocal ?? ""}${showDate ? ` · ${format(new Date(showDate + "T00:00:00"), "dd/MM/yyyy")}` : ""}`,
+      filters: [
+        `Cachê total: ${formatCurrencyBRL(cacheTotal)}`,
+        `Total pago: ${formatCurrencyBRL(totalPago)}`,
+        `Saldo: ${formatCurrencyBRL(saldo)}`,
+        `Status: ${quitado ? "Pagamento quitado" : status}`,
+      ],
+      summary: [
+        { label: "Total de baixas", value: String(items.length) },
+        { label: "Total pago", value: formatCurrencyBRL(totalPago) },
+        { label: "Saldo em aberto", value: formatCurrencyBRL(saldo) },
+      ],
+      filename: `extrato-${(artistNome ?? "show").toLowerCase().replace(/\s+/g, "-")}-${showDate ?? ""}`,
+    };
+    if (kind === "pdf") exportPDF(items, cols, meta);
+    else exportCSV(items, cols, meta);
+  };
 
   return (
     <div className="space-y-4">
@@ -172,8 +292,37 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
               <Input value={conta} onChange={(e) => setConta(e.target.value)} placeholder="Ex.: Banco do Brasil ag 1234" disabled={quitado} />
             </div>
             <div className="sm:col-span-2">
-              <Label>Observações *</Label>
-              <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} placeholder="Obrigatório na baixa manual" disabled={quitado} />
+              <Label>Comprovante (opcional se houver observações)</Label>
+              <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/jpg" className="hidden" onChange={onFileChange} />
+              {attachmentId ? (
+                <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Paperclip className="h-4 w-4 shrink-0" />
+                    <span className="text-sm truncate">{attachmentName}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" onClick={() => viewAttachment(attachmentId)} title="Ver"><Eye className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" onClick={() => { setAttachmentId(null); setAttachmentName(null); }} title="Remover">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={openExistingPicker} disabled={quitado}>
+                    <Paperclip className="h-4 w-4 mr-1" /> Vincular existente
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={handleNewUpload} disabled={quitado || uploading}>
+                    {uploading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                    Anexar novo
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Observações {!attachmentId && "*"}</Label>
+              <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2}
+                placeholder={attachmentId ? "Opcional quando há comprovante" : "Obrigatório quando não há comprovante"} disabled={quitado} />
             </div>
           </div>
           <div className="flex justify-end">
@@ -186,7 +335,16 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
 
       {/* Histórico */}
       <div>
-        <h3 className="font-medium mb-2">Histórico de baixas</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-medium">Histórico de baixas</h3>
+          {canExport && items.length > 0 && (
+            <ExportMenu
+              label="Exportar extrato"
+              onExportPDF={() => exportExtrato("pdf")}
+              onExportCSV={() => exportExtrato("csv")}
+            />
+          )}
+        </div>
         {loading ? (
           <p className="text-sm text-muted-foreground">Carregando…</p>
         ) : items.length === 0 ? (
@@ -199,7 +357,7 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
               <li key={p.id} className="border rounded-md p-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-medium">
-                    {formatCurrencyBRL(Number(p.valor))}
+                    {formatCurrencyBRL(toN(p.valor))}
                     <span className="text-muted-foreground font-normal"> · {FORMA_LABEL[p.forma_pagamento] ?? p.forma_pagamento}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -208,20 +366,53 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Confirmado por {p.registrado_por_nome ?? "—"} em {format(new Date(p.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    {p.attachment_id ? " · comprovante vinculado" : ""}
                   </p>
                   {p.observacoes && <p className="text-xs mt-1">{p.observacoes}</p>}
                 </div>
-                {canDelete && (
-                  <Button size="icon" variant="ghost" onClick={() => remove(p.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {p.attachment_id && (
+                    <Button size="sm" variant="outline" onClick={() => viewAttachment(p.attachment_id!)} title="Ver comprovante">
+                      <Eye className="h-4 w-4 mr-1" /> Ver comprovante
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button size="icon" variant="ghost" onClick={() => remove(p.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      {/* Modal seletor de comprovante existente */}
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Selecionar comprovante</DialogTitle></DialogHeader>
+          {existing.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum anexo neste show. Use "Anexar novo".</p>
+          ) : (
+            <ul className="space-y-2 max-h-[60vh] overflow-y-auto">
+              {existing.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-2 border rounded-md p-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{a.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(a.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" onClick={() => viewAttachment(a.id)} title="Ver"><Eye className="h-4 w-4" /></Button>
+                    <Button size="sm" onClick={() => pickExisting(a)}>Vincular</Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
