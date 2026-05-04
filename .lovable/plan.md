@@ -1,125 +1,86 @@
-# Reestruturação da Minuta em 4 Etapas
+## Objetivo
 
-Substituir o fluxo atual da minuta por um modelo em 4 etapas, com aprovação prévia da gerência sobre dados mínimos e dados completos só após aprovação.
+Criar o perfil **Diretor** (único no sistema, autoriza shows e tem relatórios exclusivos), remover do **Gerente** a permissão de aprovar/rejeitar minutas, automatizar o campo "Autorizado por" e atualizar fluxo de notificações.
 
-## Resumo do Novo Fluxo
+---
 
-```
-[Vendedor]              [Gerência]              [Vendedor + Contratante]      [Sistema]
-   |                        |                            |                        |
-1. Cria minuta básica  →  2. Aprova/Rejeita  →  3. Completa dados  →  4. Minuta completa
-   (5 campos)              (vê só os 5)         (manual ou via link)    (48h úteis para sinal)
-   status: pendente        aprovada/rejeitada   aguardando_dados →      aguardando_pagamento
-                                                aguardando_contratante  → comprovante → confirmado
-```
+## 1. Banco de dados (migration)
 
-## Novos Status
+**Enum `app_role`** — adicionar valor `'diretor'`.
 
-| Status (enum) | Label | Cor |
-|---|---|---|
-| `pendente` | Pendente | cinza |
-| `rejeitada` | Rejeitada | vermelho |
-| `aguardando_dados` | Aguardando Dados | azul |
-| `aguardando_contratante` | Aguardando Contratante | azul claro |
-| `aguardando_pagamento` | Aguardando Pagamento | amarelo |
-| `comprovante_enviado` | Comprovante Enviado | laranja |
-| `confirmado` | Confirmado | verde |
-| `cancelada` | Cancelado | vermelho escuro |
-| `remarcada` | Remarcado | roxo |
+**Tabela `shows`** — manter a coluna `autorizado_por` (texto), mas deixar de coletá-la no formulário. Adicionar:
+- `autorizado_por_user_id uuid` — id do diretor que aprovou
+- `autorizado_por_nome text` — nome do diretor no momento da aprovação
+- `autorizado_em timestamptz` — data/hora da aprovação
 
-Adicionar valores novos ao enum `show_status`: `rejeitada`, `aguardando_dados`, `remarcada`. Manter `aprovada` como legado para compatibilidade.
+**Restrição "apenas um Diretor"** — função + trigger em `user_roles` que bloqueia INSERT/UPDATE quando já existe um registro com `role='diretor'` para outro usuário, retornando a mensagem exata pedida.
 
-## Etapa 1 — Vendedor cria minuta básica
+**RLS atualizado:**
+- `shows`: política de UPDATE (aprovação/rejeição) e a de criação ganham `diretor` quando faz sentido. Aprovação/rejeição passa a exigir `diretor`.
+- Todas as policies que hoje liberam `gerente` para aprovar/rejeitar continuam liberando `gerente` para o resto, mas no edge function a regra de aprovação será restrita ao Diretor.
+- Demais tabelas (contratantes, anexos, depósitos, despesas, parcelas, pagamentos): adicionar `diretor` aos checks onde `gerente` aparece (acesso total).
 
-Formulário simplificado com apenas:
-- Artista (select)
-- Cachê total (R$)
-- Cidade
-- Local
-- Data + horário
+**Tela de Usuários** — passa a permitir atribuir o papel `diretor` (com tratamento do erro vindo da trigger).
 
-Validações mantidas: cachê mínimo do artista e limite de 3 shows/dia/artista. Status inicial: `pendente`. Campos extras ficam ocultos para o vendedor nesta etapa.
+## 2. Permissões no front (`src/lib/permissions.ts` + AppLayout/ProtectedRoute)
 
-## Etapa 2 — Gerência aprova/rejeita
+- Adicionar `AppRole` `"diretor"` em `AuthContext`.
+- Helpers novos: `canApproveShow`, `canRejectShow` → apenas `diretor`.
+- `canViewAutorizadoPor` → diretor, gerente, financeiro.
+- Diretor enxerga toda a navegação que o Gerente enxerga + nova rota `/diretoria`.
+- `ManagerModeContext`: diretor pode alternar para "modo vendedor" igual ao gerente (opcional — manter simples: só gerente alterna).
 
-Modal de detalhes mostra apenas os 5 campos. Botões:
-- **Aprovar** → status `aguardando_dados`, notifica vendedor: "Sua minuta [artista] em [local] dia [data] foi aprovada! Complete os dados para prosseguir."
-- **Rejeitar** (com motivo) → status `rejeitada`, notifica vendedor com o motivo.
+## 3. Edge functions
 
-Gerência sempre pode editar tudo, em qualquer etapa.
+**`shows-admin`**:
+- Ações `approve_show` / `reject_show` passam a exigir papel `diretor`. Ao aprovar, gravar `autorizado_por_user_id`, `autorizado_por_nome` (do profile) e `autorizado_em = now()`. Status vai para "Aguardando Dados Completos" (já existe).
+- Ação `create_show`: ignorar/zerar `autorizado_por` enviado pelo cliente.
+- Disparo de notificações:
+  - Criação → notificar **Diretor** (busca user_roles where role='diretor').
+  - Aprovação → notificar **Vendedor (created_by), Gerente(s), Financeiro(s)**.
+  - Rejeição → notificar **Vendedor, Gerente(s)** com motivo.
 
-## Etapa 3 — Vendedor completa os dados
+**`my-roles`** — nada a mudar, já devolve roles atribuídos.
 
-Quando status = `aguardando_dados`, o card do vendedor mostra botão "Completar dados" com duas opções:
+**`contratante-link`** / outras — sem mudança funcional, mas garantir que não tentem aprovar.
 
-**Opção A — Link público** (já existe via `contratante-link`):
-- Reaproveitar fluxo de geração de link (24h)
-- Quando contratante preenche, status volta para `aguardando_dados` (não direto para `aguardando_pagamento`) — vendedor revisa e clica "Finalizar dados" para então preencher condições de pagamento, rider, transporte, cláusulas etc., e travar.
-- Enquanto link ativo e não preenchido: status `aguardando_contratante`.
+## 4. UI
 
-**Opção B — Preenchimento manual**:
-- Vendedor abre form expandido com todas as seções (contratante, pagamento, hospitalidade, transporte, cláusulas, encargos, data subida, autorizado por).
+**`src/pages/Shows.tsx`** (formulário de minuta):
+- Remover input "Autorizado por".
+- Botões "Aprovar" / "Rejeitar" ficam visíveis apenas para `diretor` (hoje aparecem para gerente/equipe).
 
-Ao concluir Etapa 3 (qualquer opção):
-- Status → `aguardando_pagamento`
-- `prazo_comprovante_em` é setado agora (48h úteis via `add_business_hours_br`)
-- Notificação para gerência + financeiro: "Minuta [artista]/[local]/[data] com dados completos. Aguardando comprovante do sinal."
+**`src/components/shows/ShowDetailsModal.tsx`**:
+- Bloco "Autorizado por [nome] em [data]" visível apenas para diretor/gerente/financeiro, montado a partir de `autorizado_por_nome` + `autorizado_em` (fallback para texto antigo).
 
-## Etapa 4 — Visibilidade por papel
+**`src/pages/Usuarios.tsx`**:
+- Adicionar opção "Diretor" no seletor de papel.
+- Tratar erro retornado pela trigger e mostrar toast com a mensagem.
 
-Implementar no edge `shows-admin` (lista) e em `ShowDetailsModal`:
+**Nova página `src/pages/Diretoria.tsx`** + rota `/diretoria` (protegida por `requireRoles=['diretor']`):
+- Visão financeira consolidada (soma de cachês, pagos, saldo, despesas).
+- Performance por artista (nº shows, faturamento, ticket médio).
+- Performance por vendedor (nº minutas criadas, aprovadas, rejeitadas, faturamento).
+- Histórico de shows aprovados/rejeitados/cancelados com motivo.
 
-| Papel | Vê |
-|---|---|
-| Gerência | Tudo + histórico |
-| Financeiro | Tudo + dados do contratante |
-| Vendedor (dono) | 5 básicos + contratante + financeiro/comprovantes |
-| Vendedor (outros) | Artista, Local, Cidade, Horário (sem cachê/contratante/financeiro) |
-| Artista | Data, Horário, Local, Cidade |
+Implementação em uma única página com abas (`Tabs`) consumindo dados via Supabase client (RLS já libera diretor).
 
-A query `outras_aprovadas` já filtra; precisa garantir que campos sensíveis (cachê, contratante_*) NÃO sejam retornados para outros vendedores. Hoje retorna `cache_total` — remover.
+**`AppLayout.tsx`** — adicionar item "Diretoria" (icon `Crown`) visível só para diretor; incluir `diretor` nos itens que hoje listam `gerente`.
 
-## Mudanças técnicas
+## 5. Notificações
 
-### Banco (migration)
-- `ALTER TYPE show_status ADD VALUE 'rejeitada'`, `'aguardando_dados'`, `'remarcada'` (se não existirem).
-- Coluna `rejeitada_motivo TEXT` e `rejeitada_em TIMESTAMPTZ` em `shows`.
-- Coluna `dados_completos_em TIMESTAMPTZ` em `shows` (marca quando entra em `aguardando_pagamento`).
-- Setting `app_settings.prazo_comprovante_horas` (já existe, manter padrão 48).
+Atualizar `supabase/functions/notifications/index.ts` (e/ou helpers em `shows-admin`) para que os disparos de "minuta criada/aprovada/rejeitada" usem as novas regras de destinatários descritas acima.
 
-### Edge `shows-admin`
-- Action `create` aceita só os 5 campos obrigatórios; demais opcionais.
-- Action `approve` → status `aguardando_dados` (em vez de `aprovada`).
-- Nova action `reject` (já existe) → status `rejeitada`.
-- Nova action `complete_data` → recebe payload com dados do contratante e demais seções; valida; seta `prazo_comprovante_em = add_business_hours_br(now(), 48)`; status `aguardando_pagamento`; notifica gerência+financeiro.
-- Action `submit_contratante_data` (do edge `contratante-link`) deixa status como `aguardando_dados` (não pula direto).
-- Lista para outros vendedores: omitir `cache_total`, `contratante_*`, dados financeiros.
+---
 
-### Frontend
-- `src/lib/showStatus.ts`: incluir `rejeitada`, `aguardando_dados`, `remarcada` com labels/cores acima.
-- `src/pages/Shows.tsx`:
-  - Form de criação: reduzir para 5 campos.
-  - Card do vendedor com status `aguardando_dados`: botão "Completar dados" abre modal com tabs "Enviar link" / "Preencher manualmente".
-  - Card de outros vendedores: ocultar cachê e contratante.
-- `ShowDetailsModal`: tab "Dados completos" só aparece quando status >= `aguardando_pagamento` ou usuário é gerência/financeiro/dono.
-- Notificações: ajustar mensagens nos handlers `approve`, `reject`, `complete_data`.
+## Detalhes técnicos relevantes
 
-### Compatibilidade
-- Shows existentes com status `aprovada` continuam exibidos como "Confirmado" legado (já mapeado).
-- Campos antigos preenchidos no momento da criação (rider, transporte, etc.) ficam preservados; novo form ignora-os e a Etapa 3 permite editar.
+- A trigger de unicidade do Diretor deve permitir UPDATE no próprio registro (mesmo `user_id`) e bloquear apenas quando outro user já tem o papel.
+- Manter coluna `autorizado_por` antiga por compatibilidade (read-only); novos registros não a preenchem.
+- Toda a verificação de permissão crítica (aprovar/rejeitar) é feita no edge function, não só no front.
+- Sistema continua configurável: papéis e regras vivem em `permissions.ts` + RLS + edge function — fácil de ajustar depois.
 
-## Arquivos afetados
+## Fora do escopo desta entrega
 
-- `supabase/migrations/<novo>.sql` (enum + colunas)
-- `supabase/functions/shows-admin/index.ts`
-- `supabase/functions/contratante-link/index.ts`
-- `src/lib/showStatus.ts`
-- `src/pages/Shows.tsx`
-- `src/components/shows/ShowDetailsModal.tsx`
-- `src/integrations/supabase/types.ts` (auto)
-
-## Pontos a confirmar antes de implementar
-
-1. Quando o **contratante preenche via link**, o status deve voltar para `aguardando_dados` (vendedor revisa e finaliza manualmente para então ir a `aguardando_pagamento`) ou ir direto para `aguardando_pagamento`?
-2. Devemos **migrar shows existentes** com status `aprovada` para algum dos novos status, ou deixar como legado?
-3. O status `remarcada` deve substituir o uso atual de `cancelada` + criação de novo show, ou apenas ser um label adicional usado quando `remarcado_count > 0`?
+- Promover automaticamente algum usuário existente a Diretor (será feito manualmente pela tela de Usuários).
+- Modo Diretor → Vendedor (não pedido).
