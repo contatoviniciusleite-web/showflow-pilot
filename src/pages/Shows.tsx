@@ -24,6 +24,14 @@ import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
 import { PaymentScheduleRows, type ScheduleItem } from "@/components/shows/PaymentScheduleEditor";
 import { canConfirmPayment } from "@/lib/permissions";
+import {
+  ShowsFilters,
+  applyFilters,
+  defaultFilters,
+  filtersFromParams,
+  filtersToParams,
+  type FiltersState,
+} from "@/components/shows/ShowsFilters";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
 type ShowStatus = "pendente" | "rejeitada" | "aguardando_dados" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
