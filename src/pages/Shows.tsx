@@ -64,6 +64,8 @@ interface Show {
   hosp_traslado: boolean;
   camarins_rider: string | null;
   autorizado_por: string | null;
+  autorizado_por_nome?: string | null;
+  autorizado_em?: string | null;
   cancelado_em?: string | null;
   cancelado_motivo?: string | null;
   data_show_original?: string | null;
@@ -120,7 +122,7 @@ const emptyForm = {
   hosp_hospedagem: false,
   hosp_traslado: false,
   camarins_rider: "",
-  autorizado_por: "Vitor D.",
+  autorizado_por: "",
   contratante_id: "" as string,
 };
 
@@ -193,12 +195,14 @@ function StatusBadge({ status }: { status: string }) {
 export default function Shows() {
   const { roles, user } = useAuth();
   const isManager = roles.includes("gerente");
+  const isDiretor = roles.includes("diretor");
   const isStaff = roles.includes("equipe");
   const isVendedor = roles.includes("vendedor");
   const isArtista = roles.includes("artista");
   const isFinanceiro = roles.includes("financeiro");
-  const isEditor = isManager || isStaff;
-  const canCreate = isManager || isStaff || isVendedor;
+  const isEditor = isManager || isStaff || isDiretor;
+  const canCreate = isManager || isStaff || isVendedor || isDiretor;
+  const canApproveReject = isDiretor; // somente Diretor aprova/rejeita
 
   const uploadComprovante = async (s: Show) => {
     const input = document.createElement("input");
@@ -450,7 +454,7 @@ export default function Shows() {
       hosp_hospedagem: !!s.hosp_hospedagem,
       hosp_traslado: !!s.hosp_traslado,
       camarins_rider: s.camarins_rider ?? "",
-      autorizado_por: s.autorizado_por ?? "Vitor D.",
+      autorizado_por: s.autorizado_por ?? "",
       contratante_id: (s as any).contratante_id ?? "",
     });
     setOpen(true);
@@ -734,7 +738,7 @@ export default function Shows() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
-                  {isManager && s.status === "pendente" && (
+                  {canApproveReject && s.status === "pendente" && (
                     <>
                       <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => approve(s)} title="Aprovar">
                         <Check className="h-3.5 w-3.5" />
@@ -1167,14 +1171,16 @@ export default function Shows() {
               <Textarea rows={4} value={form.camarins_rider} onChange={(e) => set("camarins_rider", e.target.value)} placeholder="Detalhes técnicos, exigências de camarim, alimentação, etc." />
             </section>
 
-            {/* 8. Autorização */}
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Autorização</h3>
-              <div className="space-y-1.5">
-                <Label>Autorizado por</Label>
-                <Input value={form.autorizado_por} onChange={(e) => set("autorizado_por", e.target.value)} />
-              </div>
-            </section>
+            {/* 8. Autorização — preenchida automaticamente pelo Diretor ao aprovar */}
+            {editing && (editing.autorizado_por_nome || editing.autorizado_por) && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Autorização</h3>
+                <p className="text-sm text-muted-foreground">
+                  Autorizado por <span className="font-medium text-foreground">{editing.autorizado_por_nome ?? editing.autorizado_por}</span>
+                  {editing.autorizado_em && <> em {new Date(editing.autorizado_em).toLocaleString("pt-BR")}</>}
+                </p>
+              </section>
+            )}
 
             <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
