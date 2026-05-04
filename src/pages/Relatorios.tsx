@@ -182,7 +182,7 @@ export default function Relatorios() {
         cache += c; pago += p; pend += Math.max(c - p, 0);
       }
       if (s.status === "cancelada") cancelados += 1;
-      else if (s.status === "confirmado" || s.data_show < today) realizados += 1;
+      else if (s.data_show < today) realizados += 1;
       else aRealizar += 1;
       if ((s.remarcado_count ?? 0) > 0) remarcados += 1;
     }
