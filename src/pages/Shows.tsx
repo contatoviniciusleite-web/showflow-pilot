@@ -24,6 +24,14 @@ import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
 import { PaymentScheduleRows, type ScheduleItem } from "@/components/shows/PaymentScheduleEditor";
 import { canConfirmPayment } from "@/lib/permissions";
+import {
+  ShowsFilters,
+  applyFilters,
+  defaultFilters,
+  filtersFromParams,
+  filtersToParams,
+  type FiltersState,
+} from "@/components/shows/ShowsFilters";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
 type ShowStatus = "pendente" | "rejeitada" | "aguardando_dados" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
@@ -656,9 +664,38 @@ export default function Shows() {
     setHistRows((data?.reschedules ?? []) as any[]);
   };
 
+  // Filtros (com persistência via URL)
+  const filters: FiltersState = useMemo(
+    () => filtersFromParams(searchParams),
+    [searchParams],
+  );
+  const setFilters = (next: FiltersState) => {
+    const newParams = filtersToParams(next);
+    // preserva params não relacionados a filtro (ex: ?new=1)
+    searchParams.forEach((v, k) => {
+      if (!["artista", "periodo", "status", "de", "ate"].includes(k)) {
+        newParams.set(k, v);
+      }
+    });
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const filteredShows = useMemo(() => applyFilters(shows, filters), [shows, filters]);
+
+  // Lista de artistas para o dropdown — respeita as permissões do RLS:
+  // o backend já entrega `artists` apenas com os que o usuário pode ver.
+  // Para vendedor, restringimos ainda aos artistas presentes nas próprias minutas.
+  const artistsForFilter = useMemo(() => {
+    if (isVendedor && !isEditor && !isFinanceiro) {
+      const ids = new Set(shows.map((s) => s.artist_id));
+      return artists.filter((a) => ids.has(a.id));
+    }
+    return artists;
+  }, [artists, shows, isVendedor, isEditor, isFinanceiro]);
+
   const upcoming = useMemo(
-    () => shows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
-    [shows],
+    () => filteredShows.filter((s) => s.data_show >= new Date().toISOString().slice(0, 10)).length,
+    [filteredShows],
   );
 
   const titulo = isVendedor && !isEditor ? "Minhas minutas" : "Minutas de show";
@@ -678,6 +715,17 @@ export default function Shows() {
         )}
       </div>
 
+      {!loading && shows.length > 0 && (
+        <ShowsFilters
+          filters={filters}
+          onChange={setFilters}
+          artists={artistsForFilter}
+          hideArtist={isArtista && !isEditor && !isFinanceiro && !isVendedor}
+          total={shows.length}
+          filteredCount={filteredShows.length}
+        />
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : shows.length === 0 ? (
@@ -686,9 +734,14 @@ export default function Shows() {
           <p className="text-muted-foreground mb-4">Nenhuma minuta cadastrada ainda.</p>
           {canCreate && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Criar primeira minuta</Button>}
         </Card>
+      ) : filteredShows.length === 0 ? (
+        <Card className="p-12 text-center shadow-soft">
+          <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+          <p className="text-muted-foreground">Nenhuma minuta corresponde aos filtros aplicados.</p>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {shows.map((s) => (
+          {filteredShows.map((s) => (
             <Card key={s.id} className="p-5 shadow-soft">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
