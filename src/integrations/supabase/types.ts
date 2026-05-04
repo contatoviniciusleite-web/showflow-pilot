@@ -857,7 +857,13 @@ export type Database = {
       is_business_day_br: { Args: { d: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "gerente" | "equipe" | "artista" | "vendedor" | "financeiro"
+      app_role:
+        | "gerente"
+        | "equipe"
+        | "artista"
+        | "vendedor"
+        | "financeiro"
+        | "diretor"
       deposito_status: "ok" | "pendente"
       estrutura_tipo: "aberta" | "fechada"
       show_status:
@@ -997,7 +1003,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["gerente", "equipe", "artista", "vendedor", "financeiro"],
+      app_role: [
+        "gerente",
+        "equipe",
+        "artista",
+        "vendedor",
+        "financeiro",
+        "diretor",
+      ],
       deposito_status: ["ok", "pendente"],
       estrutura_tipo: ["aberta", "fechada"],
       show_status: [
