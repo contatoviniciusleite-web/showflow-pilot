@@ -242,34 +242,59 @@ export default function Financeiro() {
         <p className="text-muted-foreground mt-1">Pagamentos, comprovantes e fluxo financeiro de todos os shows.</p>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total a receber" value={fmtBRL(totals.aReceber)} icon={<Wallet className="h-4 w-4" />} />
-        <StatCard title="Recebido no mês" value={fmtBRL(totals.recebidoMes)} icon={<DollarSign className="h-4 w-4" />} />
-        <StatCard title="Aguardando pagamento" value={String(totals.aguardandoPag)} icon={<Clock className="h-4 w-4" />} />
-        <StatCard title="Aguardando confirmação" value={String(totals.aguardandoConfirmacao)} icon={<AlertTriangle className="h-4 w-4" />} />
-      </div>
+      {loading ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="p-4 shadow-soft space-y-3">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-7 w-32" />
+              </Card>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="p-4 shadow-soft space-y-3">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-5/6" />
+                <Skeleton className="h-3 w-2/3" />
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Total a receber" value={fmtBRL(totals.aReceber)} icon={<Wallet className="h-4 w-4" />} />
+            <StatCard title="Recebido no mês" value={fmtBRL(totals.recebidoMes)} icon={<DollarSign className="h-4 w-4" />} />
+            <StatCard title="Aguardando pagamento" value={String(totals.aguardandoPag)} icon={<Clock className="h-4 w-4" />} />
+            <StatCard title="Aguardando confirmação" value={String(totals.aguardandoConfirmacao)} icon={<AlertTriangle className="h-4 w-4" />} />
+          </div>
 
-      {(atrasados.length > 0 || aguardandoConfirm.length > 0 || proximos.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <AlertList
-            color="red"
-            title={`Pagamento atrasado (${atrasados.length})`}
-            items={atrasados.slice(0, 5)}
-            onOpen={setActive}
-          />
-          <AlertList
-            color="orange"
-            title={`Comprovante aguardando confirmação (${aguardandoConfirm.length})`}
-            items={aguardandoConfirm.slice(0, 5)}
-            onOpen={setActive}
-          />
-          <AlertList
-            color="yellow"
-            title={`A vencer em 7 dias (${proximos.length})`}
-            items={proximos.slice(0, 5)}
-            onOpen={setActive}
-          />
-        </div>
+          {(atrasados.length > 0 || aguardandoConfirm.length > 0 || proximos.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <AlertList
+                color="red"
+                title={`Pagamento atrasado (${atrasados.length})`}
+                items={atrasados.slice(0, 5)}
+                onOpen={setActive}
+              />
+              <AlertList
+                color="orange"
+                title={`Comprovante aguardando confirmação (${aguardandoConfirm.length})`}
+                items={aguardandoConfirm.slice(0, 5)}
+                onOpen={setActive}
+              />
+              <AlertList
+                color="yellow"
+                title={`A vencer em 7 dias (${proximos.length})`}
+                items={proximos.slice(0, 5)}
+                onOpen={setActive}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <Card className="p-4 shadow-soft space-y-4">
