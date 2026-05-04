@@ -439,7 +439,7 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{a.file_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(a.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      {safeFmt(a.created_at, "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
