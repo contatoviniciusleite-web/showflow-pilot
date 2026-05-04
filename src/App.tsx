@@ -20,6 +20,7 @@ import AgendaPage from "./pages/Agenda";
 import Contratantes from "./pages/Contratantes";
 import Financeiro from "./pages/Financeiro";
 import Relatorios from "./pages/Relatorios";
+import Diretoria from "./pages/Diretoria";
 import ContratanteMinuta from "./pages/ContratanteMinuta";
 import NotFound from "./pages/NotFound";
 
@@ -58,7 +59,7 @@ const App = () => (
               <Route
                 path="/financeiro"
                 element={
-                  <ProtectedRoute requireRoles={["gerente", "financeiro", "equipe"]}>
+                  <ProtectedRoute requireRoles={["gerente", "financeiro", "equipe", "diretor"]}>
                     <Financeiro />
                   </ProtectedRoute>
                 }
@@ -66,15 +67,23 @@ const App = () => (
               <Route
                 path="/contratantes"
                 element={
-                  <ProtectedRoute requireRoles={["gerente", "equipe", "vendedor", "financeiro"]}>
+                  <ProtectedRoute requireRoles={["gerente", "equipe", "vendedor", "financeiro", "diretor"]}>
                     <Contratantes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/diretoria"
+                element={
+                  <ProtectedRoute requireRoles={["diretor"]}>
+                    <Diretoria />
                   </ProtectedRoute>
                 }
               />
               <Route
                 path="/relatorios"
                 element={
-                  <ProtectedRoute requireRoles={["gerente", "financeiro", "vendedor"]}>
+                  <ProtectedRoute requireRoles={["gerente", "financeiro", "vendedor", "diretor"]}>
                     <Relatorios />
                   </ProtectedRoute>
                 }
@@ -82,7 +91,7 @@ const App = () => (
               <Route
                 path="/artistas"
                 element={
-                  <ProtectedRoute requireRoles={["gerente"]}>
+                  <ProtectedRoute requireRoles={["gerente", "diretor"]}>
                     <Artistas />
                   </ProtectedRoute>
                 }
@@ -90,7 +99,7 @@ const App = () => (
               <Route
                 path="/bloqueios"
                 element={
-                  <ProtectedRoute requireRoles={["gerente"]}>
+                  <ProtectedRoute requireRoles={["gerente", "diretor"]}>
                     <Bloqueios />
                   </ProtectedRoute>
                 }
@@ -98,7 +107,7 @@ const App = () => (
               <Route
                 path="/usuarios"
                 element={
-                  <ProtectedRoute requireRoles={["gerente"]}>
+                  <ProtectedRoute requireRoles={["gerente", "diretor"]}>
                     <Usuarios />
                   </ProtectedRoute>
                 }
