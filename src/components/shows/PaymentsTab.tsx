@@ -236,18 +236,18 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
 
   const exportExtrato = (kind: "pdf" | "csv") => {
     const cols: Column[] = [
-      { header: "Data", key: (r: Payment) => format(new Date(r.data_pagamento + "T00:00:00"), "dd/MM/yyyy") },
+      { header: "Data", key: (r: Payment) => safeFmt(r.data_pagamento, "dd/MM/yyyy") },
       { header: "Valor", key: (r: Payment) => formatCurrencyBRL(toN(r.valor)), align: "right" },
       { header: "Forma", key: (r: Payment) => FORMA_LABEL[r.forma_pagamento] ?? r.forma_pagamento },
       { header: "Conta", key: (r: Payment) => r.conta_destino ?? "—" },
       { header: "Observações", key: (r: Payment) => r.observacoes ?? "" },
       { header: "Confirmado por", key: (r: Payment) => r.registrado_por_nome ?? "—" },
-      { header: "Registrado em", key: (r: Payment) => format(new Date(r.created_at), "dd/MM/yyyy HH:mm") },
+      { header: "Registrado em", key: (r: Payment) => safeFmt(r.created_at, "dd/MM/yyyy HH:mm") },
       { header: "Comprovante", key: (r: Payment) => r.attachment_file_name ?? "—" },
     ];
     const meta = {
       title: `Extrato de baixas — ${artistNome ?? "Show"}`,
-      subtitle: `${showLocal ?? ""}${showDate ? ` · ${format(new Date(showDate + "T00:00:00"), "dd/MM/yyyy")}` : ""}`,
+      subtitle: `${showLocal ?? ""}${showDate ? ` · ${safeFmt(showDate, "dd/MM/yyyy")}` : ""}`,
       filters: [
         `Cachê total: ${formatCurrencyBRL(cacheTotal)}`,
         `Total pago: ${formatCurrencyBRL(totalPago)}`,
