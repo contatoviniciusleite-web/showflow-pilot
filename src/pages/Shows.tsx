@@ -22,7 +22,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, FileText, Check, X, Upload, Eye, CheckCircle2, Ban, CalendarClock, History, Link as LinkIcon, Copy, MessageCircle } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
-import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { lazy, Suspense } from "react";
+const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 import { PaymentScheduleRows, type ScheduleItem } from "@/components/shows/PaymentScheduleEditor";
 import { canConfirmPayment } from "@/lib/permissions";
 import {

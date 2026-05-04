@@ -10,7 +10,8 @@ import { format } from "date-fns";
 import { Clock, MapPin } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { cn } from "@/lib/utils";
-import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { lazy, Suspense } from "react";
+const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 
