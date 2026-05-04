@@ -32,8 +32,18 @@ export function StatCard({
     ? "p-5 shadow-soft border-destructive/40 bg-destructive/5"
     : "p-5 shadow-soft";
 
+  const interactiveCls = onClick
+    ? "cursor-pointer transition hover:shadow-md hover:-translate-y-0.5 hover:border-accent/40 focus:outline-none focus:ring-2 focus:ring-accent/40"
+    : "";
+
   return (
-    <Card className={cardCls}>
+    <Card
+      className={`${cardCls} ${interactiveCls}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+    >
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
