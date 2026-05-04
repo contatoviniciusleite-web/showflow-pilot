@@ -15,7 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, FileDown } from "lucide-react";
+import { exportDocumentPDF } from "@/lib/exporters";
 
 interface ShowLite {
   id: string;
@@ -25,10 +26,29 @@ interface ShowLite {
   horario?: string | null;
   local?: string | null;
   cidade?: string | null;
+  endereco?: string | null;
+  capacidade?: number | null;
   cache_total?: number;
   status: string;
   vendedor?: string | null;
   contratante_nome?: string | null;
+  contratante_documento?: string | null;
+  contratante_telefone?: string | null;
+  contratante_email?: string | null;
+  contratante_endereco?: string | null;
+  contratante_cidade?: string | null;
+  contratante_cep?: string | null;
+  condicao_pagamento?: string | null;
+  camarins_rider?: string | null;
+  transp_observacoes?: string | null;
+  transp_aereo?: boolean | null;
+  transp_van?: boolean | null;
+  transp_onibus?: boolean | null;
+  transp_excesso_bagagem?: boolean | null;
+  hosp_traslado?: boolean | null;
+  hosp_hospedagem?: boolean | null;
+  hosp_diaria_alimentacao?: boolean | null;
+  encargos_extras?: boolean | null;
   created_by?: string | null;
   confirmado_por_nome?: string | null;
   confirmado_em?: string | null;
@@ -108,6 +128,79 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
     await callAction("reschedule", { data_nova: reschedDate, horario_novo: reschedTime || null, motivo: reschedMotivo });
   };
 
+  const exportMinuta = () => {
+    const transp: string[] = [];
+    if (show.transp_aereo) transp.push("Aéreo");
+    if (show.transp_van) transp.push("Van");
+    if (show.transp_onibus) transp.push("Ônibus");
+    if (show.transp_excesso_bagagem) transp.push("Excesso de bagagem");
+    const hosp: string[] = [];
+    if (show.hosp_traslado) hosp.push("Traslado");
+    if (show.hosp_hospedagem) hosp.push("Hospedagem");
+    if (show.hosp_diaria_alimentacao) hosp.push("Diária de alimentação");
+
+    exportDocumentPDF({
+      title: `Minuta — ${show.artist_nome ?? "Show"}`,
+      subtitle: `${format(new Date(show.data_show + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}${show.horario ? ` às ${show.horario.slice(0, 5)}` : ""}`,
+      filename: `minuta-${show.artist_nome?.replace(/\s+/g, "_") ?? "show"}-${show.data_show}`,
+      footer: `Status: ${(STATUS_LABEL as any)[show.status] ?? show.status}`,
+      sections: [
+        {
+          title: "Evento",
+          lines: [
+            { label: "Artista", value: show.artist_nome ?? "—" },
+            { label: "Data", value: format(new Date(show.data_show + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR }) },
+            { label: "Horário", value: show.horario ? show.horario.slice(0, 5) : "—" },
+            { label: "Local", value: show.local ?? "—" },
+            { label: "Endereço", value: show.endereco ?? "—" },
+            { label: "Cidade", value: show.cidade ?? "—" },
+            { label: "Capacidade", value: show.capacidade ? String(show.capacidade) : "—" },
+          ],
+        },
+        {
+          title: "Contratante",
+          lines: [
+            { label: "Nome / Razão Social", value: show.contratante_nome ?? "—" },
+            { label: "Documento", value: show.contratante_documento ?? "—" },
+            { label: "Telefone", value: show.contratante_telefone ?? "—" },
+            { label: "E-mail", value: show.contratante_email ?? "—" },
+            { label: "Endereço", value: show.contratante_endereco ?? "—" },
+            { label: "Cidade", value: show.contratante_cidade ?? "—" },
+            { label: "CEP", value: show.contratante_cep ?? "—" },
+          ],
+        },
+        {
+          title: "Financeiro",
+          lines: [
+            { label: "Cachê total", value: fmtBRL(cacheTotal) },
+            { label: "Condição de pagamento", value: show.condicao_pagamento ?? "—" },
+            { label: "Encargos extras", value: show.encargos_extras ? "Sim" : "Não" },
+          ],
+        },
+        {
+          title: "Produção",
+          lines: [
+            { label: "Transporte", value: transp.length ? transp.join(", ") : "—" },
+            { label: "Observações de transporte", value: show.transp_observacoes ?? "—" },
+            { label: "Hospedagem", value: hosp.length ? hosp.join(", ") : "—" },
+            { label: "Camarins / Rider", value: show.camarins_rider ?? "—" },
+          ],
+        },
+        {
+          title: "Comercial",
+          lines: [
+            { label: "Vendedor", value: show.vendedor ?? "—" },
+            { label: "Autorizado por", value: show.autorizado_por_nome ?? show.autorizado_por ?? "—" },
+            {
+              label: "Autorizado em",
+              value: show.autorizado_em ? format(new Date(show.autorizado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—",
+            },
+          ],
+        },
+      ],
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -115,6 +208,9 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             {show.artist_nome ?? "Show"}
             <Badge className={(STATUS_CLASS as any)[show.status]}>{(STATUS_LABEL as any)[show.status] ?? show.status}</Badge>
+            <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={exportMinuta}>
+              <FileDown className="h-3.5 w-3.5" /> Minuta PDF
+            </Button>
           </DialogTitle>
         </DialogHeader>
 

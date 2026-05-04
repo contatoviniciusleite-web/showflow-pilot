@@ -10,6 +10,8 @@ import { Clock, MapPin } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { cn } from "@/lib/utils";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
+import { ExportMenu } from "@/components/ExportMenu";
+import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 
 interface FShow {
   id: string;
@@ -84,6 +86,42 @@ export function FinanceiroAgenda() {
 
   const dayItems = selected ? (byDay.get(ymd(selected)) ?? []) : [];
 
+  const monthShows = useMemo(() => {
+    const ym = format(month, "yyyy-MM");
+    return shows
+      .filter((s) => s.data_show?.startsWith(ym))
+      .sort((a, b) => a.data_show.localeCompare(b.data_show));
+  }, [shows, month]);
+
+  const exportMonth = (kind: "pdf" | "csv") => {
+    const cols: Column[] = [
+      { header: "Data", key: (r: FShow) => r.data_show.split("-").reverse().join("/") },
+      { header: "Hora", key: (r: FShow) => (r.horario ? r.horario.slice(0, 5) : "—") },
+      { header: "Artista", key: (r: FShow) => r.artist_nome ?? "—" },
+      { header: "Local", key: (r: FShow) => [r.local, r.cidade].filter(Boolean).join(" · ") || "—" },
+      { header: "Cachê", key: (r: FShow) => Number(r.cache_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), align: "right" },
+      {
+        header: "Status",
+        key: (r: FShow) => {
+          const eff = effectiveStatus(r);
+          return (STATUS_LABEL as any)[eff] ?? EXTRA_LABEL[eff] ?? eff;
+        },
+      },
+      { header: "Vendedor", key: (r: FShow) => r.vendedor ?? "—" },
+    ];
+    const total = monthShows.reduce((a, r) => a + Number(r.cache_total || 0), 0);
+    const meta = {
+      title: `Agenda — ${format(month, "MMMM 'de' yyyy", { locale: ptBR })}`,
+      filename: `agenda-${format(month, "yyyy-MM")}`,
+      summary: [
+        { label: "Total de shows", value: String(monthShows.length) },
+        { label: "Cachê total", value: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+      ],
+    };
+    if (kind === "pdf") exportPDF(monthShows, cols, meta);
+    else exportCSV(monthShows, cols, meta);
+  };
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-[auto,1fr] gap-6">
@@ -109,13 +147,21 @@ export function FinanceiroAgenda() {
         </Card>
 
         <Card className="p-6 shadow-soft">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold">
-              {selected ? format(selected, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione uma data"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {dayItems.length === 0 ? "Nenhum show neste dia." : `${dayItems.length} show(s) neste dia.`}
-            </p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">
+                {selected ? format(selected, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione uma data"}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {dayItems.length === 0 ? "Nenhum show neste dia." : `${dayItems.length} show(s) neste dia.`}
+              </p>
+            </div>
+            <ExportMenu
+              label={`Exportar ${format(month, "MMM/yy", { locale: ptBR })}`}
+              disabled={monthShows.length === 0}
+              onExportPDF={() => exportMonth("pdf")}
+              onExportCSV={() => exportMonth("csv")}
+            />
           </div>
 
           {loading ? (

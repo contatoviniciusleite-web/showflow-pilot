@@ -10,6 +10,8 @@ import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ShowDetailsModal } from "@/components/shows/ShowDetailsModal";
 import { AlertTriangle, Clock, DollarSign, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ExportMenu } from "@/components/ExportMenu";
+import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 
 interface FinShow {
   id: string;
@@ -137,6 +139,51 @@ export default function Financeiro() {
   const atrasados = shows.filter((s) => effectiveStatus(s) === "atrasado");
   const aguardandoConfirm = shows.filter((s) => effectiveStatus(s) === "comprovante_enviado");
 
+  const exportFinanceiro = (kind: "pdf" | "csv") => {
+    const cols: Column[] = [
+      { header: "Artista", key: (r: FinShow) => r.artist_nome ?? "—" },
+      { header: "Data", key: (r: FinShow) => fmtDate(r.data_show) },
+      { header: "Local", key: (r: FinShow) => [r.local, r.cidade].filter(Boolean).join(" · ") || "—" },
+      { header: "Cachê", key: (r: FinShow) => fmtBRL(Number(r.cache_total)), align: "right" },
+      { header: "Pago", key: (r: FinShow) => fmtBRL(Number(r.total_pago)), align: "right" },
+      {
+        header: "A receber",
+        key: (r: FinShow) => fmtBRL(Math.max(0, Number(r.cache_total) - Number(r.total_pago))),
+        align: "right",
+      },
+      {
+        header: "Status",
+        key: (r: FinShow) => {
+          const eff = effectiveStatus(r);
+          return (STATUS_LABEL as any)[eff] ?? EXTRA_LABEL[eff] ?? eff;
+        },
+      },
+    ];
+    const totalBruto = filtered.reduce((a, r) => a + Number(r.cache_total || 0), 0);
+    const totalPago = filtered.reduce((a, r) => a + Number(r.total_pago || 0), 0);
+    const filterLines: string[] = [];
+    if (fArtist !== "all") {
+      const a = artists.find((x) => x.id === fArtist);
+      filterLines.push(`Artista: ${a?.nome ?? "—"}`);
+    }
+    if (fStatus !== "all") filterLines.push(`Status: ${fStatus}`);
+    if (fFrom) filterLines.push(`De: ${fmtDate(fFrom)}`);
+    if (fTo) filterLines.push(`Até: ${fmtDate(fTo)}`);
+    const meta = {
+      title: "Financeiro — Shows",
+      filters: filterLines,
+      filename: `financeiro-${new Date().toISOString().slice(0, 10)}`,
+      summary: [
+        { label: "Total de shows", value: String(filtered.length) },
+        { label: "Cachê total", value: fmtBRL(totalBruto) },
+        { label: "Total pago", value: fmtBRL(totalPago) },
+        { label: "A receber", value: fmtBRL(Math.max(0, totalBruto - totalPago)) },
+      ],
+    };
+    if (kind === "pdf") exportPDF(filtered, cols, meta);
+    else exportCSV(filtered, cols, meta);
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       <header>
@@ -214,6 +261,13 @@ export default function Financeiro() {
           <Button variant="ghost" onClick={() => { setFArtist("all"); setFStatus("all"); setFFrom(""); setFTo(""); }}>
             Limpar
           </Button>
+          <div className="ml-auto">
+            <ExportMenu
+              disabled={filtered.length === 0}
+              onExportPDF={() => exportFinanceiro("pdf")}
+              onExportCSV={() => exportFinanceiro("csv")}
+            />
+          </div>
         </div>
 
         <div className="overflow-x-auto">
