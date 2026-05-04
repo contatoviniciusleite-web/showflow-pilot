@@ -182,7 +182,7 @@ export default function Relatorios() {
         cache += c; pago += p; pend += Math.max(c - p, 0);
       }
       if (s.status === "cancelada") cancelados += 1;
-      else if (s.status === "confirmado" || s.data_show < today) realizados += 1;
+      else if (s.data_show < today) realizados += 1;
       else aRealizar += 1;
       if ((s.remarcado_count ?? 0) > 0) remarcados += 1;
     }
@@ -328,7 +328,7 @@ export default function Relatorios() {
                       const pago = Number(s.total_pago ?? 0);
                       const pendente = s.status === "cancelada" ? 0 : Math.max(cache - pago, 0);
                       const today = toIsoDate(new Date());
-                      const realizado = s.status !== "cancelada" && (s.status === "confirmado" || s.data_show < today);
+                      const realizado = s.status !== "cancelada" && s.data_show < today;
                       const remarcado = (s.remarcado_count ?? 0) > 0;
                       const cancelado = s.status === "cancelada";
                       return (
