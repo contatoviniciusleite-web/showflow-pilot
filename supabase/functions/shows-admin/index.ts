@@ -458,17 +458,26 @@ Deno.serve(async (req) => {
     // ETAPA 2 — Aprovação básica: status vai para 'aguardando_dados'.
     // O vendedor ainda precisa completar os dados (Etapa 3) antes de iniciar o prazo do sinal.
     if (action === "approve") {
-      if (!isManager) return json({ error: "Apenas gerente pode aprovar minutas" }, 403);
+      if (!isDiretor) return json({ error: "Apenas o Diretor pode aprovar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
 
       const existing = await sql`select created_by from public.shows where id = ${body.id}`;
       if (existing.length === 0) return json({ error: "Show não encontrado" }, 404);
       const isAuto = existing[0].created_by === userId;
+
+      // Snapshot do nome do Diretor para a minuta.
+      const diretorProfile = await sql`select nome from public.profiles where id = ${userId}`;
+      const diretorNome = (diretorProfile[0] as any)?.nome ?? "Diretor";
+
       const rows = await sql`
         update public.shows
           set status = 'aguardando_dados'::show_status,
               aprovado_por = ${userId},
               aprovado_em = now(),
+              autorizado_por_user_id = ${userId},
+              autorizado_por_nome = ${diretorNome},
+              autorizado_em = now(),
+              autorizado_por = ${diretorNome},
               auto_aprovado = ${isAuto},
               auto_aprovado_em = ${isAuto ? sql`now()` : null},
               rejeitada_motivo = null,
@@ -480,6 +489,7 @@ Deno.serve(async (req) => {
       `;
       if (rows.length === 0) return json({ error: "Show não encontrado" }, 404);
       const show: any = rows[0];
+      const msg = `Minuta de ${show.artist_nome ?? "show"} em ${show.local ?? "local"} dia ${show.data_show} foi aprovada por ${diretorNome}.`;
       if (show.created_by) {
         await notify(
           sql,
@@ -490,13 +500,17 @@ Deno.serve(async (req) => {
           show.id,
         );
       }
+      // Notifica Gerente e Financeiro
+      try {
+        await notifyByRoles(sql, ["gerente", "financeiro"], "minuta_aprovada", "Minuta aprovada", msg, show.id);
+      } catch (e) { console.error("notify gerente/financeiro (approve)", e); }
       return json({ show });
     }
 
-    // ETAPA 2 — Rejeição: NÃO exclui mais a minuta. Mantém com status 'rejeitada'
+    // ETAPA 2 — Rejeição: NÃO exclui a minuta. Mantém com status 'rejeitada'
     // e o motivo, para o vendedor ver o histórico.
     if (action === "reject") {
-      if (!isManager) return json({ error: "Apenas gerente pode rejeitar minutas" }, 403);
+      if (!isDiretor) return json({ error: "Apenas o Diretor pode rejeitar minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
       const motivo = txt(body.motivo, 1000);
       if (!motivo) return json({ error: "Motivo da rejeição é obrigatório" }, 400);
@@ -522,6 +536,11 @@ Deno.serve(async (req) => {
           show.id,
         );
       }
+      // Notifica também a Gerência
+      try {
+        const msg = `Minuta de ${show.artist_nome ?? "show"} em ${show.data_show} foi rejeitada. Motivo: ${motivo}`;
+        await notifyByRoles(sql, ["gerente"], "minuta_rejeitada", "Minuta rejeitada", msg, show.id);
+      } catch (e) { console.error("notify gerente (reject)", e); }
       return json({ ok: true, show });
     }
 
