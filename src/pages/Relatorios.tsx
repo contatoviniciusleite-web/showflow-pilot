@@ -432,7 +432,14 @@ export default function Relatorios() {
             </div>
 
             <Card className="p-4 shadow-soft">
-              <h3 className="font-medium mb-3">Shows do período</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Shows do período</h3>
+                <ExportMenu
+                  onExportPDF={() => exportShowsPeriodo("pdf")}
+                  onExportCSV={() => exportShowsPeriodo("csv")}
+                  disabled={periodShows.length === 0}
+                />
+              </div>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
