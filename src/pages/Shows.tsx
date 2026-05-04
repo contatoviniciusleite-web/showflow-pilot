@@ -715,6 +715,17 @@ export default function Shows() {
         )}
       </div>
 
+      {!loading && shows.length > 0 && (
+        <ShowsFilters
+          filters={filters}
+          onChange={setFilters}
+          artists={artistsForFilter}
+          hideArtist={isArtista && !isEditor && !isFinanceiro && !isVendedor}
+          total={shows.length}
+          filteredCount={filteredShows.length}
+        />
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : shows.length === 0 ? (
@@ -723,9 +734,14 @@ export default function Shows() {
           <p className="text-muted-foreground mb-4">Nenhuma minuta cadastrada ainda.</p>
           {canCreate && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Criar primeira minuta</Button>}
         </Card>
+      ) : filteredShows.length === 0 ? (
+        <Card className="p-12 text-center shadow-soft">
+          <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+          <p className="text-muted-foreground">Nenhuma minuta corresponde aos filtros aplicados.</p>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {shows.map((s) => (
+          {filteredShows.map((s) => (
             <Card key={s.id} className="p-5 shadow-soft">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
