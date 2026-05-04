@@ -48,8 +48,48 @@ export function AppLayout() {
   const { user, roles, signOut } = useAuth();
   const effectiveRoles = useEffectiveRoles();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const visible = nav.filter((n) => n.roles.some((r) => effectiveRoles.includes(r)));
+
+  // Prefetch de dados ao passar o mouse — abre tela instantaneamente.
+  const prefetchData = (to: string) => {
+    if (to === "/shows") {
+      queryClient.prefetchQuery({
+        queryKey: ["shows", user?.id, roles.join(",")],
+        queryFn: async () => {
+          const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
+          return { shows: r.data?.shows ?? [], outras: r.data?.outras_aprovadas ?? [], artists: [] };
+        },
+      });
+    } else if (to === "/financeiro") {
+      queryClient.prefetchQuery({
+        queryKey: ["financeiro"],
+        queryFn: async () => {
+          const r = await supabase.functions.invoke("shows-admin", { body: { action: "finance_summary" } });
+          return r.data?.shows ?? [];
+        },
+      });
+    } else if (to === "/app") {
+      queryClient.prefetchQuery({
+        queryKey: ["dashboard"],
+        queryFn: async () => {
+          const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
+          return r.data?.shows ?? [];
+        },
+      });
+    }
+  };
+  const onHover = (to: string) => { prefetchRoute(to); prefetchData(to); };
+
+  // Keep-alive: ping a cada 4 minutos para evitar cold start na Edge Function.
+  useEffect(() => {
+    if (!user) return;
+    const id = setInterval(() => {
+      supabase.functions.invoke("shows-admin", { body: { action: "ping" } }).catch(() => {});
+    }, 4 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [user]);
 
   return (
     <div className="flex min-h-screen bg-background">
