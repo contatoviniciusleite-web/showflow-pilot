@@ -109,13 +109,25 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
     // eslint-disable-next-line
   }, [saldo, loading]);
 
+  const [loadingExisting, setLoadingExisting] = useState(false);
+
   const openExistingPicker = async () => {
-    const { data, error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "list_attachments", show_id: showId },
-    });
-    if (error) return toast.error(error.message);
-    setExisting((data?.attachments ?? []) as Attachment[]);
     setPickerOpen(true);
+    setLoadingExisting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: { action: "list_attachments", show_id: showId },
+      });
+      if (error) throw error;
+      setExisting(Array.isArray(data?.attachments) ? (data.attachments as Attachment[]) : []);
+    } catch (err: any) {
+      console.error("Erro ao carregar anexos:", err);
+      toast.error(err?.message ?? "Não foi possível carregar os anexos.");
+      setExisting([]);
+      setPickerOpen(false);
+    } finally {
+      setLoadingExisting(false);
+    }
   };
 
   const pickExisting = (a: Attachment) => {
