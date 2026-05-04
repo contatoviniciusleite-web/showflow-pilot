@@ -311,6 +311,100 @@ Deno.serve(async (req) => {
       return json({ artists: rows });
     }
 
+    // Bootstrap: retorna shows + artists em uma única invocação (corta latência do first load).
+    // Aceita filtros opcionais aplicados no SQL (artist_id, from, to, status).
+    if (action === "bootstrap") {
+      const fArtist = body.artist_id && body.artist_id !== "all" ? txt(body.artist_id, 64) : null;
+      const fFrom = dateOrNull(body.from);
+      const fTo = dateOrNull(body.to);
+      const fStatus = body.status && body.status !== "all" ? txt(body.status, 30) : null;
+
+      const filterSql = sql`
+        and (${fArtist}::uuid is null or s.artist_id = ${fArtist}::uuid)
+        and (${fFrom}::date is null or s.data_show >= ${fFrom}::date)
+        and (${fTo}::date is null or s.data_show <= ${fTo}::date)
+        and (${fStatus}::text is null or s.status::text = ${fStatus}::text)
+      `;
+
+      // Lista de artistas para o filtro (depende do papel)
+      const artistsPromise = (isVendedor && !isManager && !isStaff && !isDiretor && !isFinanceiro)
+        ? sql`
+            select a.id, a.nome, a.cor, a.cache_minimo
+            from public.artists a
+            join public.vendedor_artists va on va.artist_id = a.id
+            where a.ativo = true and va.vendedor_id = ${userId}
+            order by a.nome
+          `
+        : (isArtista && !isEditor && !isFinanceiro && !isVendedor)
+          ? Promise.resolve([] as any[])
+          : sql`select id, nome, cor, cache_minimo from public.artists where ativo = true order by nome`;
+
+      if (canSeeAll) {
+        const [shows, artists] = await Promise.all([
+          sql`
+            select s.*,
+              to_char(s.data_show, 'YYYY-MM-DD') as data_show,
+              to_char(s.data_subida, 'YYYY-MM-DD') as data_subida,
+              a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
+            from public.shows s
+            left join public.artists a on a.id = s.artist_id
+            where 1=1 ${filterSql}
+            order by s.data_show desc nulls last, s.created_at desc
+          `,
+          artistsPromise,
+        ]);
+        return json({ shows, outras_aprovadas: [], artists, scope: canSeeAll && !isEditor ? "financeiro" : "all" });
+      }
+      if (isVendedor) {
+        const allowedRows = await sql`select artist_id from public.vendedor_artists where vendedor_id = ${userId}`;
+        const allowed = (allowedRows as any[]).map((r) => r.artist_id);
+        const [minhas, outras, artists] = await Promise.all([
+          sql`
+            select s.*,
+              to_char(s.data_show, 'YYYY-MM-DD') as data_show,
+              to_char(s.data_subida, 'YYYY-MM-DD') as data_subida,
+              a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
+            from public.shows s
+            left join public.artists a on a.id = s.artist_id
+            where s.created_by = ${userId} ${filterSql}
+            order by s.data_show desc nulls last, s.created_at desc
+          `,
+          allowed.length
+            ? sql`
+                select s.id, s.artist_id, s.artist_nome, s.artist_cor,
+                  to_char(s.data_show, 'YYYY-MM-DD') as data_show,
+                  s.horario, s.local, s.cidade, s.vendedor, s.status
+                from public.shows_public_view s
+                where s.created_by is distinct from ${userId}
+                  and s.artist_id = any(${allowed}::uuid[])
+                  and s.status::text in ('aguardando_dados','aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
+                order by s.data_show desc nulls last
+              `
+            : Promise.resolve([] as any[]),
+          artistsPromise,
+        ]);
+        return json({ shows: minhas, outras_aprovadas: outras, allowed_artist_ids: allowed, artists, scope: "vendedor" });
+      }
+      if (isArtista) {
+        const [shows, artists] = await Promise.all([
+          sql`
+            select s.*,
+              to_char(s.data_show, 'YYYY-MM-DD') as data_show,
+              to_char(s.data_subida, 'YYYY-MM-DD') as data_subida,
+              a.nome as artist_nome, a.cor as artist_cor, a.cache_minimo as artist_cache_minimo
+            from public.shows s
+            left join public.artists a on a.id = s.artist_id
+            where s.artist_id in (select artist_id from public.user_roles where user_id = ${userId} and role = 'artista')
+              ${filterSql}
+            order by s.data_show desc nulls last
+          `,
+          artistsPromise,
+        ]);
+        return json({ shows, outras_aprovadas: [], artists, scope: "artista" });
+      }
+      return json({ error: "Acesso negado" }, 403);
+    }
+
     if (action === "create") {
       if (!canCreate) return json({ error: "Acesso negado" }, 403);
       // ETAPA 1: somente os 5 campos básicos são exigidos.
