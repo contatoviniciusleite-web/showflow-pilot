@@ -261,16 +261,39 @@ export default function Shows() {
 
 
 
-  const [shows, setShows] = useState<Show[]>([]);
-  const [outras, setOutras] = useState<ShowPublic[]>([]);
   const [artists, setArtists] = useState<ArtistLite[]>([]);
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Show | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [parcelas, setParcelas] = useState<ScheduleItem[]>([]);
   const [myName, setMyName] = useState<string>("");
+
+  const showsQuery = useQuery({
+    queryKey: ["shows", user?.id, roles.join(",")],
+    queryFn: async () => {
+      const [showsRes, artistsRes] = await Promise.all([
+        supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
+        canCreate
+          ? supabase.functions.invoke("shows-admin", { body: { action: "artists" } })
+          : Promise.resolve({ data: { artists: [] }, error: null } as any),
+      ]);
+      if (showsRes.error) throw new Error(showsRes.error.message);
+      if (artistsRes.error) throw new Error(artistsRes.error.message);
+      return {
+        shows: (showsRes.data?.shows ?? []) as Show[],
+        outras: (showsRes.data?.outras_aprovadas ?? []) as ShowPublic[],
+        artists: (artistsRes.data?.artists ?? []) as ArtistLite[],
+      };
+    },
+    enabled: !!user?.id,
+  });
+  const shows = showsQuery.data?.shows ?? [];
+  const outras = showsQuery.data?.outras ?? [];
+  useEffect(() => {
+    if (showsQuery.data?.artists) setArtists(showsQuery.data.artists);
+  }, [showsQuery.data?.artists]);
+  const loading = showsQuery.isLoading;
 
   // Carrega o nome do usuário logado para autopreencher "Vendedor responsável"
   useEffect(() => {
