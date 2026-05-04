@@ -375,14 +375,14 @@ export default function Landing() {
       <section id="numeros" className="border-b border-zinc-100 bg-white">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:grid-cols-2 md:grid-cols-4 md:py-20">
           {[
-            { n: 6, suffix: "", label: "Artistas gerenciados" },
+            { n: null as number | null, display: "∞", label: "Artistas gerenciados" },
             { n: 100, suffix: "%", label: "Digital — zero planilha" },
             { n: 5, suffix: "", label: "Perfis de acesso" },
             { n: 48, suffix: "h", label: "Prazo automático de confirmação" },
-          ].map((m) => (
+          ].map((m: any) => (
             <div key={m.label} className="text-center stage-reveal">
               <div className="text-5xl font-bold tracking-tight" style={{ color: green }}>
-                <Counter to={m.n} suffix={m.suffix} />
+                {m.display ? m.display : <Counter to={m.n} suffix={m.suffix} />}
               </div>
               <div className="mt-2 text-sm text-zinc-600">{m.label}</div>
             </div>
