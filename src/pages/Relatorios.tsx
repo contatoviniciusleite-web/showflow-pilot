@@ -23,6 +23,12 @@ interface RShow {
   status: string;
   vendedor: string | null;
   created_by: string | null;
+  local?: string | null;
+  cidade?: string | null;
+  remarcado_count?: number | null;
+  cancelado_motivo?: string | null;
+  cancelado_em?: string | null;
+  ultima_remarcacao_em?: string | null;
 }
 
 const fmtBRL = (n: number) =>
