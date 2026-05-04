@@ -410,8 +410,16 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Selecionar comprovante</DialogTitle></DialogHeader>
-          {existing.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum anexo neste show. Use "Anexar novo".</p>
+          {loadingExisting ? (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : (existing ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Nenhum comprovante encontrado para este show. Use a aba Anexos para fazer o upload primeiro.
+            </p>
           ) : (
             <ul className="space-y-2 max-h-[60vh] overflow-y-auto">
               {existing.map((a) => (
