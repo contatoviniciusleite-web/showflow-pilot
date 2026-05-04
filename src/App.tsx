@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ManagerModeProvider } from "@/contexts/ManagerModeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
 // Auth e fluxos públicos ficam eager (carregam rápido e são rota inicial frequente)
@@ -79,14 +80,14 @@ const App = () => (
                 <Route path="/aceitar-convite" element={<AceitarConvite />} />
                 <Route path="/minuta/:token" element={<ContratanteMinuta />} />
                 <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                  <Route path="/app" element={<Dashboard />} />
-                  <Route path="/shows" element={<Shows />} />
-                  <Route path="/agenda" element={<AgendaPage />} />
+                  <Route path="/app" element={<ErrorBoundary label="Dashboard"><Dashboard /></ErrorBoundary>} />
+                  <Route path="/shows" element={<ErrorBoundary label="Shows"><Shows /></ErrorBoundary>} />
+                  <Route path="/agenda" element={<ErrorBoundary label="Agenda"><AgendaPage /></ErrorBoundary>} />
                   <Route
                     path="/financeiro"
                     element={
                       <ProtectedRoute requireRoles={["gerente", "financeiro", "equipe", "diretor"]}>
-                        <Financeiro />
+                        <ErrorBoundary label="Financeiro"><Financeiro /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -94,7 +95,7 @@ const App = () => (
                     path="/contratantes"
                     element={
                       <ProtectedRoute requireRoles={["gerente", "equipe", "vendedor", "financeiro", "diretor"]}>
-                        <Contratantes />
+                        <ErrorBoundary label="Contratantes"><Contratantes /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -102,7 +103,7 @@ const App = () => (
                     path="/diretoria"
                     element={
                       <ProtectedRoute requireRoles={["diretor"]}>
-                        <Diretoria />
+                        <ErrorBoundary label="Diretoria"><Diretoria /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -110,7 +111,7 @@ const App = () => (
                     path="/relatorios"
                     element={
                       <ProtectedRoute requireRoles={["gerente", "financeiro", "vendedor", "diretor"]}>
-                        <Relatorios />
+                        <ErrorBoundary label="Relatorios"><Relatorios /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -118,7 +119,7 @@ const App = () => (
                     path="/artistas"
                     element={
                       <ProtectedRoute requireRoles={["gerente", "diretor"]}>
-                        <Artistas />
+                        <ErrorBoundary label="Artistas"><Artistas /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -126,7 +127,7 @@ const App = () => (
                     path="/bloqueios"
                     element={
                       <ProtectedRoute requireRoles={["gerente", "diretor"]}>
-                        <Bloqueios />
+                        <ErrorBoundary label="Bloqueios"><Bloqueios /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -134,7 +135,7 @@ const App = () => (
                     path="/usuarios"
                     element={
                       <ProtectedRoute requireRoles={["gerente", "diretor"]}>
-                        <Usuarios />
+                        <ErrorBoundary label="Usuarios"><Usuarios /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
