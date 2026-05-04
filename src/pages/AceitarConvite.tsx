@@ -85,7 +85,7 @@ export default function AceitarConvite() {
       return;
     }
     toast.success("Senha definida! Bem-vindo.");
-    navigate("/", { replace: true });
+    navigate("/app", { replace: true });
   };
 
   return (

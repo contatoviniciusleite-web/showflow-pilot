@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 import Auth from "./pages/Auth";
 import AceitarConvite from "./pages/AceitarConvite";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
 
 // Demais páginas via code-splitting — cada rota carrega só quando acessada
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -73,11 +74,12 @@ const App = () => (
             <InviteHashRedirect />
             <Suspense fallback={<PageFallback />}>
               <Routes>
+                <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/aceitar-convite" element={<AceitarConvite />} />
                 <Route path="/minuta/:token" element={<ContratanteMinuta />} />
                 <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/app" element={<Dashboard />} />
                   <Route path="/shows" element={<Shows />} />
                   <Route path="/agenda" element={<AgendaPage />} />
                   <Route

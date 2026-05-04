@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 // Prefetch dos chunks lazy: dispara o import() ao passar o mouse,
 // fazendo a próxima rota abrir instantaneamente.
 const prefetchers: Record<string, () => Promise<unknown>> = {
-  "/": () => import("@/pages/Dashboard"),
+  "/app": () => import("@/pages/Dashboard"),
   "/agenda": () => import("@/pages/Agenda"),
   "/shows": () => import("@/pages/Shows"),
   "/financeiro": () => import("@/pages/Financeiro"),
@@ -29,7 +29,7 @@ function prefetchRoute(path: string) {
 }
 
 const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["diretor", "gerente", "equipe", "artista", "vendedor"] },
   { to: "/shows", label: "Shows", icon: ListMusic, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["diretor", "gerente", "equipe", "artista", "financeiro"] },
