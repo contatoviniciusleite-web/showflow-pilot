@@ -57,6 +57,17 @@ const FORMA_LABEL: Record<string, string> = {
 
 const toN = (v: any) => Number(v ?? 0);
 
+const safeFmt = (value: string | null | undefined, pattern: string, opts?: any) => {
+  if (!value) return "—";
+  try {
+    const d = value.length === 10 ? new Date(value + "T00:00:00") : new Date(value);
+    if (isNaN(d.getTime())) return "—";
+    return format(d, pattern, opts);
+  } catch {
+    return "—";
+  }
+};
+
 export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, confirmadoEm, onChanged, artistNome, showDate, showLocal }: Props) {
   const { roles } = useAuth();
   const [items, setItems] = useState<Payment[]>([]);
