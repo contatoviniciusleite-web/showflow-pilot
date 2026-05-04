@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -260,16 +261,39 @@ export default function Shows() {
 
 
 
-  const [shows, setShows] = useState<Show[]>([]);
-  const [outras, setOutras] = useState<ShowPublic[]>([]);
   const [artists, setArtists] = useState<ArtistLite[]>([]);
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Show | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [parcelas, setParcelas] = useState<ScheduleItem[]>([]);
   const [myName, setMyName] = useState<string>("");
+
+  const showsQuery = useQuery({
+    queryKey: ["shows", user?.id, roles.join(",")],
+    queryFn: async () => {
+      const [showsRes, artistsRes] = await Promise.all([
+        supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
+        canCreate
+          ? supabase.functions.invoke("shows-admin", { body: { action: "artists" } })
+          : Promise.resolve({ data: { artists: [] }, error: null } as any),
+      ]);
+      if (showsRes.error) throw new Error(showsRes.error.message);
+      if (artistsRes.error) throw new Error(artistsRes.error.message);
+      return {
+        shows: (showsRes.data?.shows ?? []) as Show[],
+        outras: (showsRes.data?.outras_aprovadas ?? []) as ShowPublic[],
+        artists: (artistsRes.data?.artists ?? []) as ArtistLite[],
+      };
+    },
+    enabled: !!user?.id,
+  });
+  const shows = showsQuery.data?.shows ?? [];
+  const outras = showsQuery.data?.outras ?? [];
+  useEffect(() => {
+    if (showsQuery.data?.artists) setArtists(showsQuery.data.artists);
+  }, [showsQuery.data?.artists]);
+  const loading = showsQuery.isLoading;
 
   // Carrega o nome do usuário logado para autopreencher "Vendedor responsável"
   useEffect(() => {
@@ -390,21 +414,8 @@ export default function Shows() {
   };
 
   const load = async () => {
-    setLoading(true);
-    const [showsRes, artistsRes] = await Promise.all([
-      supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
-      canCreate
-        ? supabase.functions.invoke("shows-admin", { body: { action: "artists" } })
-        : Promise.resolve({ data: { artists: [] }, error: null } as any),
-    ]);
-    if (showsRes.error) toast.error(showsRes.error.message);
-    if (artistsRes.error) toast.error(artistsRes.error.message);
-    setShows((showsRes.data?.shows ?? []) as Show[]);
-    setOutras((showsRes.data?.outras_aprovadas ?? []) as ShowPublic[]);
-    setArtists((artistsRes.data?.artists ?? []) as ArtistLite[]);
-    setLoading(false);
+    await showsQuery.refetch();
   };
-  useEffect(() => { load(); }, []);
 
   // Pré-popula nova minuta a partir da agenda (?new=1&artist=...&data=...)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -727,7 +738,16 @@ export default function Shows() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-5 shadow-soft space-y-3">
+              <div className="h-5 w-1/2 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-1/3 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+              <div className="h-8 w-24 bg-muted rounded animate-pulse" />
+            </Card>
+          ))}
+        </div>
       ) : shows.length === 0 ? (
         <Card className="p-12 text-center shadow-soft">
           <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-3" />

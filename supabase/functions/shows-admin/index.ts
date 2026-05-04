@@ -193,6 +193,17 @@ async function autoLinkContratante(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Keep-alive: responde sem autenticar nem abrir conexão com o banco.
+  if (req.method === "POST") {
+    try {
+      const peek = req.clone();
+      const peekBody = await peek.json().catch(() => ({}));
+      if (peekBody?.action === "ping") {
+        return json({ ok: true, ts: Date.now() });
+      }
+    } catch (_) { /* segue fluxo normal */ }
+  }
+
   let sql: postgres.Sql | null = null;
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
