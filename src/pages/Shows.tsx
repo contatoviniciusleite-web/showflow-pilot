@@ -270,21 +270,14 @@ export default function Shows() {
   const [myName, setMyName] = useState<string>("");
 
   const showsQuery = useQuery({
-    queryKey: ["shows", user?.id, roles.join(","), "with-artists-v2"],
+    queryKey: ["shows", user?.id, roles.join(","), "bootstrap-v1"],
     queryFn: async () => {
-      const [showsRes, artistsRes] = await Promise.all([
-        supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
-        // Artista é o único perfil que não precisa da lista de artistas no filtro.
-        isArtista && !isEditor && !isFinanceiro && !isVendedor
-          ? Promise.resolve({ data: { artists: [] }, error: null } as any)
-          : supabase.functions.invoke("shows-admin", { body: { action: "artists" } }),
-      ]);
-      if (showsRes.error) throw new Error(showsRes.error.message);
-      if (artistsRes.error) throw new Error(artistsRes.error.message);
+      const res = await supabase.functions.invoke("shows-admin", { body: { action: "bootstrap" } });
+      if (res.error) throw new Error(res.error.message);
       return {
-        shows: (showsRes.data?.shows ?? []) as Show[],
-        outras: (showsRes.data?.outras_aprovadas ?? []) as ShowPublic[],
-        artists: (artistsRes.data?.artists ?? []) as ArtistLite[],
+        shows: (res.data?.shows ?? []) as Show[],
+        outras: (res.data?.outras_aprovadas ?? []) as ShowPublic[],
+        artists: (res.data?.artists ?? []) as ArtistLite[],
       };
     },
     enabled: !!user?.id,
