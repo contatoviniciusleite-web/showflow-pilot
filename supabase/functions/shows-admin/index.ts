@@ -798,7 +798,17 @@ Deno.serve(async (req) => {
       if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
       if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
       const rows = await sql`select * from public.show_payments where show_id = ${body.show_id} order by data_pagamento desc, created_at desc`;
-      return json({ payments: rows });
+      const showRows = await sql`select cache_total, status::text as status from public.shows where id = ${body.show_id}`;
+      const totalRows = await sql`select coalesce(sum(valor),0)::numeric as total from public.show_payments where show_id = ${body.show_id}`;
+      const cache_total = Number((showRows[0] as any)?.cache_total ?? 0);
+      const total_pago = Number((totalRows[0] as any)?.total ?? 0);
+      return json({
+        payments: rows,
+        cache_total,
+        total_pago,
+        saldo_aberto: Math.max(0, cache_total - total_pago),
+        status: (showRows[0] as any)?.status ?? null,
+      });
     }
 
     if (action === "register_payment") {
@@ -817,6 +827,21 @@ Deno.serve(async (req) => {
       const attachmentId = body.attachment_id ? txt(body.attachment_id, 64) : null;
       if (!attachmentId && !obs) return json({ error: "Observações são obrigatórias quando não há comprovante" }, 400);
 
+      // Valida saldo em aberto (não permite ultrapassar o cachê total)
+      const showRowsPre = await sql`select s.*, a.nome as artist_nome from public.shows s left join public.artists a on a.id = s.artist_id where s.id = ${body.show_id}`;
+      if (!showRowsPre.length) return json({ error: "Show não encontrado" }, 404);
+      const sh: any = showRowsPre[0];
+      if (sh.status === "cancelada") return json({ error: "Show cancelado" }, 400);
+      const totalRows = await sql`select coalesce(sum(valor),0)::numeric as total from public.show_payments where show_id = ${body.show_id}`;
+      const totalPago = Number((totalRows[0] as any)?.total ?? 0);
+      const cacheTotal = Number(sh.cache_total ?? 0);
+      const saldo = Math.max(0, cacheTotal - totalPago);
+      if (saldo <= 0) return json({ error: "Pagamento já está quitado." }, 400);
+      // Tolerância de 1 centavo p/ arredondamento
+      if (valor > saldo + 0.005) {
+        return json({ error: `O valor informado é maior que o saldo em aberto (R$ ${saldo.toFixed(2).replace(".", ",")}). Verifique o valor.` }, 400);
+      }
+
       const profRows = await sql`select nome from public.profiles where id = ${userId}`;
       const finNome = (profRows[0] as any)?.nome ?? "Financeiro";
 
@@ -826,14 +851,29 @@ Deno.serve(async (req) => {
         returning *
       `;
 
-      const showRows = await sql`select s.*, a.nome as artist_nome from public.shows s left join public.artists a on a.id = s.artist_id where s.id = ${body.show_id}`;
-      if (showRows.length) {
-        const sh: any = showRows[0];
-        const msg = `${finNome} registrou pagamento de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}.`;
-        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_registrado", "Pagamento registrado", msg, sh.id);
-        await notifyByRoles(sql, ["gerente"], "pagamento_registrado", "Pagamento registrado", msg, sh.id);
+      const novoTotal = totalPago + valor;
+      const quitado = novoTotal + 0.005 >= cacheTotal && cacheTotal > 0;
+
+      if (quitado && sh.status !== "confirmado") {
+        await sql`
+          update public.shows set
+            status = 'confirmado'::show_status,
+            confirmado_por = ${userId},
+            confirmado_por_nome = ${finNome},
+            confirmado_em = now(),
+            updated_at = now()
+          where id = ${body.show_id}
+        `;
+        const local = sh.local ?? "local não informado";
+        const msgQ = `Pagamento do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} quitado integralmente. Confirmado por ${finNome}.`;
+        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
+        await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
+      } else {
+        const msg = `${finNome} registrou baixa de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}. Saldo em aberto: R$ ${(cacheTotal - novoTotal).toFixed(2)}.`;
+        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_registrado", "Baixa registrada", msg, sh.id);
+        await notifyByRoles(sql, ["gerente"], "pagamento_registrado", "Baixa registrada", msg, sh.id);
       }
-      return json({ payment: ins[0] });
+      return json({ payment: ins[0], saldo_aberto: Math.max(0, cacheTotal - novoTotal), quitado });
     }
 
     if (action === "delete_payment") {
