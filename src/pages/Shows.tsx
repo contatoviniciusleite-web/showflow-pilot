@@ -1352,12 +1352,16 @@ export default function Shows() {
         </DialogContent>
       </Dialog>
 
-      <ShowDetailsModal
-        show={details as any}
-        open={!!details}
-        onClose={() => setDetails(null)}
-        onChanged={load}
-      />
+      {details && (
+        <Suspense fallback={null}>
+          <ShowDetailsModal
+            show={details as any}
+            open={!!details}
+            onClose={() => setDetails(null)}
+            onChanged={load}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -203,7 +203,11 @@ export function FinanceiroAgenda() {
         </Card>
       </div>
 
-      <ShowDetailsModal show={active} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+      {active && (
+        <Suspense fallback={null}>
+          <ShowDetailsModal show={active} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+        </Suspense>
+      )}
     </>
   );
 }

@@ -379,7 +379,11 @@ export default function Financeiro() {
         </div>
       </Card>
 
-      <ShowDetailsModal show={active as any} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+      {active && (
+        <Suspense fallback={null}>
+          <ShowDetailsModal show={active as any} open={!!active} onClose={() => setActive(null)} onChanged={load} />
+        </Suspense>
+      )}
     </div>
   );
 }
