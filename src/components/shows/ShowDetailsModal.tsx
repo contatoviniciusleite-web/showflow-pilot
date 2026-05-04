@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AlertTriangle, FileDown } from "lucide-react";
 import { exportDocumentPDF } from "@/lib/exporters";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface ShowLite {
   id: string;
@@ -316,27 +317,31 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
 
           {!isArtista && (
             <TabsContent value="financeiro">
-              <PaymentsTab
-                showId={show.id}
-                status={show.status}
-                confirmadoPorNome={show.confirmado_por_nome}
-                confirmadoEm={show.confirmado_em}
-                artistNome={show.artist_nome}
-                showDate={show.data_show}
-                showLocal={[show.local, show.cidade].filter(Boolean).join(" · ") || null}
-                onChanged={onChanged}
-              />
+              <ErrorBoundary label="PaymentsTab">
+                <PaymentsTab
+                  showId={show.id}
+                  status={show.status}
+                  confirmadoPorNome={show.confirmado_por_nome}
+                  confirmadoEm={show.confirmado_em}
+                  artistNome={show.artist_nome}
+                  showDate={show.data_show}
+                  showLocal={[show.local, show.cidade].filter(Boolean).join(" · ") || null}
+                  onChanged={onChanged}
+                />
+              </ErrorBoundary>
             </TabsContent>
           )}
 
           {!isArtista && (
             <TabsContent value="anexos">
-              <AttachmentsTab
-                showId={show.id}
-                artistNome={show.artist_nome}
-                showDate={show.data_show}
-                canUpload={canUpload}
-              />
+              <ErrorBoundary label="AttachmentsTab">
+                <AttachmentsTab
+                  showId={show.id}
+                  artistNome={show.artist_nome}
+                  showDate={show.data_show}
+                  canUpload={canUpload}
+                />
+              </ErrorBoundary>
             </TabsContent>
           )}
         </Tabs>

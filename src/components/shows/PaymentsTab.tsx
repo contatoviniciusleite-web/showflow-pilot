@@ -16,6 +16,7 @@ import { canRegisterPayment, canDeletePayment, canViewConfirmedBy } from "@/lib/
 import { formatCurrencyBRL } from "@/lib/masks";
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Payment {
   id: string;
@@ -83,15 +84,22 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "list_payments", show_id: showId },
-    });
-    if (error) toast.error(error.message);
-    setItems((data?.payments ?? []) as Payment[]);
-    setCacheTotal(toN(data?.cache_total));
-    setTotalPago(toN(data?.total_pago));
-    if (data?.status) setStatus(data.status);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: { action: "list_payments", show_id: showId },
+      });
+      if (error) throw error;
+      setItems(Array.isArray(data?.payments) ? (data.payments as Payment[]) : []);
+      setCacheTotal(toN(data?.cache_total));
+      setTotalPago(toN(data?.total_pago));
+      if (data?.status) setStatus(data.status);
+    } catch (err: any) {
+      console.error("Erro ao carregar pagamentos:", err);
+      toast.error(err?.message ?? "Não foi possível carregar os pagamentos.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [showId]);
@@ -102,13 +110,25 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
     // eslint-disable-next-line
   }, [saldo, loading]);
 
+  const [loadingExisting, setLoadingExisting] = useState(false);
+
   const openExistingPicker = async () => {
-    const { data, error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "list_attachments", show_id: showId },
-    });
-    if (error) return toast.error(error.message);
-    setExisting((data?.attachments ?? []) as Attachment[]);
     setPickerOpen(true);
+    setLoadingExisting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: { action: "list_attachments", show_id: showId },
+      });
+      if (error) throw error;
+      setExisting(Array.isArray(data?.attachments) ? (data.attachments as Attachment[]) : []);
+    } catch (err: any) {
+      console.error("Erro ao carregar anexos:", err);
+      toast.error(err?.message ?? "Não foi possível carregar os anexos.");
+      setExisting([]);
+      setPickerOpen(false);
+    } finally {
+      setLoadingExisting(false);
+    }
   };
 
   const pickExisting = (a: Attachment) => {
@@ -391,8 +411,16 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Selecionar comprovante</DialogTitle></DialogHeader>
-          {existing.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum anexo neste show. Use "Anexar novo".</p>
+          {loadingExisting ? (
+            <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : (existing ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Nenhum comprovante encontrado para este show. Use a aba Anexos para fazer o upload primeiro.
+            </p>
           ) : (
             <ul className="space-y-2 max-h-[60vh] overflow-y-auto">
               {existing.map((a) => (
