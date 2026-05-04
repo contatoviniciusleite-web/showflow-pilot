@@ -59,8 +59,7 @@ function effectiveStatus(s: FinShow): string {
 }
 
 export default function Financeiro() {
-  const [shows, setShows] = useState<FinShow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [active, setActive] = useState<FinShow | null>(null);
 
   const [fArtist, setFArtist] = useState<string>("all");
@@ -68,26 +67,32 @@ export default function Financeiro() {
   const [fFrom, setFFrom] = useState<string>("");
   const [fTo, setFTo] = useState<string>("");
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.functions.invoke("shows-admin", {
-      body: { action: "finance_summary" },
-    });
-    if (!error) setShows((data?.shows ?? []) as FinShow[]);
-    setLoading(false);
-  };
+  const finQuery = useQuery({
+    queryKey: ["financeiro"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("shows-admin", {
+        body: { action: "finance_summary" },
+      });
+      if (error) throw new Error(error.message);
+      return (data?.shows ?? []) as FinShow[];
+    },
+  });
+  const shows = finQuery.data ?? [];
+  const loading = finQuery.isLoading;
+  const load = () => queryClient.invalidateQueries({ queryKey: ["financeiro"] });
 
   useEffect(() => {
-    load();
     const ch = supabase
       .channel("financeiro-page")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "show_payments" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "shows" },
+        () => queryClient.invalidateQueries({ queryKey: ["financeiro"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "show_payments" },
+        () => queryClient.invalidateQueries({ queryKey: ["financeiro"] }))
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, []);
+  }, [queryClient]);
 
   const artists = useMemo(() => {
     const m = new Map<string, string>();
