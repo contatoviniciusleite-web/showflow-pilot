@@ -392,11 +392,11 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
                     <span className="text-muted-foreground font-normal"> · {FORMA_LABEL[p.forma_pagamento] ?? p.forma_pagamento}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Pago em {format(new Date(p.data_pagamento + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}
+                    Pago em {safeFmt(p.data_pagamento, "dd/MM/yyyy", { locale: ptBR })}
                     {p.conta_destino ? ` · ${p.conta_destino}` : ""}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Confirmado por {p.registrado_por_nome ?? "—"} em {format(new Date(p.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    Confirmado por {p.registrado_por_nome ?? "—"} em {safeFmt(p.created_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                   {p.observacoes && <p className="text-xs mt-1">{p.observacoes}</p>}
                 </div>
