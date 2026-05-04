@@ -334,12 +334,14 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
 
           {!isArtista && (
             <TabsContent value="anexos">
-              <AttachmentsTab
-                showId={show.id}
-                artistNome={show.artist_nome}
-                showDate={show.data_show}
-                canUpload={canUpload}
-              />
+              <ErrorBoundary label="AttachmentsTab">
+                <AttachmentsTab
+                  showId={show.id}
+                  artistNome={show.artist_nome}
+                  showDate={show.data_show}
+                  canUpload={canUpload}
+                />
+              </ErrorBoundary>
             </TabsContent>
           )}
         </Tabs>
