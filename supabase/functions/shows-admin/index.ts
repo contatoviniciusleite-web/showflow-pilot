@@ -836,6 +836,7 @@ Deno.serve(async (req) => {
       return json({ rows });
     }
 
+    if (action === "list_payments") {
       if (typeof body.show_id !== "string") return json({ error: "Show inválido" }, 400);
       if (isArtista && !isEditor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
       const rows = await sql`
