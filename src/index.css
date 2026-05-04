@@ -118,3 +118,45 @@
   .shadow-soft { box-shadow: var(--shadow-soft); }
   .shadow-elevated { box-shadow: var(--shadow-elevated); }
 }
+
+/* ============ Stage brand (landing) ============ */
+:root {
+  --stage-ink: 0 0% 10%;            /* #1a1a1a */
+  --stage-green: 145 100% 39%;      /* #00C853 */
+  --stage-green-deep: 145 100% 32%;
+}
+
+html { scroll-behavior: smooth; }
+
+@keyframes stage-float-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes stage-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes stage-scroll-bounce {
+  0%, 100% { transform: translateY(0); opacity: .4; }
+  50%      { transform: translateY(8px); opacity: 1; }
+}
+@keyframes stage-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: .6; }
+}
+
+.stage-reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+.stage-reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+.stage-flip { perspective: 1000px; }
+.stage-flip-inner {
+  position: relative; width: 100%; height: 100%;
+  transition: transform .6s; transform-style: preserve-3d;
+}
+.stage-flip:hover .stage-flip-inner,
+.stage-flip:focus-within .stage-flip-inner { transform: rotateY(180deg); }
+.stage-flip-face {
+  position: absolute; inset: 0;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+.stage-flip-back { transform: rotateY(180deg); }
