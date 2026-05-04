@@ -45,9 +45,8 @@ const AUTO_BADGE = "bg-yellow-500/15 text-yellow-700 border border-yellow-500/30
 
 export function GerenciaDashboard() {
   const { user, roles } = useAuth();
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState<Period>("mes");
-  const [shows, setShows] = useState<ShowFull[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filterArtist, setFilterArtist] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [chartScale, setChartScale] = useState<"mes" | "ano">("mes");
@@ -57,34 +56,40 @@ export function GerenciaDashboard() {
 
   const isFinanceiro = roles.includes("financeiro") && !roles.includes("gerente");
 
-  const refetch = async () => {
-    const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
-    const list = (r.data?.shows ?? []) as ShowFull[];
-    setShows(list);
-    setLoading(false);
+  const dashQuery = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: async () => {
+      const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
+      return (r.data?.shows ?? []) as ShowFull[];
+    },
+  });
+  const shows = dashQuery.data ?? [];
+  const loading = dashQuery.isLoading;
 
-    // Busca nomes dos gerentes que aprovaram (para auditoria).
+  // Busca nomes dos gerentes que aprovaram (para auditoria).
+  useEffect(() => {
     const ids = Array.from(
-      new Set(list.filter((s) => s.auto_aprovado && s.aprovado_por).map((s) => s.aprovado_por as string)),
+      new Set(shows.filter((s) => s.auto_aprovado && s.aprovado_por).map((s) => s.aprovado_por as string)),
     );
-    if (ids.length > 0) {
+    if (ids.length === 0) return;
+    (async () => {
       const { data: profs } = await supabase.from("profiles").select("id,nome").in("id", ids);
       const map: Record<string, string> = {};
       (profs ?? []).forEach((p: { id: string; nome: string | null }) => {
         map[p.id] = p.nome ?? p.id.slice(0, 8);
       });
       setProfileMap(map);
-    }
-  };
+    })();
+  }, [shows]);
 
   useEffect(() => {
-    refetch();
     const ch = supabase
       .channel("gerencia-dash")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shows" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "shows" },
+        () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [queryClient]);
 
   const range = useMemo(() => getRangeFor(period), [period]);
   const month = useMemo(() => getMonthRange(), []);
