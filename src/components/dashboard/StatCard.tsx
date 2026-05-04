@@ -10,6 +10,7 @@ export function StatCard({
   hint,
   tone = "default",
   highlight = false,
+  onClick,
 }: {
   label: string;
   value: string;
@@ -17,6 +18,7 @@ export function StatCard({
   hint?: string;
   tone?: StatTone;
   highlight?: boolean;
+  onClick?: () => void;
 }) {
   const toneCls =
     tone === "amber" ? "bg-amber-500/10 text-amber-600" :
