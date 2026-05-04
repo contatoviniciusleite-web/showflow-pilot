@@ -214,6 +214,133 @@ export default function Relatorios() {
   const showShowsTab = isManager || isFinanceiro || isVendedor;
   const defaultTab = showShowsTab ? "shows" : showArtistTab ? "artista" : showVendedoresTab ? "vendedores" : "geral";
 
+  // ---------- EXPORTAÇÕES ----------
+  const filterDesc = () => {
+    const parts: string[] = [];
+    parts.push(`Ano: ${year === "all" ? "Todos" : year}`);
+    parts.push(`Mês: ${month === "all" ? "Todos" : MONTHS_PT[Number(month) - 1]}`);
+    if (artistId !== "all") {
+      const a = artists.find((x) => x.id === artistId);
+      parts.push(`Artista: ${a?.nome ?? "—"}`);
+    }
+    return parts;
+  };
+
+  const exportShowsPeriodo = (kind: "pdf" | "csv") => {
+    const today = toIsoDate(new Date());
+    const cols: Column[] = [
+      { header: "Data", key: (r: RShow) => fmtBR(r.data_show) },
+      { header: "Artista", key: (r: RShow) => r.artist_nome ?? "—" },
+      { header: "Vendedor", key: (r: RShow) => r.vendedor ?? "—" },
+      { header: "Local", key: (r: RShow) => [r.local, r.cidade].filter(Boolean).join(" · ") || "—" },
+      { header: "Status", key: (r: RShow) => (STATUS_LABEL as any)[r.status] ?? r.status },
+      {
+        header: "Situação",
+        key: (r: RShow) => {
+          if (r.status === "cancelada") return "Cancelado";
+          if ((r.remarcado_count ?? 0) > 0) return `Remarcado (${r.remarcado_count}x)`;
+          if (r.data_show < today) return "Realizado";
+          return "A realizar";
+        },
+      },
+      { header: "Cachê", key: (r: RShow) => fmtBRLnum(Number(r.cache_total)), align: "right" },
+      {
+        header: "Pendente",
+        key: (r: RShow) =>
+          r.status === "cancelada"
+            ? fmtBRLnum(0)
+            : fmtBRLnum(Math.max(Number(r.cache_total) - Number(r.total_pago), 0)),
+        align: "right",
+      },
+    ];
+    const meta = {
+      title: "Shows do período",
+      subtitle: `Período: ${fmtBR(periodRange.start)} – ${fmtBR(periodRange.end)} (${periodo === "semana" ? "Semanal" : "Mensal"})`,
+      filters: artistId === "all" ? [] : [`Artista: ${artists.find((a) => a.id === artistId)?.nome ?? "—"}`],
+      filename: `shows-${periodRange.start}_${periodRange.end}`,
+      summary: [
+        { label: "Total de shows", value: String(periodShows.length) },
+        { label: "Realizados", value: String(periodTotals.realizados) },
+        { label: "A realizar", value: String(periodTotals.aRealizar) },
+        { label: "Cancelados", value: String(periodTotals.cancelados) },
+        { label: "Remarcados", value: String(periodTotals.remarcados) },
+        { label: "Cachê total", value: fmtBRLnum(periodTotals.cache) },
+        { label: "Recebido", value: fmtBRLnum(periodTotals.pago) },
+        { label: "Pendente", value: fmtBRLnum(periodTotals.pend) },
+      ],
+    };
+    if (kind === "pdf") exportPDF(periodShows, cols, meta);
+    else exportCSV(periodShows, cols, meta);
+  };
+
+  const exportArtistas = (kind: "pdf" | "csv") => {
+    const cols: Column[] = [
+      { header: "Artista", key: "nome" },
+      { header: "Shows", key: "shows", align: "right" },
+      { header: "Bruto", key: (r: any) => fmtBRLnum(r.bruto), align: "right" },
+      { header: "Despesas", key: (r: any) => fmtBRLnum(r.despesas), align: "right" },
+      { header: "Líquido", key: (r: any) => fmtBRLnum(r.liquido), align: "right" },
+    ];
+    const meta = {
+      title: "Resumo por artista",
+      filters: filterDesc(),
+      filename: `relatorio-artistas-${year}-${month}`,
+      summary: [
+        { label: "Total bruto", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.bruto, 0)) },
+        { label: "Total despesas", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.despesas, 0)) },
+        { label: "Total líquido", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.liquido, 0)) },
+      ],
+    };
+    if (kind === "pdf") exportPDF(byArtist, cols, meta);
+    else exportCSV(byArtist, cols, meta);
+  };
+
+  const exportVendedores = (kind: "pdf" | "csv") => {
+    const cols: Column[] = [
+      { header: "Vendedor", key: "nome" },
+      { header: "Minutas", key: "total", align: "right" },
+      { header: "Aprovadas", key: "aprovados", align: "right" },
+      { header: "Canceladas", key: "cancelados", align: "right" },
+      {
+        header: "Taxa aprovação",
+        key: (r: any) => (r.total ? `${Math.round((r.aprovados / r.total) * 100)}%` : "—"),
+        align: "right",
+      },
+      { header: "Volume", key: (r: any) => fmtBRLnum(r.volume), align: "right" },
+    ];
+    const meta = {
+      title: "Ranking de vendedores",
+      filters: filterDesc(),
+      filename: `relatorio-vendedores-${year}-${month}`,
+      summary: [
+        { label: "Volume total", value: fmtBRLnum(byVendedor.reduce((a, r) => a + r.volume, 0)) },
+      ],
+    };
+    if (kind === "pdf") exportPDF(byVendedor, cols, meta);
+    else exportCSV(byVendedor, cols, meta);
+  };
+
+  const exportGeral = (kind: "pdf" | "csv") => {
+    const cols: Column[] = [
+      { header: "Mês", key: "label" },
+      { header: "Bruto", key: (r: any) => fmtBRLnum(r.bruto), align: "right" },
+      { header: "Pago", key: (r: any) => fmtBRLnum(r.pago), align: "right" },
+    ];
+    const meta = {
+      title: "Geral da produtora — Evolução mensal",
+      filters: filterDesc(),
+      filename: `relatorio-geral-${year}`,
+      summary: [
+        { label: "Shows realizados", value: String(consolidado.realizados) },
+        { label: "Shows cancelados", value: String(consolidado.cancelados) },
+        { label: "Faturamento bruto", value: fmtBRLnum(byArtist.reduce((a, r) => a + r.bruto, 0)) },
+      ],
+    };
+    if (kind === "pdf") exportPDF(monthlyEvolution, cols, meta);
+    else exportCSV(monthlyEvolution, cols, meta);
+  };
+
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       <header>
