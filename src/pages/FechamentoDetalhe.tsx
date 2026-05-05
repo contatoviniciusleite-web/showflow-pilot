@@ -1400,6 +1400,28 @@ export default function FechamentoDetalhe() {
         <Textarea rows={4} value={observacoes} disabled={readonly}
           onChange={(e) => setObservacoes(e.target.value)} placeholder="Anotações deste fechamento..." />
       </Card>
+
+      {canEdit && (
+        <div className="flex justify-end pt-2">
+          <Button variant="destructive" onClick={() => setOpenDelete(true)}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Excluir fechamento
+          </Button>
+        </div>
+      )}
+
+      <DeleteClosingDialog
+        open={openDelete}
+        onOpenChange={setOpenDelete}
+        closing={closing ? {
+          id: closing.id,
+          semana_inicio: closing.semana_inicio,
+          semana_fim: closing.semana_fim,
+          status: closing.status,
+          artistName,
+        } : null}
+        onDeleted={() => navigate("/fechamento")}
+      />
     </div>
     </TooltipProvider>
   );
