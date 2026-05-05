@@ -716,6 +716,7 @@ export default function FechamentoDetalhe() {
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
         custo_equipe: Number(s.custo_equipe || 0),
+        van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         despesas_detalhe: showExpenses
           .filter((e) => e.closing_show_id === s.id)
