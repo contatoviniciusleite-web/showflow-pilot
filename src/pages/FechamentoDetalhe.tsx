@@ -383,17 +383,34 @@ export default function FechamentoDetalhe() {
     toast.success(`Parcela de "${p.descricao}" incluída.`);
   };
 
-  // ===== Cálculo =====
+  // Despesas (não-Van) por show — somente as próprias do show + gerais vinculadas (não Van)
   const showExpensesByShow = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of showExpenses) {
+      if ((e.categoria ?? "").toLowerCase() === "van") continue;
       map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
     }
-    // Despesas gerais vinculadas a um show (e que entram no cálculo) também somam
     for (const e of generalExpenses) {
-      if (e.closing_show_id && e.incluir_no_calculo && e.responsavel === "produtora") {
-        map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
-      }
+      if (!e.closing_show_id) continue;
+      if (!e.incluir_no_calculo || e.responsavel !== "produtora") continue;
+      if ((e.categoria ?? "").toLowerCase() === "van") continue;
+      map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
+    }
+    return map;
+  }, [showExpenses, generalExpenses]);
+
+  // Van por show — agregada APENAS das despesas Van vinculadas (Seção C ou despesas internas)
+  const vanByShow = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of showExpenses) {
+      if ((e.categoria ?? "").toLowerCase() !== "van") continue;
+      map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
+    }
+    for (const e of generalExpenses) {
+      if (!e.closing_show_id) continue;
+      if (!e.incluir_no_calculo || e.responsavel !== "produtora") continue;
+      if ((e.categoria ?? "").toLowerCase() !== "van") continue;
+      map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
     }
     return map;
   }, [showExpenses, generalExpenses]);
@@ -412,19 +429,24 @@ export default function FechamentoDetalhe() {
     [generalExpenses],
   );
 
+  const totalClipe = useMemo(
+    () => clipes.reduce((a, c) => a + Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0), 0),
+    [clipes],
+  );
+
   const totals = useMemo(
     () => {
       const showInputs = shows.map((s) => ({
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
         custo_equipe: Number(s.custo_equipe || 0),
+        van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         incluido: s.incluido,
       }));
-      // Despesas gerais NÃO vinculadas: adiciona como "show fantasma" só com despesas
       if (totalDespesasGeraisCalc > 0) {
         showInputs.push({
-          cache_total: 0, comissao_vendedor: 0, custo_equipe: 0,
+          cache_total: 0, comissao_vendedor: 0, custo_equipe: 0, van: 0,
           despesas_show: totalDespesasGeraisCalc, incluido: true,
         });
       }
@@ -441,9 +463,10 @@ export default function FechamentoDetalhe() {
           imposto_percentual: config.imposto_percentual,
           partners,
         },
+        clipes.map((c) => ({ quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0) })),
       );
     },
-    [shows, showExpensesByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc],
+    [shows, showExpensesByShow, vanByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
   );
 
   const totalEquipeBase = useMemo(
