@@ -94,7 +94,19 @@ type PendingInvestment = {
   data_compra: string | null;
 };
 
-const CATEGORIAS_DESPESA = ["Van", "Equipamento", "Efeitos", "Combustível", "Alimentação", "Outros"];
+type GeneralExpense = {
+  id: string;
+  categoria: string;
+  descricao: string | null;
+  closing_show_id: string | null;
+  responsavel: "produtora" | "contratante";
+  incluir_no_calculo: boolean;
+  valor: number;
+  _new?: boolean;
+  _dirty?: boolean;
+};
+
+const CATEGORIAS_DESPESA = ["Van", "Equipamento", "Efeitos", "Figurino", "Ensaio", "Combustível", "Alimentação", "Outros"];
 const CATEGORIAS_INVEST = ["Equipamento", "Figurino", "Clipe", "Marketing", "Outros"];
 
 export default function FechamentoDetalhe() {
