@@ -1352,7 +1352,7 @@ export default function FechamentoDetalhe() {
             </div>
             <div className="border-t my-2" />
             <Linha label="(-) Comissão vendedores" value={-totals.totalComissoes} />
-            <Linha label="(-) Custo equipe" value={-totals.totalCustoEquipeShows} />
+            <Linha label="(-) Custo equipe" value={-totals.totalEquipe} />
             <Linha label="(-) Van" value={-totals.totalVan} />
             <Linha label="(-) Despesas dos shows" value={-totals.totalDespesasShows} />
             <Linha label="(-) Custo clipe" value={-totals.totalClipe} />
