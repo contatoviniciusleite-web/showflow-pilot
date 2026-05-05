@@ -26,8 +26,19 @@ function isRole(v: unknown): v is Role {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function messageFrom(error: unknown) {
-  return error instanceof Error ? error.message : String(error ?? "Erro interno");
+function messageFrom(error: unknown): string {
+  if (!error) return "Erro interno";
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (typeof error === "object") {
+    const e = error as Record<string, unknown>;
+    if (typeof e.message === "string") return e.message;
+    if (typeof e.error === "string") return e.error;
+    if (typeof e.details === "string") return e.details;
+    if (typeof e.hint === "string") return e.hint;
+    try { return JSON.stringify(error); } catch { return "Erro interno"; }
+  }
+  return String(error);
 }
 
 async function retry<T>(label: string, operation: () => Promise<T>, attempts = 3): Promise<T> {
