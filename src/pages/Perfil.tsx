@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { maskPhone, phoneDigits, toStoredPhone, fromStoredPhone } from "@/lib/phone";
 
 const schema = z.object({
   nome: z
@@ -17,12 +18,10 @@ const schema = z.object({
     .trim()
     .min(2, "Informe seu nome completo")
     .max(120, "Nome muito longo"),
-  telefone: z
+  telefoneDigits: z
     .string()
-    .trim()
-    .max(40, "Telefone muito longo")
-    .optional()
-    .or(z.literal("")),
+    .refine((v) => v === "" || v.length >= 10, "Telefone deve ter ao menos 10 dígitos")
+    .refine((v) => v.length <= 11, "Telefone inválido"),
 });
 
 export default function Perfil() {
@@ -36,18 +35,20 @@ export default function Perfil() {
   useEffect(() => {
     if (profile) {
       setNome(profile.nome ?? "");
-      setTelefone(profile.telefone ?? "");
+      setTelefone(fromStoredPhone(profile.telefone));
     }
   }, [profile]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    const parsed = schema.safeParse({ nome, telefone });
+    const digits = phoneDigits(telefone);
+    const parsed = schema.safeParse({ nome, telefoneDigits: digits });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
     }
+    const stored = toStoredPhone(telefone) || null;
     setSaving(true);
     const { error: profileError } = await supabase
       .from("profiles")
@@ -55,7 +56,7 @@ export default function Perfil() {
         {
           id: user.id,
           nome: parsed.data.nome,
-          telefone: parsed.data.telefone || null,
+          telefone: stored,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" }
@@ -69,7 +70,7 @@ export default function Perfil() {
       data: {
         full_name: parsed.data.nome,
         nome: parsed.data.nome,
-        telefone: parsed.data.telefone || null,
+        telefone: stored,
       },
     });
     setSaving(false);
@@ -121,13 +122,19 @@ export default function Perfil() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="telefone">Telefone / WhatsApp</Label>
-              <Input
-                id="telefone"
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                maxLength={40}
-                placeholder="(00) 00000-0000"
-              />
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-sm text-muted-foreground">
+                  +55
+                </span>
+                <Input
+                  id="telefone"
+                  className="rounded-l-none"
+                  value={telefone}
+                  onChange={(e) => setTelefone(maskPhone(e.target.value))}
+                  inputMode="tel"
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
               <Button type="submit" disabled={saving}>

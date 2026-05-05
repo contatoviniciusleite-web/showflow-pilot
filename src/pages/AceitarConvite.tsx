@@ -8,11 +8,15 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Music2, Loader2 } from "lucide-react";
 import { z } from "zod";
+import { maskPhone, phoneDigits, toStoredPhone } from "@/lib/phone";
 
 const schema = z
   .object({
     nome: z.string().trim().min(2, "Informe seu nome completo").max(120),
-    telefone: z.string().trim().min(8, "Informe um telefone válido").max(40),
+    telefoneDigits: z
+      .string()
+      .min(10, "Informe um WhatsApp válido (mínimo 10 dígitos)")
+      .max(11, "Telefone inválido"),
     password: z.string().min(6, "Senha deve ter ao menos 6 caracteres").max(72),
     confirm: z.string(),
   })
@@ -90,7 +94,8 @@ export default function AceitarConvite() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = schema.safeParse({ nome, telefone, password, confirm });
+    const digits = phoneDigits(telefone);
+    const parsed = schema.safeParse({ nome, telefoneDigits: digits, password, confirm });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
@@ -99,6 +104,7 @@ export default function AceitarConvite() {
       toast.error("Sessão inválida. Solicite um novo convite.");
       return;
     }
+    const stored = toStoredPhone(telefone);
     setLoading(true);
 
     const { error: updateError } = await supabase.auth.updateUser({
@@ -106,7 +112,7 @@ export default function AceitarConvite() {
       data: {
         full_name: parsed.data.nome,
         nome: parsed.data.nome,
-        telefone: parsed.data.telefone,
+        telefone: stored,
       },
     });
     if (updateError) {
@@ -121,7 +127,7 @@ export default function AceitarConvite() {
         {
           id: userId,
           nome: parsed.data.nome,
-          telefone: parsed.data.telefone,
+          telefone: stored,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" }
@@ -183,15 +189,24 @@ export default function AceitarConvite() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="telefone">Telefone / WhatsApp *</Label>
-                <Input
-                  id="telefone"
-                  required
-                  maxLength={40}
-                  value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
-                  placeholder="(00) 00000-0000"
-                />
+                <Label htmlFor="telefone">WhatsApp *</Label>
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-sm text-muted-foreground">
+                    +55
+                  </span>
+                  <Input
+                    id="telefone"
+                    required
+                    className="rounded-l-none"
+                    value={telefone}
+                    onChange={(e) => setTelefone(maskPhone(e.target.value))}
+                    inputMode="tel"
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Informe seu WhatsApp para receber notificações do sistema.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Nova senha *</Label>
