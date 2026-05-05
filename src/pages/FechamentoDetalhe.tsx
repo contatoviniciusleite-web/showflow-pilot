@@ -261,6 +261,28 @@ export default function FechamentoDetalhe() {
     setRemovedShowExpenses((arr) => [...arr, rowId]);
   };
 
+  // ===== Despesas gerais (Seção C) =====
+  const addGeneralExpense = () =>
+    setGeneralExpenses((arr) => [
+      ...arr,
+      {
+        id: crypto.randomUUID(),
+        categoria: "Outros",
+        descricao: "",
+        closing_show_id: null,
+        responsavel: "produtora",
+        incluir_no_calculo: true,
+        valor: 0,
+        _new: true,
+      },
+    ]);
+  const updateGeneralExpense = (rowId: string, patch: Partial<GeneralExpense>) =>
+    setGeneralExpenses((arr) => arr.map((e) => (e.id === rowId ? { ...e, ...patch, _dirty: true } : e)));
+  const removeGeneralExpense = (rowId: string) => {
+    setGeneralExpenses((arr) => arr.filter((e) => e.id !== rowId));
+    setRemovedGeneralExpenses((arr) => [...arr, rowId]);
+  };
+
   const updateCrew = (rowId: string, patch: Partial<CrewRow>) =>
     setCrew((arr) =>
       arr.map((c) => {
