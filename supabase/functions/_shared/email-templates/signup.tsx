@@ -9,10 +9,11 @@ import {
   Head,
   Heading,
   Html,
-  Link,
   Preview,
+  Section,
   Text,
 } from 'npm:@react-email/components@0.0.22'
+import { styles } from './_brand.ts'
 
 interface SignupEmailProps {
   siteName: string
@@ -21,66 +22,39 @@ interface SignupEmailProps {
   confirmationUrl: string
 }
 
-export const SignupEmail = ({
-  siteName,
-  siteUrl,
-  recipient,
-  confirmationUrl,
-}: SignupEmailProps) => (
-  <Html lang="en" dir="ltr">
+export const SignupEmail = ({ confirmationUrl }: SignupEmailProps) => (
+  <Html lang="pt-BR" dir="ltr">
     <Head />
-    <Preview>Confirm your email for {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Confirm your email</Heading>
-        <Text style={text}>
-          Thanks for signing up for{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
-          </Link>
-          !
-        </Text>
-        <Text style={text}>
-          Please confirm your email address (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) by clicking the button below:
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Verify Email
-        </Button>
-        <Text style={footer}>
-          If you didn't create an account, you can safely ignore this email.
-        </Text>
+    <Preview>Confirme seu e-mail no Stage</Preview>
+    <Body style={styles.main}>
+      <Container style={styles.container}>
+        <Section style={styles.header}>
+          <Text style={styles.logoNote}>🎵</Text>
+          <Heading as="h1" style={styles.logo}>Stage</Heading>
+          <Text style={styles.tagline}>Gestão para produtoras musicais</Text>
+        </Section>
+        <Section style={styles.body}>
+          <Heading as="h2" style={styles.h1}>Confirme seu e-mail</Heading>
+          <Text style={styles.text}>
+            Obrigado por se cadastrar no <strong>Stage</strong>. Confirme seu
+            endereço de e-mail clicando no botão abaixo.
+          </Text>
+          <Section style={styles.buttonWrap}>
+            <Button style={styles.button} href={confirmationUrl}>
+              Confirmar e-mail
+            </Button>
+          </Section>
+          <Text style={styles.textMuted}>
+            Se você não criou esta conta, ignore este e-mail com segurança.
+          </Text>
+        </Section>
+        <Section style={styles.footer}>
+          <Text style={styles.footerTitle}>Stage — Gestão para produtoras musicais</Text>
+          <Text style={styles.footerNote}>© 2026 Todos os direitos reservados</Text>
+        </Section>
       </Container>
     </Body>
   </Html>
 )
 
 export default SignupEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const link = { color: 'inherit', textDecoration: 'underline' }
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
