@@ -405,16 +405,15 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
               RESUMO DO FECHAMENTO
             </div>
             <ResumoLine label="Total cachê bruto" value={fmtBRL(totals.totalBruto)} />
-            <ResumoLine label={`Imposto (${impostoPercentual}% sobre bruto)`} value={`-${fmtBRL(totals.totalImpostos)}`} negativo />
+            <ResumoLine label={`(-) Imposto (${impostoPercentual}%)`} value={`-${fmtBRL(totals.totalImpostos)}`} negativo />
             <ResumoLine label="(-) Comissão vendedores" value={`-${fmtBRL(totals.totalComissoes)}`} negativo />
             <ResumoLine label="(-) Custo equipe" value={`-${fmtBRL(totals.totalEquipe)}`} negativo />
             <ResumoLine label="(-) Van" value={`-${fmtBRL(totals.totalVan)}`} negativo />
             <ResumoLine label="(-) Despesas dos shows" value={`-${fmtBRL(totals.totalDespesasShows)}`} negativo />
             <ResumoLine label="(-) Custo clipe" value={`-${fmtBRL(totals.totalClipe)}`} negativo />
-            <ResumoLine label="(-) Investimentos sócios" value={`-${fmtBRL(totals.totalInvestimentos)}`} negativo />
             <div style={{ borderTop: `1px solid ${C.border}`, marginTop: "8px", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <strong style={{ fontSize: "11px" }}>SOBRA PARA DISTRIBUIR</strong>
-              <strong style={{ fontSize: "13px", color: C.green }}>{fmtBRL(totals.sobra)}</strong>
+              <strong style={{ fontSize: "13px" }}>{fmtBRL(totals.sobraDistribuir)}</strong>
             </div>
           </div>
 
