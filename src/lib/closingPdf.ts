@@ -117,14 +117,6 @@ export function exportClosingPDF(input: ClosingPdfInput) {
       fmtBRL(s.despesas_show),
       s.incluido ? "Sim" : "Não",
     ]);
-    for (const d of s.despesas_detalhe) {
-      showsBody.push([
-        "",
-        { content: `↳ ${d.categoria}: ${d.descricao || "—"}`, colSpan: 6, styles: { fontStyle: "italic" as const, textColor: 110, halign: "left" as const } },
-        { content: fmtBRL(d.valor), styles: { halign: "right" as const, textColor: 110 } },
-        "",
-      ]);
-    }
   }
   showsBody.push([
     { content: "TOTAIS", colSpan: 3, styles: { halign: "right" as const, fontStyle: "bold" as const } },
