@@ -406,14 +406,14 @@ export default function FechamentoDetalhe() {
             <ArrowLeft className="h-4 w-4 mr-2" />Voltar
           </Button>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-semibold">{artistName}</h1>
+            <h1 className="text-2xl md:text-3xl font-semibold">
+              Fechamento de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
+            </h1>
             <Badge variant={closing.status === "finalizado" ? "default" : "secondary"}>
               {closing.status === "finalizado" ? "Finalizado" : "Rascunho"}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-1">
-            Semana de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
-          </p>
+          <p className="text-muted-foreground mt-1">{artistName}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canExport && (
