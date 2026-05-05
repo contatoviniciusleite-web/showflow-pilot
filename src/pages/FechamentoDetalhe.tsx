@@ -891,6 +891,7 @@ export default function FechamentoDetalhe() {
                           <CurrencyInput className="h-8 text-right" value={s.custo_equipe} disabled={readonly}
                             onValueChange={(v) => updateShow(s.id, { custo_equipe: v })} />
                         </td>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(vanShow)}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(despesasShow)}</td>
                         <td className={cn("px-2 py-1.5 text-right whitespace-nowrap font-medium",
                           sobraShow >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>
