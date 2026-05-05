@@ -377,6 +377,10 @@ export default function Shows() {
       setLinkOpen(true);
       load();
     } catch (e: any) {
+      const Sentry = await import("@sentry/react");
+      Sentry.captureException(e, {
+        tags: { action: "generate_contratante_link", show_id: editing?.id ?? "" },
+      });
       toast.error(e?.message ?? "Erro ao gerar link");
     } finally {
       setGeneratingLink(false);

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { FileText, Image as ImageIcon, Eye, Download, Trash2, Upload, Loader2 } from "lucide-react";
+import * as Sentry from "@sentry/react";
 import { canDeleteAttachment } from "@/lib/permissions";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -82,6 +83,10 @@ export function AttachmentsTab({ showId, artistNome, showDate, canUpload }: Prop
         toast.success("Anexo adicionado");
         load();
       } catch (e: any) {
+        Sentry.captureException(e, {
+          tags: { action: "upload_attachment", show_id: showId },
+          extra: { file_name: file.name, size: file.size },
+        });
         toast.error(e?.message ?? "Falha ao enviar");
       } finally {
         setUploading(false);
