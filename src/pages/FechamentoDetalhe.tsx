@@ -608,11 +608,12 @@ export default function FechamentoDetalhe() {
       for (const [idx, c] of crew.entries()) {
         const payload = {
           closing_id: closing.id, nome: c.nome, funcao: c.funcao,
-          cache_por_show: c.cache_por_show, shows_participados: c.shows_participados,
-          total_receber: Number(c.cache_por_show || 0) * Number(c.shows_participados || 0), ordem: idx,
+          cache_por_show: c.cache_por_show, shows_participados: c.shows_ids.length,
+          shows_ids: c.shows_ids,
+          total_receber: Number(c.cache_por_show || 0) * c.shows_ids.length, ordem: idx,
         };
-        if (c._new) await supabase.from("weekly_closing_crew").insert(payload);
-        else if (c._dirty) await supabase.from("weekly_closing_crew").update(payload).eq("id", c.id);
+        if (c._new) await supabase.from("weekly_closing_crew").insert(payload as any);
+        else if (c._dirty) await supabase.from("weekly_closing_crew").update(payload as any).eq("id", c.id);
       }
 
       // Investments — primeiro processa novos cadastros (parcelados sem investment_id)
