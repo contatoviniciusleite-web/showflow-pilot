@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, Wand2, ChevronDown, ChevronRight, Minus } from "lucide-react";
+import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, ChevronDown, ChevronRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
@@ -62,6 +63,7 @@ type CrewRow = {
   funcao: string | null;
   cache_por_show: number;
   shows_participados: number;
+  shows_ids: string[];
   total_receber: number;
   ordem: number;
   _new?: boolean;
@@ -200,7 +202,19 @@ export default function FechamentoDetalhe() {
       incluir_no_calculo: e.incluir_no_calculo ?? true,
       valor: Number(e.valor ?? 0),
     })));
-    setCrew((cr.data ?? []) as any);
+    setCrew(((cr.data ?? []) as any[]).map((c) => {
+      const ids: string[] = Array.isArray(c.shows_ids) && c.shows_ids.length > 0
+        ? c.shows_ids
+        : (((s.data ?? []) as any[]).filter((x) => x.incluido).map((x) => x.id));
+      return {
+        id: c.id, nome: c.nome, funcao: c.funcao,
+        cache_por_show: Number(c.cache_por_show ?? 0),
+        shows_ids: ids,
+        shows_participados: ids.length,
+        total_receber: Number(c.cache_por_show ?? 0) * ids.length,
+        ordem: c.ordem ?? 0,
+      };
+    }));
     setInvestments(((inv.data as any[]) ?? []) as any);
     if (cfg.data) {
       setConfig({
@@ -307,19 +321,39 @@ export default function FechamentoDetalhe() {
     setCrew((arr) =>
       arr.map((c) => {
         if (c.id !== rowId) return c;
-        const next = { ...c, ...patch, _dirty: true };
-        next.total_receber = Number(next.cache_por_show || 0) * Number(next.shows_participados || 0);
+        const next: CrewRow = { ...c, ...patch, _dirty: true };
+        next.shows_participados = next.shows_ids.length;
+        next.total_receber = Number(next.cache_por_show || 0) * next.shows_participados;
         return next;
       }),
     );
+  const toggleCrewShow = (rowId: string, showId: string) =>
+    setCrew((arr) =>
+      arr.map((c) => {
+        if (c.id !== rowId) return c;
+        const has = c.shows_ids.includes(showId);
+        const ids = has ? c.shows_ids.filter((i) => i !== showId) : [...c.shows_ids, showId];
+        return {
+          ...c, shows_ids: ids,
+          shows_participados: ids.length,
+          total_receber: Number(c.cache_por_show || 0) * ids.length,
+          _dirty: true,
+        };
+      }),
+    );
   const addCrew = () =>
-    setCrew((arr) => [
-      ...arr,
-      {
-        id: crypto.randomUUID(), nome: "", funcao: "", cache_por_show: 0,
-        shows_participados: 0, total_receber: 0, ordem: arr.length, _new: true,
-      },
-    ]);
+    setCrew((arr) => {
+      const defaultIds = shows.filter((s) => s.incluido).map((s) => s.id);
+      return [
+        ...arr,
+        {
+          id: crypto.randomUUID(), nome: "", funcao: "", cache_por_show: 0,
+          shows_ids: defaultIds,
+          shows_participados: defaultIds.length,
+          total_receber: 0, ordem: arr.length, _new: true,
+        },
+      ];
+    });
   const removeCrewMember = (rowId: string) => {
     setCrew((arr) => arr.filter((c) => c.id !== rowId));
     setRemovedCrew((arr) => [...arr, rowId]);
@@ -446,12 +480,24 @@ export default function FechamentoDetalhe() {
     [clipes],
   );
 
+  // Custo de equipe por show — derivado da Seção B (membros que marcaram aquele show)
+  const crewCostByShow = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of crew) {
+      const cps = Number(c.cache_por_show || 0);
+      for (const sid of c.shows_ids) {
+        map.set(sid, (map.get(sid) ?? 0) + cps);
+      }
+    }
+    return map;
+  }, [crew]);
+
   const totals = useMemo(
     () => {
       const showInputs = shows.map((s) => ({
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
-        custo_equipe: Number(s.custo_equipe || 0),
+        custo_equipe: 0, // a equipe é somada via parâmetro `crew` para evitar duplicidade
         van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         incluido: s.incluido,
@@ -466,7 +512,7 @@ export default function FechamentoDetalhe() {
         showInputs,
         crew.map((c) => ({
           cache_por_show: Number(c.cache_por_show || 0),
-          shows_participados: Number(c.shows_participados || 0),
+          shows_participados: c.shows_ids.length,
         })),
         investments.map((i) => ({ valor_descontado: Number(i.valor_descontado || 0) })),
         {
@@ -478,54 +524,43 @@ export default function FechamentoDetalhe() {
         clipes.map((c) => ({ quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0) })),
       );
     },
-    [shows, showExpensesByShow, vanByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
+    [shows, showExpensesByShow, vanByShow, crewCostByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
   );
 
   const totalEquipeBase = useMemo(
-    () => crew.reduce((a, c) => a + Number(c.cache_por_show || 0) * Number(c.shows_participados || 0), 0),
+    () => crew.reduce((a, c) => a + Number(c.cache_por_show || 0) * c.shows_ids.length, 0),
     [crew],
   );
 
-  const maxShowsCrew = useMemo(() => shows.filter((s) => s.incluido).length, [shows]);
-
-  // Clamp shows_participados ao máximo disponível quando o número de shows incluídos muda
+  // Quando shows são incluídos/excluídos, remove dos shows_ids os ids que não estão mais incluídos
   useEffect(() => {
-    let adjustedAny = false;
+    const validIds = new Set(shows.filter((s) => s.incluido).map((s) => s.id));
     setCrew((arr) =>
       arr.map((c) => {
-        if (Number(c.shows_participados || 0) > maxShowsCrew) {
-          adjustedAny = true;
-          return { ...c, shows_participados: maxShowsCrew, total_receber: Number(c.cache_por_show || 0) * maxShowsCrew, _dirty: true };
-        }
-        return c;
+        const filtered = c.shows_ids.filter((id) => validIds.has(id));
+        if (filtered.length === c.shows_ids.length) return c;
+        return {
+          ...c, shows_ids: filtered,
+          shows_participados: filtered.length,
+          total_receber: Number(c.cache_por_show || 0) * filtered.length,
+          _dirty: true,
+        };
       }),
     );
-    if (adjustedAny) toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maxShowsCrew]);
-
-  const distributeCrewToShows = () => {
-    const incluidos = shows.filter((s) => s.incluido);
-    if (incluidos.length === 0) {
-      toast.error("Nenhum show incluído para distribuir.");
-      return;
-    }
-    const perShow = Math.round((totalEquipeBase / incluidos.length) * 100) / 100;
-    setShows((arr) => arr.map((s) => (s.incluido ? { ...s, custo_equipe: perShow } : s)));
-    toast.success("Custo de equipe distribuído entre os shows.");
-  };
+  }, [shows.map((s) => `${s.id}:${s.incluido ? 1 : 0}`).join("|")]);
 
   // ===== Save =====
   const persist = async (finalize: boolean) => {
     if (!closing) return;
     setSaving(true);
     try {
-      // Shows
+      // Shows — custo_equipe é derivado da Seção B
       for (const s of shows) {
         await supabase.from("weekly_closing_shows").update({
           cache_total: s.cache_total,
           comissao_vendedor: s.comissao_vendedor,
-          custo_equipe: s.custo_equipe,
+          custo_equipe: crewCostByShow.get(s.id) ?? 0,
           incluido: s.incluido,
         }).eq("id", s.id);
       }
@@ -575,11 +610,12 @@ export default function FechamentoDetalhe() {
       for (const [idx, c] of crew.entries()) {
         const payload = {
           closing_id: closing.id, nome: c.nome, funcao: c.funcao,
-          cache_por_show: c.cache_por_show, shows_participados: c.shows_participados,
-          total_receber: Number(c.cache_por_show || 0) * Number(c.shows_participados || 0), ordem: idx,
+          cache_por_show: c.cache_por_show, shows_participados: c.shows_ids.length,
+          shows_ids: c.shows_ids,
+          total_receber: Number(c.cache_por_show || 0) * c.shows_ids.length, ordem: idx,
         };
-        if (c._new) await supabase.from("weekly_closing_crew").insert(payload);
-        else if (c._dirty) await supabase.from("weekly_closing_crew").update(payload).eq("id", c.id);
+        if (c._new) await supabase.from("weekly_closing_crew").insert(payload as any);
+        else if (c._dirty) await supabase.from("weekly_closing_crew").update(payload as any).eq("id", c.id);
       }
 
       // Investments — primeiro processa novos cadastros (parcelados sem investment_id)
@@ -643,7 +679,7 @@ export default function FechamentoDetalhe() {
         observacoes,
         total_bruto: totals.totalBruto,
         total_comissao_vendedores: totals.totalComissoes,
-        total_equipe: totals.totalCustoEquipeShows,
+        total_equipe: totals.totalEquipe,
         total_despesas: totals.totalDespesasShows,
         total_clipe: totals.totalClipe,
         total_sobra: totals.sobra,
@@ -715,7 +751,7 @@ export default function FechamentoDetalhe() {
         cidade: s.show?.cidade,
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
-        custo_equipe: Number(s.custo_equipe || 0),
+        custo_equipe: crewCostByShow.get(s.id) ?? 0,
         van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         despesas_detalhe: showExpenses
@@ -723,12 +759,21 @@ export default function FechamentoDetalhe() {
           .map((e) => ({ categoria: e.categoria, descricao: e.descricao, valor: Number(e.valor || 0) })),
         incluido: s.incluido,
       })),
-      crew: crew.map((c) => ({
-        nome: c.nome, funcao: c.funcao,
-        cache_por_show: Number(c.cache_por_show || 0),
-        shows_participados: Number(c.shows_participados || 0),
-        total_receber: Number(c.cache_por_show || 0) * Number(c.shows_participados || 0),
-      })),
+      crew: crew.map((c) => {
+        const indices = c.shows_ids
+          .map((sid) => shows.findIndex((s) => s.id === sid))
+          .filter((i) => i >= 0)
+          .map((i) => i + 1)
+          .sort((a, b) => a - b);
+        const showsLabel = indices.length === 0 ? "—" : indices.length === 1 ? `Show ${indices[0]}` : `Shows ${indices.join(",")}`;
+        return {
+          nome: c.nome, funcao: c.funcao,
+          cache_por_show: Number(c.cache_por_show || 0),
+          shows_participados: c.shows_ids.length,
+          shows_label: showsLabel,
+          total_receber: Number(c.cache_por_show || 0) * c.shows_ids.length,
+        };
+      }),
       investments: investments.map((i) => ({
         descricao: i.descricao, categoria: i.categoria,
         valor_total: Number(i.valor_total || 0),
@@ -857,14 +902,19 @@ export default function FechamentoDetalhe() {
                 </tr>
               </thead>
               <tbody>
-                {shows.map((s) => {
+                {shows.map((s, sIdx) => {
                   const despesasShow = showExpensesByShow.get(s.id) ?? 0;
                   const vanShow = vanByShow.get(s.id) ?? 0;
-                  const totalCustosShow = Number(s.comissao_vendedor || 0) + Number(s.custo_equipe || 0) + vanShow + despesasShow;
+                  const equipeShow = crewCostByShow.get(s.id) ?? 0;
+                  const totalCustosShow = Number(s.comissao_vendedor || 0) + equipeShow + vanShow + despesasShow;
                   const sobraShow = Number(s.cache_total || 0) - totalCustosShow;
                   const pctComissao = s.cache_total > 0 ? (s.comissao_vendedor / s.cache_total) * 100 : 0;
                   const expanded = expandedShows.has(s.id);
                   const expensesOfShow = showExpenses.filter((e) => e.closing_show_id === s.id);
+                  const equipeTooltip = crew
+                    .filter((c) => c.shows_ids.includes(s.id))
+                    .map((c) => `${c.nome || "—"}: ${fmtBRL(c.cache_por_show)}`)
+                    .join("\n") || "Nenhum membro de equipe marcou este show.";
                   return (
                     <>
                       <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
@@ -893,9 +943,11 @@ export default function FechamentoDetalhe() {
                               onValueChange={(v) => updateShow(s.id, { comissao_vendedor: v })} />
                           </div>
                         </td>
-                        <td className="px-2 py-1.5">
-                          <CurrencyInput className="h-8 text-right" value={s.custo_equipe} disabled={readonly}
-                            onValueChange={(v) => updateShow(s.id, { custo_equipe: v })} />
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                          <Tooltip>
+                            <TooltipTrigger asChild><span className="cursor-help">{fmtBRL(equipeShow)}</span></TooltipTrigger>
+                            <TooltipContent className="whitespace-pre-wrap max-w-xs text-left">{equipeTooltip}</TooltipContent>
+                          </Tooltip>
                         </td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(vanShow)}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(despesasShow)}</td>
@@ -960,7 +1012,7 @@ export default function FechamentoDetalhe() {
                   <td colSpan={3} className="px-2 py-2">{nIncluidos} shows incluídos</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalComissoes)}</td>
-                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalCustoEquipeShows)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalEquipe)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalVan)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalDespesasShows)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.sobra)}</td>
@@ -975,79 +1027,90 @@ export default function FechamentoDetalhe() {
       {/* Seção B — Equipe */}
       <Card className="p-4 shadow-soft">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="font-semibold">B. Equipe</h2>
-          <div className="flex gap-2">
-            {!readonly && crew.length > 0 && (
-              <Button size="sm" variant="outline" onClick={distributeCrewToShows} title="Distribui o total de equipe entre os shows incluídos">
-                <Wand2 className="h-3.5 w-3.5 mr-1" />Distribuir nos shows
-              </Button>
-            )}
-            {!readonly && (
-              <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
-            )}
+          <div>
+            <h2 className="font-semibold">B. Equipe</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Marque os shows em que cada membro participou. O custo de equipe de cada show é calculado automaticamente.
+            </p>
           </div>
+          {!readonly && (
+            <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
+          )}
         </div>
         {crew.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum membro cadastrado.</p>
         ) : (
-          <div className="space-y-2">
-            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <div className="col-span-3">Nome</div>
-              <div className="col-span-2">Função</div>
-              <div className="col-span-2 text-right">Cachê por show</div>
-              <div className="col-span-2 text-center">Qtd. shows</div>
-              <div className="col-span-2 text-right">Total</div>
-              <div className="col-span-1" />
-            </div>
-            {crew.map((c) => (
-              <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
-                <Input className="col-span-3" placeholder="Nome" value={c.nome} disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { nome: e.target.value })} />
-                <Input className="col-span-2" placeholder="Função" value={c.funcao ?? ""} disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { funcao: e.target.value })} />
-                <CurrencyInput className="col-span-2 text-right" value={c.cache_por_show} disabled={readonly}
-                  onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })} />
-                <div className="col-span-2 flex items-center justify-center gap-1">
-                  {!readonly && (
-                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
-                      onClick={() => updateCrew(c.id, { shows_participados: Math.max(0, Number(c.shows_participados || 0) - 1) })}
-                      disabled={Number(c.shows_participados || 0) <= 0}>
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                  )}
-                  <Input className="h-8 text-center w-14" type="number" min={0} max={maxShowsCrew}
-                    placeholder={`Máx. ${maxShowsCrew}`}
-                    value={c.shows_participados} disabled={readonly}
-                    onChange={(e) => {
-                      const v = Math.max(0, Math.min(maxShowsCrew, Number(e.target.value) || 0));
-                      updateCrew(c.id, { shows_participados: v });
-                    }} />
-                  {!readonly && (
-                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
-                      onClick={() => {
-                        const cur = Number(c.shows_participados || 0);
-                        if (cur >= maxShowsCrew) {
-                          toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
-                          return;
-                        }
-                        updateCrew(c.id, { shows_participados: cur + 1 });
-                      }}
-                      disabled={Number(c.shows_participados || 0) >= maxShowsCrew}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-                <div className="col-span-2 text-right text-sm">{fmtBRL(c.cache_por_show * c.shows_participados)}</div>
-                {!readonly && (
-                  <Button size="icon" variant="ghost" className="col-span-1 text-destructive hover:text-destructive"
-                    onClick={() => removeCrewMember(c.id)}><Trash2 className="h-4 w-4" /></Button>
-                )}
-              </div>
-            ))}
-            <div className="flex items-center justify-between pt-2 text-sm">
-              <span className="text-xs text-muted-foreground">Baseado em {maxShowsCrew} show(s) incluído(s) neste fechamento</span>
-              <span className="font-medium">TOTAL EQUIPE: {fmtBRL(totalEquipeBase)}</span>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[800px]">
+              <thead className="bg-muted/40">
+                <tr className="text-left">
+                  <th className="px-2 py-1.5">Nome</th>
+                  <th className="px-2 py-1.5">Função</th>
+                  <th className="px-2 py-1.5 text-right w-[140px]">Cachê/show</th>
+                  <th className="px-2 py-1.5">Shows participados</th>
+                  <th className="px-2 py-1.5 text-right w-[110px]">Total</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {crew.map((c) => {
+                  const incluidos = shows.filter((s) => s.incluido);
+                  return (
+                    <tr key={c.id} className="border-t align-top">
+                      <td className="px-2 py-2">
+                        <Input className="h-8" placeholder="Nome" value={c.nome} disabled={readonly}
+                          onChange={(e) => updateCrew(c.id, { nome: e.target.value })} />
+                      </td>
+                      <td className="px-2 py-2">
+                        <Input className="h-8" placeholder="Função" value={c.funcao ?? ""} disabled={readonly}
+                          onChange={(e) => updateCrew(c.id, { funcao: e.target.value })} />
+                      </td>
+                      <td className="px-2 py-2">
+                        <CurrencyInput className="h-8 text-right" value={c.cache_por_show} disabled={readonly}
+                          onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })} />
+                      </td>
+                      <td className="px-2 py-2">
+                        {incluidos.length === 0 ? (
+                          <span className="text-xs text-muted-foreground italic">Nenhum show incluído</span>
+                        ) : (
+                          <div className="space-y-1">
+                            {incluidos.map((s, idx) => {
+                              const checked = c.shows_ids.includes(s.id);
+                              const label = `Show ${idx + 1} — ${s.show?.local || s.show?.cidade || "Show"} ${s.show?.data_show ? fmtDateBR(s.show.data_show).slice(0, 5) : ""}`.trim();
+                              return (
+                                <label key={s.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                  <Checkbox checked={checked} disabled={readonly}
+                                    onCheckedChange={() => toggleCrewShow(c.id, s.id)} />
+                                  <span>{label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-right text-sm font-medium whitespace-nowrap">
+                        {fmtBRL(Number(c.cache_por_show || 0) * c.shows_ids.length)}
+                      </td>
+                      <td className="px-2 py-2">
+                        {!readonly && (
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => removeCrewMember(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-muted/30 font-medium">
+                <tr>
+                  <td colSpan={4} className="px-2 py-2 text-xs text-muted-foreground">
+                    Baseado em {shows.filter((s) => s.incluido).length} show(s) incluído(s) neste fechamento
+                  </td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totalEquipeBase)}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
       </Card>
@@ -1289,7 +1352,7 @@ export default function FechamentoDetalhe() {
             </div>
             <div className="border-t my-2" />
             <Linha label="(-) Comissão vendedores" value={-totals.totalComissoes} />
-            <Linha label="(-) Custo equipe" value={-totals.totalCustoEquipeShows} />
+            <Linha label="(-) Custo equipe" value={-totals.totalEquipe} />
             <Linha label="(-) Van" value={-totals.totalVan} />
             <Linha label="(-) Despesas dos shows" value={-totals.totalDespesasShows} />
             <Linha label="(-) Custo clipe" value={-totals.totalClipe} />

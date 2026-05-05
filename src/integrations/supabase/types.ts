@@ -1148,6 +1148,7 @@ export type Database = {
           id: string
           nome: string
           ordem: number
+          shows_ids: string[]
           shows_participados: number
           total_receber: number
         }
@@ -1158,6 +1159,7 @@ export type Database = {
           id?: string
           nome: string
           ordem?: number
+          shows_ids?: string[]
           shows_participados?: number
           total_receber?: number
         }
@@ -1168,6 +1170,7 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+          shows_ids?: string[]
           shows_participados?: number
           total_receber?: number
         }
