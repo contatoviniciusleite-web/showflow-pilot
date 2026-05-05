@@ -39,7 +39,7 @@ const nav = [
   { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["diretor", "gerente", "equipe", "artista", "vendedor"] },
   { to: "/shows", label: "Shows", icon: ListMusic, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["diretor", "gerente", "equipe", "artista", "financeiro"] },
-  { to: "/fechamento", label: "Fechamentos", icon: FileSpreadsheet, roles: ["diretor", "gerente", "financeiro", "artista"] },
+  { to: "/fechamento", label: "Fechamentos", icon: FileSpreadsheet, roles: ["diretor", "financeiro", "artista"] },
   { to: "/contratantes", label: "Contratantes", icon: Building2, roles: ["diretor", "gerente", "equipe", "vendedor", "financeiro"] },
   { to: "/diretoria", label: "Diretoria", icon: Crown, roles: ["diretor"] },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["diretor", "gerente"] },

@@ -72,7 +72,7 @@ export default function FechamentoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, roles } = useAuth();
-  const canEdit = roles.includes("diretor") || roles.includes("gerente");
+  const canEdit = roles.includes("diretor");
   const canExport = canEdit || roles.includes("financeiro");
   const isFullViewer = canEdit || roles.includes("financeiro");
   const isArtistOnly = roles.includes("artista") && !isFullViewer;
@@ -469,7 +469,7 @@ export default function FechamentoDetalhe() {
         </Card>
       ) : (
       <>
-      {/* Seções completas (gerente/diretor/financeiro) */}
+      {/* Seções completas (diretor/financeiro) */}
       {/* Seção A — Shows */}
       <Card className="p-4 shadow-soft">
         <h2 className="font-semibold mb-3">A. Shows da semana</h2>
