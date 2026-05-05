@@ -72,10 +72,10 @@ export default function FechamentoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, roles } = useAuth();
-  const canEdit = roles.includes("diretor");
-  const canExport = canEdit || roles.includes("financeiro");
-  const isFullViewer = canEdit || roles.includes("financeiro");
-  const isArtistOnly = roles.includes("artista") && !isFullViewer;
+  const canEdit = roles.includes("financeiro");
+  const canExport = roles.includes("diretor") || roles.includes("financeiro") || roles.includes("artista");
+  // Todos os papéis com acesso (diretor, financeiro, artista) veem a tela completa.
+  const isArtistOnly = false;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
