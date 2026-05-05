@@ -131,6 +131,16 @@ export function computeClosing(
     pushRow("Produtora", "produtora", sobraProdutora);
   }
 
+  // Compensação de arredondamento: ajusta diferença <= R$ 0,02 no primeiro participante
+  if (rows.length > 0 && Math.abs(somaTotal + sobraProdutora - 100) < 0.001) {
+    const somaBruto = round2(rows.reduce((a, r) => a + r.valor_bruto, 0));
+    const diff = round2(sobraDistribuir - somaBruto);
+    if (Math.abs(diff) > 0 && Math.abs(diff) <= 0.05) {
+      rows[0].valor_bruto = round2(rows[0].valor_bruto + diff);
+      rows[0].valor_liquido = round2(rows[0].valor_bruto - rows[0].investimento_valor);
+    }
+  }
+
   // totalImpostos já calculado acima
   const totalLiquido = round2(rows.reduce((a, r) => a + r.valor_liquido, 0));
 
