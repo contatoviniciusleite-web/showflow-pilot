@@ -1415,10 +1415,7 @@ export default function FechamentoDetalhe() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1.5 text-sm">
             <Linha label="Total cachê bruto" value={totals.totalBruto} />
-            <div className="text-xs text-muted-foreground italic pl-2">
-              Imposto ({config.imposto_percentual.toFixed(2)}% sobre o bruto): {fmtBRL(totals.totalImpostos)}
-            </div>
-            <div className="border-t my-2" />
+            <Linha label={`(-) Imposto (${config.imposto_percentual.toFixed(2)}%)`} value={-totals.totalImpostos} />
             <Linha label="(-) Comissão vendedores" value={-totals.totalComissoes} />
             <Linha label="(-) Custo equipe" value={-totals.totalEquipe} />
             <Linha label="(-) Van" value={-totals.totalVan} />
@@ -1426,7 +1423,7 @@ export default function FechamentoDetalhe() {
             <Linha label="(-) Custo clipe" value={-totals.totalClipe} />
             <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
               <span>(=) SOBRA PARA DISTRIBUIR</span>
-              <span>{fmtBRL(totals.sobra)}</span>
+              <span>{fmtBRL(totals.sobraDistribuir)}</span>
             </div>
           </div>
 
