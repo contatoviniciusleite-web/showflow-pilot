@@ -25,6 +25,7 @@ type Closing = {
   observacoes: string | null;
   finalizado_por: string | null;
   finalizado_em: string | null;
+  total_bruto?: number;
 };
 
 type ShowRow = {
