@@ -431,6 +431,24 @@ export default function FechamentoDetalhe() {
     [crew],
   );
 
+  const maxShowsCrew = useMemo(() => shows.filter((s) => s.incluido).length, [shows]);
+
+  // Clamp shows_participados ao máximo disponível quando o número de shows incluídos muda
+  useEffect(() => {
+    let adjustedAny = false;
+    setCrew((arr) =>
+      arr.map((c) => {
+        if (Number(c.shows_participados || 0) > maxShowsCrew) {
+          adjustedAny = true;
+          return { ...c, shows_participados: maxShowsCrew, total_receber: Number(c.cache_por_show || 0) * maxShowsCrew, _dirty: true };
+        }
+        return c;
+      }),
+    );
+    if (adjustedAny) toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxShowsCrew]);
+
   const distributeCrewToShows = () => {
     const incluidos = shows.filter((s) => s.incluido);
     if (incluidos.length === 0) {
