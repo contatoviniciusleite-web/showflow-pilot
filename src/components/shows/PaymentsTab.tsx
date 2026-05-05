@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Trash2, CheckCircle2, Paperclip, Eye, Upload, Loader2, X } from "lucide-react";
+import * as Sentry from "@sentry/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -181,6 +182,10 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
         toast.success("Comprovante anexado");
       }
     } catch (e: any) {
+      Sentry.captureException(e, {
+        tags: { action: "upload_comprovante", show_id: showId },
+        extra: { file_name: file.name, size: file.size },
+      });
       toast.error(e?.message ?? "Falha ao enviar");
     } finally {
       setUploading(false);
@@ -213,7 +218,13 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
       },
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      Sentry.captureException(error, {
+        tags: { action: "register_payment", show_id: showId },
+        extra: { valor, data_pagamento: data, forma_pagamento: forma },
+      });
+      return toast.error(error.message);
+    }
     toast.success("Baixa registrada");
     setObs(""); setConta(""); setAttachmentId(null); setAttachmentName(null);
     await load();

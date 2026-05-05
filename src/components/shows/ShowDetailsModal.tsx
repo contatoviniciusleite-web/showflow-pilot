@@ -12,6 +12,7 @@ import { PaymentsTab } from "./PaymentsTab";
 import { PaymentScheduleEditor } from "./PaymentScheduleEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import * as Sentry from "@sentry/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -109,6 +110,10 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
       onChanged?.();
       onClose();
     } catch (err: any) {
+      Sentry.captureException(err, {
+        tags: { action, show_id: show.id },
+        extra,
+      });
       toast.error(err.message ?? "Falha na ação");
     } finally {
       setBusy(false);
