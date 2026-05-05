@@ -178,6 +178,19 @@ export default function Fechamento() {
         artists={artists}
         onCreated={(id) => { setOpenNew(false); navigate(`/fechamento/${id}`); }}
       />
+
+      <DeleteClosingDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        closing={deleteTarget ? {
+          id: deleteTarget.id,
+          semana_inicio: deleteTarget.semana_inicio,
+          semana_fim: deleteTarget.semana_fim,
+          status: deleteTarget.status,
+          artistName: deleteTarget.artists?.nome ?? null,
+        } : null}
+        onDeleted={() => { setDeleteTarget(null); load(); }}
+      />
     </div>
   );
 }
