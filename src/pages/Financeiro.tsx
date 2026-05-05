@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
@@ -11,11 +11,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { lazy, Suspense } from "react";
 const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
-import { AlertTriangle, Clock, DollarSign, Wallet } from "lucide-react";
+import { AlertTriangle, Clock, DollarSign, Wallet, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import {
+  startOfMonth, endOfMonth, addMonths, startOfYear, endOfYear, format, parseISO,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
 interface FinShow {
   id: string;
@@ -35,15 +43,22 @@ interface FinShow {
   confirmado_por_nome: string | null;
   prazo_comprovante_em: string | null;
   aprovado_em: string | null;
+  condicao_pagamento?: string | null;
 }
 
 const fmtBRL = (n: number) =>
   Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtBRLshort = (n: number) => {
+  const v = Number(n || 0);
+  if (Math.abs(v) >= 1000) return `R$ ${(v / 1000).toFixed(0)}k`;
+  return `R$ ${v.toFixed(0)}`;
+};
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
   const [y, m, day] = d.split("-");
   return `${day}/${m}/${y}`;
 };
+const ymd = (d: Date) => format(d, "yyyy-MM-dd");
 
 const EXTRA_LABEL: Record<string, string> = { atrasado: "ATRASADO" };
 const EXTRA_CLASS: Record<string, string> = {
@@ -61,14 +76,58 @@ function effectiveStatus(s: FinShow): string {
   return s.status;
 }
 
+type PeriodKind = "mes" | "prox_mes" | "3m" | "6m" | "ano" | "custom";
+const PERIOD_LABEL: Record<PeriodKind, string> = {
+  mes: "Este mês",
+  prox_mes: "Próximo mês",
+  "3m": "Próximos 3 meses",
+  "6m": "Próximos 6 meses",
+  ano: "Este ano",
+  custom: "Personalizado",
+};
+
+function rangeFor(kind: PeriodKind): { from: string; to: string } {
+  const now = new Date();
+  switch (kind) {
+    case "mes": return { from: ymd(startOfMonth(now)), to: ymd(endOfMonth(now)) };
+    case "prox_mes": {
+      const n = addMonths(now, 1);
+      return { from: ymd(startOfMonth(n)), to: ymd(endOfMonth(n)) };
+    }
+    case "3m": return { from: ymd(startOfMonth(now)), to: ymd(endOfMonth(addMonths(now, 2))) };
+    case "6m": return { from: ymd(startOfMonth(now)), to: ymd(endOfMonth(addMonths(now, 5))) };
+    case "ano": return { from: ymd(startOfYear(now)), to: ymd(endOfYear(now)) };
+    case "custom": return { from: "", to: "" };
+  }
+}
+
+function periodLabelText(kind: PeriodKind, from: string, to: string): string {
+  if (kind === "mes" || kind === "prox_mes") {
+    if (!from) return PERIOD_LABEL[kind];
+    return format(parseISO(from), "MMMM yyyy", { locale: ptBR }).replace(/^./, (c) => c.toUpperCase());
+  }
+  if (kind === "ano") return format(parseISO(from), "yyyy");
+  if (from && to) return `${fmtDate(from)} → ${fmtDate(to)}`;
+  return PERIOD_LABEL[kind];
+}
+
 export default function Financeiro() {
   const queryClient = useQueryClient();
   const [active, setActive] = useState<FinShow | null>(null);
 
   const [fArtist, setFArtist] = useState<string>("all");
   const [fStatus, setFStatus] = useState<string>("all");
-  const [fFrom, setFFrom] = useState<string>("");
-  const [fTo, setFTo] = useState<string>("");
+  const [period, setPeriod] = useState<PeriodKind>("mes");
+  const initialRange = rangeFor("mes");
+  const [fFrom, setFFrom] = useState<string>(initialRange.from);
+  const [fTo, setFTo] = useState<string>(initialRange.to);
+
+  useEffect(() => {
+    if (period === "custom") return;
+    const r = rangeFor(period);
+    setFFrom(r.from);
+    setFTo(r.to);
+  }, [period]);
 
   const finQuery = useQuery({
     queryKey: ["financeiro"],
@@ -108,6 +167,7 @@ export default function Financeiro() {
     });
   }, [shows, fArtist, fStatus, fFrom, fTo]);
 
+  // Cards globais (mantidos)
   const monthIso = new Date().toISOString().slice(0, 7);
   const totals = useMemo(() => {
     let aReceber = 0;
@@ -132,6 +192,61 @@ export default function Financeiro() {
     return { aReceber, recebidoMes, aguardandoPag, aguardandoConfirmacao, atrasados };
   }, [shows, monthIso]);
 
+  // Previsão sobre o período filtrado
+  const previsaoStatuses = new Set(["confirmado", "aguardando_pagamento", "comprovante_enviado", "atrasado"]);
+  const periodStats = useMemo(() => {
+    let totalShows = 0;
+    let cacheTotal = 0;
+    let recebido = 0;
+    let aReceber = 0;
+    let previsaoTotal = 0;
+    for (const s of filtered) {
+      const eff = effectiveStatus(s);
+      if (eff === "cancelada") continue;
+      totalShows += 1;
+      cacheTotal += Number(s.cache_total || 0);
+      recebido += Number(s.total_pago || 0);
+      if (previsaoStatuses.has(eff)) {
+        previsaoTotal += Number(s.cache_total || 0);
+        aReceber += Math.max(0, Number(s.cache_total) - Number(s.total_pago));
+      }
+    }
+    const pct = previsaoTotal > 0 ? Math.min(100, (recebido / previsaoTotal) * 100) : 0;
+    return { totalShows, cacheTotal, recebido, aReceber, previsaoTotal, pct };
+  }, [filtered]);
+
+  // Gráfico próximos 6 meses (sempre relativo ao hoje)
+  const chartData = useMemo(() => {
+    const now = new Date();
+    const buckets: { key: string; label: string; recebido: number; previsto: number; shows: number }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const d = addMonths(now, i);
+      const key = format(d, "yyyy-MM");
+      buckets.push({
+        key,
+        label: format(d, "MMM/yy", { locale: ptBR }),
+        recebido: 0,
+        previsto: 0,
+        shows: 0,
+      });
+    }
+    const map = new Map(buckets.map((b) => [b.key, b]));
+    for (const s of shows) {
+      const eff = effectiveStatus(s);
+      if (eff === "cancelada") continue;
+      if (fArtist !== "all" && s.artist_id !== fArtist) continue;
+      const k = (s.data_show ?? "").slice(0, 7);
+      const b = map.get(k);
+      if (!b) continue;
+      b.shows += 1;
+      b.recebido += Number(s.total_pago || 0);
+      if (previsaoStatuses.has(eff)) {
+        b.previsto += Math.max(0, Number(s.cache_total) - Number(s.total_pago));
+      }
+    }
+    return buckets;
+  }, [shows, fArtist]);
+
   const today = new Date();
   const in7 = new Date(today.getTime() + 7 * 86400000);
   const proximos = shows.filter((s) => {
@@ -142,18 +257,46 @@ export default function Financeiro() {
   const atrasados = shows.filter((s) => effectiveStatus(s) === "atrasado");
   const aguardandoConfirm = shows.filter((s) => effectiveStatus(s) === "comprovante_enviado");
 
+  // Agrupar por mês para a tabela quando o período cobre múltiplos meses
+  const grouped = useMemo(() => {
+    const groups = new Map<string, FinShow[]>();
+    const sorted = [...filtered].sort((a, b) => a.data_show.localeCompare(b.data_show));
+    for (const s of sorted) {
+      const k = (s.data_show ?? "").slice(0, 7);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(s);
+    }
+    return Array.from(groups.entries()).map(([key, items]) => {
+      const cache = items.reduce((a, r) => a + Number(r.cache_total || 0), 0);
+      const pago = items.reduce((a, r) => a + Number(r.total_pago || 0), 0);
+      const label = format(parseISO(key + "-01"), "MMMM yyyy", { locale: ptBR })
+        .replace(/^./, (c) => c.toUpperCase());
+      return { key, label, items, cache, pago, restante: Math.max(0, cache - pago) };
+    });
+  }, [filtered]);
+  const showMonthGroups = grouped.length > 1;
+
+  function previsaoProximoPagamento(s: FinShow): string {
+    if (Number(s.total_pago) >= Number(s.cache_total)) return "—";
+    if (s.prazo_comprovante_em) {
+      try { return fmtDate(s.prazo_comprovante_em.slice(0, 10)); } catch { /* */ }
+    }
+    return s.data_show ? fmtDate(s.data_show) : "—";
+  }
+
   const exportFinanceiro = (kind: "pdf" | "csv") => {
     const cols: Column[] = [
       { header: "Artista", key: (r: FinShow) => r.artist_nome ?? "—" },
       { header: "Data", key: (r: FinShow) => fmtDate(r.data_show) },
       { header: "Local", key: (r: FinShow) => [r.local, r.cidade].filter(Boolean).join(" · ") || "—" },
       { header: "Cachê", key: (r: FinShow) => fmtBRL(Number(r.cache_total)), align: "right" },
-      { header: "Pago", key: (r: FinShow) => fmtBRL(Number(r.total_pago)), align: "right" },
+      { header: "Recebido", key: (r: FinShow) => fmtBRL(Number(r.total_pago)), align: "right" },
       {
         header: "A receber",
         key: (r: FinShow) => fmtBRL(Math.max(0, Number(r.cache_total) - Number(r.total_pago))),
         align: "right",
       },
+      { header: "Previsão", key: (r: FinShow) => previsaoProximoPagamento(r) },
       {
         header: "Status",
         key: (r: FinShow) => {
@@ -162,25 +305,23 @@ export default function Financeiro() {
         },
       },
     ];
-    const totalBruto = filtered.reduce((a, r) => a + Number(r.cache_total || 0), 0);
-    const totalPago = filtered.reduce((a, r) => a + Number(r.total_pago || 0), 0);
     const filterLines: string[] = [];
+    filterLines.push(`Período: ${PERIOD_LABEL[period]} (${fmtDate(fFrom)} → ${fmtDate(fTo)})`);
     if (fArtist !== "all") {
       const a = artists.find((x) => x.id === fArtist);
       filterLines.push(`Artista: ${a?.nome ?? "—"}`);
     }
     if (fStatus !== "all") filterLines.push(`Status: ${fStatus}`);
-    if (fFrom) filterLines.push(`De: ${fmtDate(fFrom)}`);
-    if (fTo) filterLines.push(`Até: ${fmtDate(fTo)}`);
     const meta = {
-      title: "Financeiro — Shows",
+      title: "Financeiro — Previsão de recebimentos",
       filters: filterLines,
       filename: `financeiro-${new Date().toISOString().slice(0, 10)}`,
       summary: [
-        { label: "Total de shows", value: String(filtered.length) },
-        { label: "Cachê total", value: fmtBRL(totalBruto) },
-        { label: "Total pago", value: fmtBRL(totalPago) },
-        { label: "A receber", value: fmtBRL(Math.max(0, totalBruto - totalPago)) },
+        { label: "Total de shows", value: String(periodStats.totalShows) },
+        { label: "Previsão total", value: fmtBRL(periodStats.previsaoTotal) },
+        { label: "Recebido", value: fmtBRL(periodStats.recebido) },
+        { label: "A receber", value: fmtBRL(periodStats.aReceber) },
+        { label: "% Recebido", value: `${periodStats.pct.toFixed(1)}%` },
       ],
     };
     if (kind === "pdf") exportPDF(filtered, cols, meta);
@@ -235,6 +376,14 @@ export default function Financeiro() {
     else exportCSV(rows, cols, meta);
   };
 
+  const periodTitle = periodLabelText(period, fFrom, fTo);
+  const pctColor =
+    periodStats.pct >= 70 ? "text-green-600" :
+    periodStats.pct >= 40 ? "text-yellow-600" : "text-red-600";
+  const pctBar =
+    periodStats.pct >= 70 ? "bg-green-600" :
+    periodStats.pct >= 40 ? "bg-yellow-500" : "bg-red-600";
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       <header>
@@ -252,16 +401,6 @@ export default function Financeiro() {
               </Card>
             ))}
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="p-4 shadow-soft space-y-3">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-5/6" />
-                <Skeleton className="h-3 w-2/3" />
-              </Card>
-            ))}
-          </div>
         </>
       ) : (
         <>
@@ -274,26 +413,99 @@ export default function Financeiro() {
 
           {(atrasados.length > 0 || aguardandoConfirm.length > 0 || proximos.length > 0) && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <AlertList
-                color="red"
-                title={`Pagamento atrasado (${atrasados.length})`}
-                items={atrasados.slice(0, 5)}
-                onOpen={setActive}
-              />
-              <AlertList
-                color="orange"
-                title={`Comprovante aguardando confirmação (${aguardandoConfirm.length})`}
-                items={aguardandoConfirm.slice(0, 5)}
-                onOpen={setActive}
-              />
-              <AlertList
-                color="yellow"
-                title={`A vencer em 7 dias (${proximos.length})`}
-                items={proximos.slice(0, 5)}
-                onOpen={setActive}
-              />
+              <AlertList color="red" title={`Pagamento atrasado (${atrasados.length})`} items={atrasados.slice(0, 5)} onOpen={setActive} />
+              <AlertList color="orange" title={`Comprovante aguardando confirmação (${aguardandoConfirm.length})`} items={aguardandoConfirm.slice(0, 5)} onOpen={setActive} />
+              <AlertList color="yellow" title={`A vencer em 7 dias (${proximos.length})`} items={proximos.slice(0, 5)} onOpen={setActive} />
             </div>
           )}
+
+          {/* Previsão de Recebimentos */}
+          <Card className="p-4 md:p-6 shadow-soft space-y-5">
+            <div className="flex flex-wrap items-end gap-3 justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Previsão de Recebimentos</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Exibindo: <span className="font-medium text-foreground">{periodTitle}</span> · {periodStats.totalShows} shows · {fmtBRL(periodStats.previsaoTotal)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Período</label>
+                  <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKind)}>
+                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(PERIOD_LABEL) as PeriodKind[]).map((k) => (
+                        <SelectItem key={k} value={k}>{PERIOD_LABEL[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {period === "custom" && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">De</label>
+                      <Input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} className="w-[160px]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Até</label>
+                      <Input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} className="w-[160px]" />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <ForecastCard
+                title="A receber"
+                value={fmtBRL(periodStats.aReceber)}
+                tone="blue"
+                icon={<TrendingDown className="h-4 w-4" />}
+              />
+              <ForecastCard
+                title="Recebido"
+                value={fmtBRL(periodStats.recebido)}
+                tone="green"
+                icon={<TrendingUp className="h-4 w-4" />}
+              />
+              <ForecastCard
+                title="Previsão total"
+                value={fmtBRL(periodStats.previsaoTotal)}
+                tone="gray"
+                icon={<PiggyBank className="h-4 w-4" />}
+              />
+              <Card className="p-4 shadow-soft">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">% Recebido</p>
+                </div>
+                <p className={cn("text-2xl font-semibold mt-2", pctColor)}>{periodStats.pct.toFixed(1)}%</p>
+                <div className="mt-3 h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div className={cn("h-full transition-all", pctBar)} style={{ width: `${periodStats.pct}%` }} />
+                </div>
+              </Card>
+            </div>
+
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                  <YAxis tickFormatter={fmtBRLshort} tick={{ fontSize: 12 }} />
+                  <RTooltip
+                    formatter={(v: number) => fmtBRL(Number(v))}
+                    labelFormatter={(label, payload) => {
+                      const p: any = payload?.[0]?.payload;
+                      const total = (p?.recebido ?? 0) + (p?.previsto ?? 0);
+                      return `${label} · ${p?.shows ?? 0} shows · Total ${fmtBRL(total)}`;
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="recebido" name="Recebido" fill="hsl(142 71% 45%)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="previsto" name="A receber" fill="hsl(217 91% 60%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
         </>
       )}
 
@@ -326,15 +538,16 @@ export default function Financeiro() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">De</label>
-            <Input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} className="w-[160px]" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Até</label>
-            <Input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} className="w-[160px]" />
-          </div>
-          <Button variant="ghost" onClick={() => { setFArtist("all"); setFStatus("all"); setFFrom(""); setFTo(""); }}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setFArtist("all");
+              setFStatus("all");
+              setPeriod("mes");
+              const r = rangeFor("mes");
+              setFFrom(r.from); setFTo(r.to);
+            }}
+          >
             Limpar
           </Button>
           <div className="ml-auto flex gap-2">
@@ -360,8 +573,9 @@ export default function Financeiro() {
                 <TableHead>Data</TableHead>
                 <TableHead>Local</TableHead>
                 <TableHead className="text-right">Cachê</TableHead>
-                <TableHead className="text-right">Pago</TableHead>
+                <TableHead className="text-right">Recebido</TableHead>
                 <TableHead className="text-right">A receber</TableHead>
+                <TableHead>Previsão</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -370,37 +584,80 @@ export default function Financeiro() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <TableCell key={j}><div className="h-4 w-full bg-muted rounded animate-pulse" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhum show encontrado.</TableCell></TableRow>
-              ) : filtered.map((s) => {
-                const eff = effectiveStatus(s);
-                const cls = (STATUS_CLASS as any)[eff] ?? EXTRA_CLASS[eff] ?? "";
-                const label = (STATUS_LABEL as any)[eff] ?? EXTRA_LABEL[eff] ?? eff;
-                const restante = Math.max(0, Number(s.cache_total) - Number(s.total_pago));
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.artist_cor ?? "hsl(var(--primary))" }} />
-                        {s.artist_nome ?? "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell>{fmtDate(s.data_show)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{s.local ?? "—"}{s.cidade ? ` · ${s.cidade}` : ""}</TableCell>
-                    <TableCell className="text-right">{fmtBRL(Number(s.cache_total))}</TableCell>
-                    <TableCell className="text-right">{fmtBRL(Number(s.total_pago))}</TableCell>
-                    <TableCell className="text-right">{fmtBRL(restante)}</TableCell>
-                    <TableCell><Badge className={cls}>{label}</Badge></TableCell>
-                    <TableCell><Button size="sm" variant="ghost" onClick={() => setActive(s)}>Abrir</Button></TableCell>
-                  </TableRow>
-                );
-              })}
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nenhum show encontrado.</TableCell></TableRow>
+              ) : (
+                grouped.map((g) => (
+                  <React.Fragment key={g.key}>
+                    {showMonthGroups && (
+                      <TableRow key={`h-${g.key}`} className="bg-muted/40 hover:bg-muted/40">
+                        <TableCell colSpan={9} className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+                          {g.label}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {g.items.map((s) => {
+                      const eff = effectiveStatus(s);
+                      const cls = (STATUS_CLASS as any)[eff] ?? EXTRA_CLASS[eff] ?? "";
+                      const label = (STATUS_LABEL as any)[eff] ?? EXTRA_LABEL[eff] ?? eff;
+                      const cache = Number(s.cache_total);
+                      const pago = Number(s.total_pago);
+                      const restante = Math.max(0, cache - pago);
+                      const quitado = pago >= cache && cache > 0;
+                      const parcial = pago > 0 && pago < cache;
+                      const atrasado = eff === "atrasado";
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell>
+                            <span className="inline-flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.artist_cor ?? "hsl(var(--primary))" }} />
+                              {s.artist_nome ?? "—"}
+                            </span>
+                          </TableCell>
+                          <TableCell>{fmtDate(s.data_show)}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{s.local ?? "—"}{s.cidade ? ` · ${s.cidade}` : ""}</TableCell>
+                          <TableCell className="text-right">{fmtBRL(cache)}</TableCell>
+                          <TableCell className={cn("text-right", quitado && "text-green-600 font-medium", parcial && "text-yellow-600")}>
+                            {fmtBRL(pago)}
+                          </TableCell>
+                          <TableCell className={cn("text-right", restante === 0 && "text-muted-foreground", restante > 0 && (atrasado ? "text-red-600 font-medium" : "text-blue-600"))}>
+                            {restante === 0 ? "—" : fmtBRL(restante)}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{previsaoProximoPagamento(s)}</TableCell>
+                          <TableCell><Badge className={cls}>{label}</Badge></TableCell>
+                          <TableCell><Button size="sm" variant="ghost" onClick={() => setActive(s)}>Abrir</Button></TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {showMonthGroups && (
+                      <TableRow key={`s-${g.key}`} className="bg-muted/20 hover:bg-muted/20">
+                        <TableCell colSpan={3} className="text-sm font-medium">Subtotal {g.label} — {g.items.length} show(s)</TableCell>
+                        <TableCell className="text-right text-sm font-medium">{fmtBRL(g.cache)}</TableCell>
+                        <TableCell className="text-right text-sm font-medium">{fmtBRL(g.pago)}</TableCell>
+                        <TableCell className="text-right text-sm font-medium">{fmtBRL(g.restante)}</TableCell>
+                        <TableCell colSpan={3}></TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
             </TableBody>
+            {filtered.length > 0 && (
+              <tfoot className="border-t bg-muted/30 font-medium">
+                <tr>
+                  <td className="p-3 text-sm" colSpan={3}>Total — {periodStats.totalShows} show(s)</td>
+                  <td className="p-3 text-sm text-right">{fmtBRL(periodStats.cacheTotal)}</td>
+                  <td className="p-3 text-sm text-right text-green-700">{fmtBRL(periodStats.recebido)}</td>
+                  <td className="p-3 text-sm text-right text-blue-700">{fmtBRL(periodStats.aReceber)}</td>
+                  <td colSpan={3}></td>
+                </tr>
+              </tfoot>
+            )}
           </Table>
         </div>
       </Card>
@@ -422,6 +679,25 @@ function StatCard({ title, value, icon }: { title: string; value: string; icon: 
         <span className="text-muted-foreground">{icon}</span>
       </div>
       <p className="text-2xl font-semibold mt-2">{value}</p>
+    </Card>
+  );
+}
+
+function ForecastCard({
+  title, value, tone, icon,
+}: { title: string; value: string; tone: "blue" | "green" | "gray"; icon: React.ReactNode }) {
+  const toneCls = {
+    blue: "text-blue-600",
+    green: "text-green-600",
+    gray: "text-muted-foreground",
+  }[tone];
+  return (
+    <Card className="p-4 shadow-soft">
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">{title}</p>
+        <span className={toneCls}>{icon}</span>
+      </div>
+      <p className={cn("text-2xl font-semibold mt-2", toneCls)}>{value}</p>
     </Card>
   );
 }
