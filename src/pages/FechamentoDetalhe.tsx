@@ -135,6 +135,7 @@ export default function FechamentoDetalhe() {
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState<Closing | null>(null);
   const [artistName, setArtistName] = useState<string>("");
+  const [openDelete, setOpenDelete] = useState(false);
   const [shows, setShows] = useState<ShowRow[]>([]);
   const [showExpenses, setShowExpenses] = useState<ShowExpense[]>([]);
   const [removedShowExpenses, setRemovedShowExpenses] = useState<string[]>([]);
