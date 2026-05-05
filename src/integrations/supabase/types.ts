@@ -1188,6 +1188,7 @@ export type Database = {
         Row: {
           categoria: string
           closing_id: string
+          closing_show_id: string | null
           created_at: string
           descricao: string | null
           id: string
@@ -1198,6 +1199,7 @@ export type Database = {
         Insert: {
           categoria?: string
           closing_id: string
+          closing_show_id?: string | null
           created_at?: string
           descricao?: string | null
           id?: string
@@ -1208,6 +1210,7 @@ export type Database = {
         Update: {
           categoria?: string
           closing_id?: string
+          closing_show_id?: string | null
           created_at?: string
           descricao?: string | null
           id?: string

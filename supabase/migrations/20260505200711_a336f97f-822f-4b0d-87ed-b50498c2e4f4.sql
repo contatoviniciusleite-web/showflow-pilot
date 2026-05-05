@@ -1,0 +1,1 @@
+ALTER TABLE public.weekly_closing_expenses ADD COLUMN IF NOT EXISTS closing_show_id uuid;
