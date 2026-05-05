@@ -142,11 +142,14 @@ export function PaymentScheduleRows({
                   placeholder="Ex.: Sinal, condição especial, conta de destino…"
                 />
               </div>
-              {it.data_prevista && (
-                <p className="text-xs text-muted-foreground">
-                  Vence em {format(new Date(it.data_prevista + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}
-                </p>
-              )}
+              {it.data_prevista && (() => {
+                const d = new Date(`${it.data_prevista}T00:00:00`);
+                return isNaN(d.getTime()) ? null : (
+                  <p className="text-xs text-muted-foreground">
+                    Vence em {format(d, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                );
+              })()}
             </li>
           ))}
         </ul>
