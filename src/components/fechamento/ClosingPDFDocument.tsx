@@ -427,22 +427,20 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
                 <div key={i} style={{ border: `1px solid ${C.border}`, background: C.zebra, borderRadius: "4px", padding: "8px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: `1px solid ${C.border}`, paddingBottom: "4px", marginBottom: "4px" }}>
                     <strong style={{ fontSize: "10px" }}>{d.beneficiario.toUpperCase()} ({d.percentual.toFixed(2)}%)</strong>
-                    <strong style={{ fontSize: "12px", color: C.green }}>{fmtBRL(d.valor_liquido)}</strong>
+                    <strong style={{ fontSize: "12px" }}>{fmtBRL(d.valor_liquido)}</strong>
                   </div>
                   <Row label={`Bruto (${d.percentual.toFixed(2)}%)`} value={fmtBRL(d.valor_bruto)} />
-                  <Row label="(-) Imposto" value={`-${fmtBRL(d.imposto_valor)}`} />
-                  {(d.tipo === "socio" || d.tipo === "parceiro") && (
+                  {(d.tipo === "socio" || d.tipo === "parceiro") && d.investimento_valor > 0 && (
                     <Row label="(-) Investimentos" value={`-${fmtBRL(d.investimento_valor)}`} />
                   )}
                 </div>
               ))}
             </div>
             <div style={{ borderTop: `1px solid ${C.border}`, marginTop: "10px", paddingTop: "8px" }}>
-              <Row label="Total impostos" value={fmtBRL(totals.totalImpostos)} />
               <Row label="Total investimentos" value={fmtBRL(totals.totalInvestimentos)} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, marginTop: "6px", paddingTop: "6px" }}>
                 <strong style={{ fontSize: "11px" }}>TOTAL LÍQUIDO</strong>
-                <strong style={{ fontSize: "13px", color: C.green }}>{fmtBRL(totals.totalLiquido)}</strong>
+                <strong style={{ fontSize: "13px" }}>{fmtBRL(totals.totalLiquido)}</strong>
               </div>
             </div>
           </div>
