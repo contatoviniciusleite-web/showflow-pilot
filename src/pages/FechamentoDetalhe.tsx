@@ -775,7 +775,7 @@ export default function FechamentoDetalhe() {
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6" ref={exportRef}>
       {/* HEADER ESCURO */}
       <div className="rounded-xl overflow-hidden shadow-elevated animate-fade-in">
         <div className="bg-[#1a1a1a] text-white p-5 md:p-6">
