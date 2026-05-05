@@ -131,6 +131,8 @@ export default function FechamentoDetalhe() {
   const [pendingInvestments, setPendingInvestments] = useState<PendingInvestment[]>([]);
   const [generalExpenses, setGeneralExpenses] = useState<GeneralExpense[]>([]);
   const [removedGeneralExpenses, setRemovedGeneralExpenses] = useState<string[]>([]);
+  const [clipes, setClipes] = useState<ClipeRow[]>([]);
+  const [removedClipes, setRemovedClipes] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState("");
   const [config, setConfig] = useState<{ artista_percentual: number; imposto_percentual: number }>({
     artista_percentual: 0,
