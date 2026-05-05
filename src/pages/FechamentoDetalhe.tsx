@@ -956,7 +956,10 @@ export default function FechamentoDetalhe() {
                     .join("\n") || "Nenhum membro de equipe marcou este show.";
                   return (
                     <>
-                      <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
+                      <tr key={s.id} className={cn(
+                        "border-t transition-colors duration-150 odd:bg-white even:bg-gray-50/60 dark:odd:bg-transparent dark:even:bg-muted/20 hover:bg-green-50/60 dark:hover:bg-green-950/20",
+                        !s.incluido && "opacity-50"
+                      )}>
                         <td className="px-2 py-1.5 whitespace-nowrap">{fmtDateBR(s.show?.data_show ?? "")}</td>
                         <td className="px-2 py-1.5">{s.show?.vendedor ?? "—"}</td>
                         <td className="px-2 py-1.5">{[s.show?.local, s.show?.cidade].filter(Boolean).join(" — ") || "—"}</td>
@@ -987,7 +990,7 @@ export default function FechamentoDetalhe() {
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(despesasShow)}</td>
                         <td className={cn("px-2 py-1.5 text-right whitespace-nowrap font-medium",
                           sobraShow >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>
-                          {fmtBRL(sobraShow)}
+                          {sobraShow >= 0 ? "↑ " : "↓ "}{fmtBRL(sobraShow)}
                         </td>
                         <td className="px-2 py-1.5 text-center">
                           <Switch checked={s.incluido} disabled={readonly}
