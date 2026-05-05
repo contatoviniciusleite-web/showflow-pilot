@@ -111,6 +111,57 @@ export type Database = {
           },
         ]
       }
+      artist_investments: {
+        Row: {
+          artist_id: string
+          ativo: boolean
+          categoria: string
+          closing_id_origem: string | null
+          created_at: string
+          data_compra: string | null
+          descricao: string
+          id: string
+          observacoes: string | null
+          parcelas_pagas: number
+          total_parcelas: number
+          updated_at: string
+          valor_por_parcela: number
+          valor_total: number
+        }
+        Insert: {
+          artist_id: string
+          ativo?: boolean
+          categoria?: string
+          closing_id_origem?: string | null
+          created_at?: string
+          data_compra?: string | null
+          descricao: string
+          id?: string
+          observacoes?: string | null
+          parcelas_pagas?: number
+          total_parcelas?: number
+          updated_at?: string
+          valor_por_parcela?: number
+          valor_total?: number
+        }
+        Update: {
+          artist_id?: string
+          ativo?: boolean
+          categoria?: string
+          closing_id_origem?: string | null
+          created_at?: string
+          data_compra?: string | null
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          parcelas_pagas?: number
+          total_parcelas?: number
+          updated_at?: string
+          valor_por_parcela?: number
+          valor_total?: number
+        }
+        Relationships: []
+      }
       artist_partners: {
         Row: {
           artist_id: string
@@ -1092,6 +1143,7 @@ export type Database = {
           closing_id: string
           id: string
           imposto_valor: number
+          investimento_valor: number
           ordem: number
           percentual: number
           tipo: string
@@ -1103,6 +1155,7 @@ export type Database = {
           closing_id: string
           id?: string
           imposto_valor?: number
+          investimento_valor?: number
           ordem?: number
           percentual?: number
           tipo: string
@@ -1114,6 +1167,7 @@ export type Database = {
           closing_id?: string
           id?: string
           imposto_valor?: number
+          investimento_valor?: number
           ordem?: number
           percentual?: number
           tipo?: string
@@ -1170,6 +1224,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      weekly_closing_investments: {
+        Row: {
+          categoria: string | null
+          closing_id: string
+          created_at: string
+          data_compra: string | null
+          descricao: string
+          id: string
+          investment_id: string | null
+          numero_parcela: number
+          observacoes: string | null
+          total_parcelas: number
+          valor_descontado: number
+          valor_total: number
+        }
+        Insert: {
+          categoria?: string | null
+          closing_id: string
+          created_at?: string
+          data_compra?: string | null
+          descricao: string
+          id?: string
+          investment_id?: string | null
+          numero_parcela?: number
+          observacoes?: string | null
+          total_parcelas?: number
+          valor_descontado?: number
+          valor_total?: number
+        }
+        Update: {
+          categoria?: string | null
+          closing_id?: string
+          created_at?: string
+          data_compra?: string | null
+          descricao?: string
+          id?: string
+          investment_id?: string | null
+          numero_parcela?: number
+          observacoes?: string | null
+          total_parcelas?: number
+          valor_descontado?: number
+          valor_total?: number
+        }
+        Relationships: []
+      }
+      weekly_closing_show_expenses: {
+        Row: {
+          categoria: string
+          closing_id: string
+          closing_show_id: string
+          created_at: string
+          descricao: string | null
+          id: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string
+          closing_id: string
+          closing_show_id: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          closing_id?: string
+          closing_show_id?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          valor?: number
+        }
+        Relationships: []
       }
       weekly_closing_shows: {
         Row: {
