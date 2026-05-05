@@ -90,15 +90,16 @@ export function computeClosing(
   const totalDespesasShows = round2(incluidos.reduce((a, s) => a + Number(s.despesas_show || 0), 0));
   const totalEquipe = round2(crew.reduce((a, c) => a + computeCrewTotal(c), 0));
   const totalClipe = round2(clipes.reduce((a, c) => a + computeClipeTotal(c), 0));
-  const totalCustos = round2(totalComissoes + totalCustoEquipeShows + totalVan + totalDespesasShows + totalClipe);
-  const sobra = round2(totalBruto - totalCustos);
+  // Custos operacionais (SEM imposto): comissão + equipe + van + despesas + clipe
+  const totalCustos = round2(totalComissoes + totalEquipe + totalVan + totalDespesasShows + totalClipe);
 
   const totalInvestimentos = round2(investments.reduce((a, i) => a + Number(i.valor_descontado || 0), 0));
 
   const impostoPct = Number(config.imposto_percentual || 0) / 100;
   const totalImpostos = round2(totalBruto * impostoPct);
-  // Sobra para distribuir já considera o imposto descontado
-  const sobraDistribuir = round2(sobra - totalImpostos);
+  // Sobra para distribuir = bruto - custos operacionais - imposto sobre o bruto
+  const sobraDistribuir = round2(totalBruto - totalCustos - totalImpostos);
+  const sobra = sobraDistribuir;
   const partners = (config.partners ?? []).filter((p) => p.ativo !== false);
   const somaPartners = partners.reduce((a, p) => a + Number(p.percentual || 0), 0);
   const somaTotal = Number(config.artista_percentual || 0) + somaPartners;
