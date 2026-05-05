@@ -164,21 +164,24 @@ export function exportClosingPDF(input: ClosingPdfInput) {
   ensureSpace(40);
   sectionTitle("EQUIPE");
   const crewCols = {
-    0: { cellWidth: 70, halign: "left" as const },    // Nome
-    1: { cellWidth: 70, halign: "left" as const },    // Função
-    2: { cellWidth: 50, halign: "right" as const },   // Cachê/show
-    3: { cellWidth: 30, halign: "center" as const },  // Shows
-    4: { cellWidth: 49, halign: "right" as const },   // Total
+    0: { cellWidth: 55, halign: "left" as const },    // Nome
+    1: { cellWidth: 55, halign: "left" as const },    // Função
+    2: { cellWidth: 40, halign: "right" as const },   // Cachê/show
+    3: { cellWidth: 80, halign: "left" as const },    // Shows participados
+    4: { cellWidth: 39, halign: "right" as const },   // Total
   };
   const crewBody: any[] = [
-    ...input.crew.map((c) => [c.nome, c.funcao ?? "—", fmtBRL(c.cache_por_show), String(c.shows_participados), fmtBRL(c.total_receber)]),
+    ...input.crew.map((c) => [
+      c.nome, c.funcao ?? "—", fmtBRL(c.cache_por_show),
+      c.shows_label ?? String(c.shows_participados), fmtBRL(c.total_receber),
+    ]),
     [
       { content: "TOTAL EQUIPE", colSpan: 4, styles: { halign: "right" as const, fontStyle: "bold" as const } },
       { content: fmtBRL(input.totals.totalEquipe), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     ],
   ];
   autoTable(doc, {
-    head: [["Nome", "Função", "Cachê/show", "Shows", "Total"]],
+    head: [["Nome", "Função", "Cachê/show", "Shows participados", "Total"]],
     body: crewBody,
     startY: y,
     margin: { left: marginX, right: marginX },
