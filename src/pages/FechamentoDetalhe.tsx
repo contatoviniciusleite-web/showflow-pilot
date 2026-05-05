@@ -921,25 +921,25 @@ export default function FechamentoDetalhe() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs md:text-sm min-w-[1100px]">
               <thead className="bg-[#1a1a1a] text-white">
-                <tr className="text-left">
-                  <th className="px-2 py-1.5">Data</th>
-                  <th className="px-2 py-1.5">Vendedor</th>
-                  <th className="px-2 py-1.5">Local — Cidade</th>
-                  <th className="px-2 py-1.5 text-right w-[120px]">Cachê</th>
-                  <th className="px-2 py-1.5 text-right w-[180px]">Comissão (% / R$)</th>
-                  <th className="px-2 py-1.5 text-right w-[140px]">
+                <tr className="text-left text-white">
+                  <th className="px-2 py-2 font-medium">Data</th>
+                  <th className="px-2 py-2 font-medium">Vendedor</th>
+                  <th className="px-2 py-2 font-medium">Local — Cidade</th>
+                  <th className="px-2 py-2 font-medium text-right w-[120px]">Cachê</th>
+                  <th className="px-2 py-2 font-medium text-right w-[180px]">Comissão (% / R$)</th>
+                  <th className="px-2 py-2 font-medium text-right w-[140px]">
                     <span className="inline-flex items-center gap-1">
                       Custo equipe
                       <Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipTrigger asChild><Info className="h-3 w-3 text-white/60 cursor-help" /></TooltipTrigger>
                         <TooltipContent className="whitespace-pre-wrap max-w-xs text-left">{crewTooltipText}</TooltipContent>
                       </Tooltip>
                     </span>
                   </th>
-                  <th className="px-2 py-1.5 text-right">Van</th>
-                  <th className="px-2 py-1.5 text-right">Despesas</th>
-                  <th className="px-2 py-1.5 text-right">Sobra</th>
-                  <th className="px-2 py-1.5 text-center">Incluir</th>
+                  <th className="px-2 py-2 font-medium text-right">Van</th>
+                  <th className="px-2 py-2 font-medium text-right">Despesas</th>
+                  <th className="px-2 py-2 font-medium text-right">Sobra</th>
+                  <th className="px-2 py-2 font-medium text-center">Incluir</th>
                 </tr>
               </thead>
               <tbody>
