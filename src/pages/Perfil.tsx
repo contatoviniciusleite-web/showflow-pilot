@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { maskPhone, phoneDigits, toStoredPhone, fromStoredPhone } from "@/lib/phone";
 
 const schema = z.object({
   nome: z
@@ -17,12 +18,10 @@ const schema = z.object({
     .trim()
     .min(2, "Informe seu nome completo")
     .max(120, "Nome muito longo"),
-  telefone: z
+  telefoneDigits: z
     .string()
-    .trim()
-    .max(40, "Telefone muito longo")
-    .optional()
-    .or(z.literal("")),
+    .refine((v) => v === "" || v.length >= 10, "Telefone deve ter ao menos 10 dígitos")
+    .refine((v) => v.length <= 11, "Telefone inválido"),
 });
 
 export default function Perfil() {
