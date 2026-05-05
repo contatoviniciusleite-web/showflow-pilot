@@ -26,7 +26,7 @@ type Row = {
 
 export default function Fechamento() {
   const { roles } = useAuth();
-  const canEdit = roles.includes("diretor") || roles.includes("gerente");
+  const canEdit = roles.includes("diretor");
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<Row[]>([]);
