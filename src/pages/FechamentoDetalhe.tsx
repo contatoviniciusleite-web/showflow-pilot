@@ -934,7 +934,7 @@ export default function FechamentoDetalhe() {
           value={fmtBRL(totals.totalBruto)}
           sub={`${nIncluidos} ${nIncluidos === 1 ? "show confirmado" : "shows confirmados"}`} />
         <SummaryCard icon="📉" iconBg="bg-red-100" label="Total Custos"
-          value={fmtBRL(totals.totalCustos)} sub="Equipe + Van + Despesas" />
+          value={fmtBRL(totals.totalCustos)} sub="Comissão + Equipe + Van + Despesas + Clipe" />
         <SummaryCard icon="✅" iconBg="bg-green-100" label="Sobra para distribuir"
           value={fmtBRL(totals.sobraDistribuir)} sub="Após todos os descontos e impostos" accent />
         <SummaryCard icon="🏛️" iconBg="bg-gray-100" label="Total Impostos"
