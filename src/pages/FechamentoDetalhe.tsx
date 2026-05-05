@@ -1440,7 +1440,6 @@ export default function FechamentoDetalhe() {
                   </div>
                   <div className="text-xs text-muted-foreground space-y-0.5">
                     <div className="flex justify-between"><span>Bruto (% da sobra)</span><span>{fmtBRL(d.valor_bruto)}</span></div>
-                    <div className="flex justify-between"><span>(-) Imposto</span><span>{fmtBRL(d.imposto_valor)}</span></div>
                     {d.investimento_valor > 0 && (
                       <div className="flex justify-between"><span>(-) Investimentos</span><span>{fmtBRL(d.investimento_valor)}</span></div>
                     )}
