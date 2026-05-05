@@ -9,6 +9,8 @@ import { ManagerModeToggle } from "@/components/ManagerModeToggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/NotificationBell";
+import { useProfile } from "@/hooks/useProfile";
+import { User as UserIcon } from "lucide-react";
 
 // Prefetch dos chunks lazy: dispara o import() ao passar o mouse,
 // fazendo a próxima rota abrir instantaneamente.
@@ -46,6 +48,7 @@ const nav = [
 
 export function AppLayout() {
   const { user, roles, signOut } = useAuth();
+  const { displayName } = useProfile();
   const effectiveRoles = useEffectiveRoles();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -154,9 +157,24 @@ export function AppLayout() {
         <div className="p-3 border-t border-sidebar-border">
           <div className="px-3 py-2 mb-2">
             <p className="text-xs text-sidebar-foreground/60">Logado como</p>
-            <p className="text-sm truncate">{user?.email}</p>
+            <p className="text-sm font-medium truncate">{displayName}</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
             <p className="text-xs text-accent capitalize">{roles.join(", ") || "sem papel"}</p>
           </div>
+          <NavLink
+            to="/perfil"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+              )
+            }
+          >
+            <UserIcon className="h-4 w-4" />
+            Meu perfil
+          </NavLink>
           <Button
             variant="ghost"
             size="sm"

@@ -11,16 +11,24 @@ import { z } from "zod";
 
 const schema = z
   .object({
+    nome: z.string().trim().min(2, "Informe seu nome completo").max(120),
+    telefone: z.string().trim().min(8, "Informe um telefone válido").max(40),
     password: z.string().min(6, "Senha deve ter ao menos 6 caracteres").max(72),
     confirm: z.string(),
   })
-  .refine((d) => d.password === d.confirm, { message: "As senhas não conferem", path: ["confirm"] });
+  .refine((d) => d.password === d.confirm, {
+    message: "As senhas não conferem",
+    path: ["confirm"],
+  });
 
 export default function AceitarConvite() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,12 +38,15 @@ export default function AceitarConvite() {
       if (session?.user) {
         setHasSession(true);
         setEmail(session.user.email ?? null);
+        setUserId(session.user.id);
+        const meta = session.user.user_metadata as Record<string, unknown> | undefined;
+        if (typeof meta?.nome === "string" && !nome) setNome(meta.nome);
+        else if (typeof meta?.full_name === "string" && !nome) setNome(meta.full_name as string);
         setChecking(false);
       }
     });
 
     (async () => {
-      // 1) Tenta ler tokens do hash (#access_token=...&refresh_token=...&type=invite)
       const hash = window.location.hash.startsWith("#")
         ? window.location.hash.substring(1)
         : window.location.hash;
@@ -48,43 +59,81 @@ export default function AceitarConvite() {
           access_token: accessToken,
           refresh_token: refreshToken,
         });
-        // Limpa o hash da URL
         window.history.replaceState(null, "", window.location.pathname);
         if (!error && data.session?.user) {
           setHasSession(true);
           setEmail(data.session.user.email ?? null);
+          setUserId(data.session.user.id);
+          const meta = data.session.user.user_metadata as Record<string, unknown> | undefined;
+          if (typeof meta?.nome === "string") setNome(meta.nome);
+          else if (typeof meta?.full_name === "string") setNome(meta.full_name as string);
           setChecking(false);
           return;
         }
       }
 
-      // 2) Fallback: sessão já existente
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setHasSession(true);
         setEmail(session.user.email ?? null);
+        setUserId(session.user.id);
+        const meta = session.user.user_metadata as Record<string, unknown> | undefined;
+        if (typeof meta?.nome === "string") setNome(meta.nome);
+        else if (typeof meta?.full_name === "string") setNome(meta.full_name as string);
       }
       setChecking(false);
     })();
 
     return () => sub.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = schema.safeParse({ password, confirm });
+    const parsed = schema.safeParse({ nome, telefone, password, confirm });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
     }
-    setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
+    if (!userId) {
+      toast.error("Sessão inválida. Solicite um novo convite.");
       return;
     }
-    toast.success("Senha definida! Bem-vindo.");
+    setLoading(true);
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: parsed.data.password,
+      data: {
+        full_name: parsed.data.nome,
+        nome: parsed.data.nome,
+        telefone: parsed.data.telefone,
+      },
+    });
+    if (updateError) {
+      setLoading(false);
+      toast.error(updateError.message);
+      return;
+    }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          nome: parsed.data.nome,
+          telefone: parsed.data.telefone,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+    setLoading(false);
+    if (profileError) {
+      toast.error("Senha definida, mas não foi possível salvar o perfil. Atualize em Meu perfil.");
+      navigate("/app", { replace: true });
+      return;
+    }
+
+    toast.success("Bem-vindo ao Stage!");
     navigate("/app", { replace: true });
   };
 
@@ -98,7 +147,7 @@ export default function AceitarConvite() {
             </div>
             <span className="text-2xl font-semibold tracking-tight">Stage</span>
           </div>
-          <p className="text-sm text-muted-foreground">Defina sua senha para acessar</p>
+          <p className="text-sm text-muted-foreground">Complete seu cadastro para acessar</p>
         </div>
 
         <Card className="p-6 shadow-elevated">
@@ -123,7 +172,29 @@ export default function AceitarConvite() {
                 </p>
               )}
               <div className="space-y-1.5">
-                <Label htmlFor="password">Nova senha</Label>
+                <Label htmlFor="nome">Nome completo *</Label>
+                <Input
+                  id="nome"
+                  required
+                  maxLength={120}
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder="Seu nome completo"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="telefone">Telefone / WhatsApp *</Label>
+                <Input
+                  id="telefone"
+                  required
+                  maxLength={40}
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Nova senha *</Label>
                 <Input
                   id="password"
                   type="password"
@@ -134,7 +205,7 @@ export default function AceitarConvite() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="confirm">Confirmar senha</Label>
+                <Label htmlFor="confirm">Confirmar senha *</Label>
                 <Input
                   id="confirm"
                   type="password"
@@ -146,7 +217,7 @@ export default function AceitarConvite() {
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Definir senha e entrar
+                Criar conta e entrar
               </Button>
             </form>
           )}

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
+import { CompleteProfileBanner } from "@/components/CompleteProfileBanner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, Wallet, Music2, CheckCircle2 } from "lucide-react";
@@ -23,6 +25,7 @@ interface ShowLite {
 
 export function ArtistaDashboard() {
   const { user } = useAuth();
+  const { displayName } = useProfile();
   const [period, setPeriod] = useState<Period>("semana");
   const [shows, setShows] = useState<ShowLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,9 +80,12 @@ export function ArtistaDashboard() {
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto">
+      <div className="mb-4">
+        <CompleteProfileBanner />
+      </div>
       <div className="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Olá{user?.email ? `, ${user.email.split("@")[0]}` : ""}</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold">Olá, {displayName}</h1>
           <p className="text-muted-foreground mt-1">Sua agenda e financeiro pessoal.</p>
         </div>
         <PeriodFilter value={period} onChange={setPeriod} />

@@ -30,6 +30,7 @@ const Financeiro = lazy(() => import("./pages/Financeiro"));
 const Relatorios = lazy(() => import("./pages/Relatorios"));
 const Diretoria = lazy(() => import("./pages/Diretoria"));
 const ContratanteMinuta = lazy(() => import("./pages/ContratanteMinuta"));
+const Perfil = lazy(() => import("./pages/Perfil"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -161,6 +162,7 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/perfil" element={<ErrorBoundary label="Perfil"><Perfil /></ErrorBoundary>} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
