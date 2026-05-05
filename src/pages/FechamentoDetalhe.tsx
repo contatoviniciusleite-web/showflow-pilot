@@ -72,6 +72,9 @@ export default function FechamentoDetalhe() {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
   const canEdit = roles.includes("diretor") || roles.includes("gerente");
+  const canExport = canEdit || roles.includes("financeiro");
+  const isFullViewer = canEdit || roles.includes("financeiro");
+  const isArtistOnly = roles.includes("artista") && !isFullViewer;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,6 +91,7 @@ export default function FechamentoDetalhe() {
     imposto_percentual: 0,
   });
   const [partners, setPartners] = useState<ClosingPartnerInput[]>([]);
+  const [artistDist, setArtistDist] = useState<{ valor_bruto: number; imposto_valor: number; valor_liquido: number; percentual: number } | null>(null);
 
   const readonly = !canEdit || closing?.status === "finalizado";
 
