@@ -1214,9 +1214,67 @@ export default function FechamentoDetalhe() {
         )}
       </Card>
 
-      {/* Seção E — Cálculo */}
+      {/* Seção E — Clipe */}
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="font-semibold">E. Clipe</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Pagamentos por clipe à equipe. Descontado do bruto antes da distribuição (afeta todos os participantes proporcionalmente).
+            </p>
+          </div>
+          {!readonly && (
+            <Button size="sm" variant="outline" onClick={addClipe}>
+              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
+            </Button>
+          )}
+        </div>
+        {clipes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum lançamento de clipe nesta semana.</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
+              <div className="col-span-3">Profissional</div>
+              <div className="col-span-2">Função</div>
+              <div className="col-span-2">Clipe</div>
+              <div className="col-span-1 text-center">Qtd</div>
+              <div className="col-span-2 text-right">Valor/clipe</div>
+              <div className="col-span-1 text-right">Total</div>
+              <div className="col-span-1" />
+            </div>
+            {clipes.map((c) => (
+              <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
+                <Input className="col-span-3 h-8" placeholder="Nome" value={c.profissional} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { profissional: e.target.value })} />
+                <Input className="col-span-2 h-8" placeholder="Função" value={c.funcao} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { funcao: e.target.value })} />
+                <Input className="col-span-2 h-8" placeholder="Nome do clipe" value={c.clipe} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { clipe: e.target.value })} />
+                <Input className="col-span-1 h-8 text-center" type="number" min={0} value={c.quantidade} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { quantidade: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
+                <CurrencyInput className="col-span-2 h-8 text-right" value={c.valor_por_clipe} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { valor_por_clipe: v })} />
+                <div className="col-span-1 text-right text-sm font-medium">
+                  {fmtBRL(Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0))}
+                </div>
+                {!readonly && (
+                  <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
+                    onClick={() => removeClipe(c.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-end pt-2 text-sm font-medium">
+              TOTAL CLIPE: {fmtBRL(totals.totalClipe)}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Seção F — Cálculo */}
       <Card className="p-4 shadow-soft bg-muted/20">
-        <h2 className="font-semibold mb-3">E. Cálculo automático</h2>
+        <h2 className="font-semibold mb-3">F. Cálculo automático</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1.5 text-sm">
             <Linha label="Total cachê bruto" value={totals.totalBruto} />
@@ -1226,7 +1284,9 @@ export default function FechamentoDetalhe() {
             <div className="border-t my-2" />
             <Linha label="(-) Comissão vendedores" value={-totals.totalComissoes} />
             <Linha label="(-) Custo equipe" value={-totals.totalCustoEquipeShows} />
+            <Linha label="(-) Van" value={-totals.totalVan} />
             <Linha label="(-) Despesas dos shows" value={-totals.totalDespesasShows} />
+            <Linha label="(-) Custo clipe" value={-totals.totalClipe} />
             <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobra)}</span>
