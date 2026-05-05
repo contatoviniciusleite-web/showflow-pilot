@@ -679,7 +679,7 @@ export default function FechamentoDetalhe() {
         observacoes,
         total_bruto: totals.totalBruto,
         total_comissao_vendedores: totals.totalComissoes,
-        total_equipe: totals.totalCustoEquipeShows,
+        total_equipe: totals.totalEquipe,
         total_despesas: totals.totalDespesasShows,
         total_clipe: totals.totalClipe,
         total_sobra: totals.sobra,
