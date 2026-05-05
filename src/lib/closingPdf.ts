@@ -401,7 +401,7 @@ export function exportClosingPDF(input: ClosingPdfInput) {
   drawResumo("Total cachê bruto:", fmtBRL(input.totals.totalBruto));
   drawResumo(`Imposto (${input.impostoPercentual}% sobre bruto):`, `-${fmtBRL(input.totals.totalImpostos)}`);
   drawResumo("(-) Comissão vendedores:", `-${fmtBRL(input.totals.totalComissoes)}`);
-  drawResumo("(-) Custo equipe:", `-${fmtBRL(input.totals.totalCustoEquipeShows + input.totals.totalEquipe)}`);
+  drawResumo("(-) Custo equipe:", `-${fmtBRL(input.totals.totalEquipe)}`);
   drawResumo("(-) Van:", `-${fmtBRL(input.totals.totalVan)}`);
   drawResumo("(-) Despesas dos shows:", `-${fmtBRL(input.totals.totalDespesasShows)}`);
   drawResumo("(-) Custo clipe:", `-${fmtBRL(input.totals.totalClipe)}`);
