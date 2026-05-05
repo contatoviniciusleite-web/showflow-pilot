@@ -497,7 +497,7 @@ export default function FechamentoDetalhe() {
       const showInputs = shows.map((s) => ({
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
-        custo_equipe: crewCostByShow.get(s.id) ?? 0,
+        custo_equipe: 0, // a equipe é somada via parâmetro `crew` para evitar duplicidade
         van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         incluido: s.incluido,
@@ -510,8 +510,10 @@ export default function FechamentoDetalhe() {
       }
       return computeClosing(
         showInputs,
-        // Equipe — passamos vazio porque o custo já está embutido nos shows como custo_equipe
-        [],
+        crew.map((c) => ({
+          cache_por_show: Number(c.cache_por_show || 0),
+          shows_participados: c.shows_ids.length,
+        })),
         investments.map((i) => ({ valor_descontado: Number(i.valor_descontado || 0) })),
         {
           artista_nome: artistName || "Artista",
@@ -522,7 +524,7 @@ export default function FechamentoDetalhe() {
         clipes.map((c) => ({ quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0) })),
       );
     },
-    [shows, showExpensesByShow, vanByShow, crewCostByShow, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
+    [shows, showExpensesByShow, vanByShow, crewCostByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
   );
 
   const totalEquipeBase = useMemo(
