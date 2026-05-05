@@ -40,10 +40,12 @@ function bool(v: unknown): boolean {
   return v === true || v === "true";
 }
 function dateOrNull(v: unknown): string | null {
-  if (!v) return null;
+  if (v === null || v === undefined || v === "") return null;
   if (typeof v !== "string") throw new Error("Data inválida");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Error("Data deve estar em AAAA-MM-DD");
-  return v;
+  // Aceita "YYYY-MM-DD" ou ISO datetime "YYYY-MM-DDTHH:MM..." — pega só a data
+  const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (!m) throw new Error("Data deve estar em AAAA-MM-DD");
+  return m[1];
 }
 function timeOrNull(v: unknown): string | null {
   if (!v) return null;
