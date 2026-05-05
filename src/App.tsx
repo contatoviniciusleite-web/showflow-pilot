@@ -30,6 +30,7 @@ const Financeiro = lazy(() => import("./pages/Financeiro"));
 const Relatorios = lazy(() => import("./pages/Relatorios"));
 const Diretoria = lazy(() => import("./pages/Diretoria"));
 const ContratanteMinuta = lazy(() => import("./pages/ContratanteMinuta"));
+const Perfil = lazy(() => import("./pages/Perfil"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
