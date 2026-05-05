@@ -467,13 +467,8 @@ export default function FechamentoDetalhe() {
           </p>
         </Card>
       ) : (
-        <></>
-      )}
-
-      {!isArtistOnly && (
-      <></>
-      )}
-
+      <>
+      {/* Seções completas (gerente/diretor/financeiro) */}
       {/* Seção A — Shows */}
       <Card className="p-4 shadow-soft">
         <h2 className="font-semibold mb-3">A. Shows da semana</h2>
