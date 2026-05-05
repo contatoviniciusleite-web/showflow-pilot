@@ -593,7 +593,7 @@ export default function Financeiro() {
                 <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nenhum show encontrado.</TableCell></TableRow>
               ) : (
                 grouped.map((g) => (
-                  <>
+                  <React.Fragment key={g.key}>
                     {showMonthGroups && (
                       <TableRow key={`h-${g.key}`} className="bg-muted/40 hover:bg-muted/40">
                         <TableCell colSpan={9} className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
