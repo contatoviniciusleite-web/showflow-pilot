@@ -147,9 +147,22 @@ export default function Fechamento() {
                     <td className="px-3 py-2 text-right">{fmtBRL(r.total_sobra)}</td>
                     <td className="px-3 py-2">{new Date(r.created_at).toLocaleDateString("pt-BR")}</td>
                     <td className="px-3 py-2 text-right">
-                      <Button asChild size="sm" variant="ghost">
-                        <Link to={`/fechamento/${r.id}`}>Abrir</Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link to={`/fechamento/${r.id}`}>Abrir</Link>
+                        </Button>
+                        {canEdit && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(r)}
+                            aria-label="Excluir fechamento"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
