@@ -94,7 +94,8 @@ export default function AceitarConvite() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = schema.safeParse({ nome, telefone, password, confirm });
+    const digits = phoneDigits(telefone);
+    const parsed = schema.safeParse({ nome, telefoneDigits: digits, password, confirm });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
@@ -103,6 +104,7 @@ export default function AceitarConvite() {
       toast.error("Sessão inválida. Solicite um novo convite.");
       return;
     }
+    const stored = toStoredPhone(telefone);
     setLoading(true);
 
     const { error: updateError } = await supabase.auth.updateUser({
@@ -110,7 +112,7 @@ export default function AceitarConvite() {
       data: {
         full_name: parsed.data.nome,
         nome: parsed.data.nome,
-        telefone: parsed.data.telefone,
+        telefone: stored,
       },
     });
     if (updateError) {
@@ -125,7 +127,7 @@ export default function AceitarConvite() {
         {
           id: userId,
           nome: parsed.data.nome,
-          telefone: parsed.data.telefone,
+          telefone: stored,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" }
