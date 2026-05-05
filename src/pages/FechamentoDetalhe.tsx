@@ -63,6 +63,7 @@ type CrewRow = {
   funcao: string | null;
   cache_por_show: number;
   shows_participados: number;
+  shows_ids: string[];
   total_receber: number;
   ordem: number;
   _new?: boolean;
