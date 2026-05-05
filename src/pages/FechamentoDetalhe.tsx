@@ -16,8 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
-import { exportClosingPDF } from "@/lib/closingPdf";
-import { exportClosingScreenshotPDF } from "@/lib/closingScreenshotPdf";
+import { exportClosingDocumentPDF } from "@/lib/closingDocumentPdf";
 import { cn } from "@/lib/utils";
 import { DeleteClosingDialog } from "@/components/fechamento/DeleteClosingDialog";
 
@@ -743,12 +742,99 @@ export default function FechamentoDetalhe() {
   };
 
   const handleExportPDF = async () => {
-    if (!closing || !exportRef.current) return;
+    if (!closing) return;
     setExporting(true);
     try {
       const filename = `fechamento_${(artistName || "artista")}_${closing.semana_inicio}.pdf`
         .replace(/\s+/g, "_").toLowerCase();
-      await exportClosingScreenshotPDF(exportRef.current, filename);
+
+      // Map de id do closing_show -> label legível do show
+      const showLabel = (closingShowId: string | null) => {
+        if (!closingShowId) return "Geral";
+        const sh = shows.find((s) => s.id === closingShowId);
+        if (!sh?.show) return "—";
+        return `${fmtDateBR(sh.show.data_show)} — ${sh.show.local ?? "Show"}`;
+      };
+
+      const pdfShows = shows.map((s) => {
+        const cache = Number(s.cache_total || 0);
+        const com = Number(s.comissao_vendedor || 0);
+        const eq = crewCostByShow.get(s.id) ?? 0;
+        const van = vanByShow.get(s.id) ?? 0;
+        const desp = showExpensesByShow.get(s.id) ?? 0;
+        return {
+          data_show: s.show?.data_show ?? "",
+          vendedor: s.show?.vendedor ?? null,
+          local: s.show?.local ?? null,
+          cidade: s.show?.cidade ?? null,
+          cache_total: cache,
+          comissao_vendedor: com,
+          custo_equipe: eq,
+          van,
+          despesas_show: desp,
+          sobra: s.incluido ? cache - com - eq - van - desp : 0,
+          incluido: s.incluido,
+        };
+      });
+
+      const pdfCrew = crew.map((c) => {
+        const labels = c.shows_ids
+          .map((id) => {
+            const sh = shows.find((x) => x.id === id);
+            return sh?.show ? fmtDateBR(sh.show.data_show) : null;
+          })
+          .filter(Boolean) as string[];
+        return {
+          nome: c.nome,
+          funcao: c.funcao,
+          cache_por_show: Number(c.cache_por_show || 0),
+          shows_label: labels.join(", ") || "—",
+          shows_participados: c.shows_ids.length,
+          total_receber: Number(c.cache_por_show || 0) * c.shows_ids.length,
+        };
+      });
+
+      const pdfExpenses = generalExpenses.map((e) => ({
+        categoria: e.categoria,
+        descricao: e.descricao,
+        show_label: showLabel(e.closing_show_id),
+        responsavel: e.responsavel,
+        incluir_no_calculo: e.incluir_no_calculo,
+        valor: Number(e.valor || 0),
+      }));
+
+      const pdfInvestments = investments.map((i) => ({
+        descricao: i.descricao,
+        categoria: i.categoria,
+        valor_total: Number(i.valor_total || 0),
+        total_parcelas: Number(i.total_parcelas || 1),
+        numero_parcela: Number(i.numero_parcela || 1),
+        valor_descontado: Number(i.valor_descontado || 0),
+      }));
+
+      const pdfClipes = clipes.map((c) => ({
+        profissional: c.profissional,
+        funcao: c.funcao,
+        clipe: c.clipe,
+        quantidade: Number(c.quantidade || 0),
+        valor_por_clipe: Number(c.valor_por_clipe || 0),
+        total: Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0),
+      }));
+
+      await exportClosingDocumentPDF({
+        artistName,
+        semanaInicio: closing.semana_inicio,
+        semanaFim: closing.semana_fim,
+        status: closing.status,
+        observacoes,
+        impostoPercentual: config.imposto_percentual,
+        shows: pdfShows,
+        crew: pdfCrew,
+        expenses: pdfExpenses,
+        investments: pdfInvestments,
+        clipes: pdfClipes,
+        totals,
+      }, filename);
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao exportar PDF");
     } finally {
