@@ -383,7 +383,19 @@ export default function FechamentoDetalhe() {
     toast.success(`Parcela de "${p.descricao}" incluída.`);
   };
 
-  // Despesas (não-Van) por show — somente as próprias do show + gerais vinculadas (não Van)
+  // ===== Clipe =====
+  const addClipe = () =>
+    setClipes((arr) => [
+      ...arr,
+      { id: crypto.randomUUID(), profissional: "", funcao: "", clipe: "", quantidade: 1, valor_por_clipe: 0, ordem: arr.length, _new: true },
+    ]);
+  const updateClipe = (rowId: string, patch: Partial<ClipeRow>) =>
+    setClipes((arr) => arr.map((c) => (c.id === rowId ? { ...c, ...patch, _dirty: true } : c)));
+  const removeClipe = (rowId: string) => {
+    setClipes((arr) => arr.filter((c) => c.id !== rowId));
+    setRemovedClipes((arr) => [...arr, rowId]);
+  };
+
   const showExpensesByShow = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of showExpenses) {
