@@ -844,6 +844,7 @@ export default function FechamentoDetalhe() {
                       </Tooltip>
                     </span>
                   </th>
+                  <th className="px-2 py-1.5 text-right">Van</th>
                   <th className="px-2 py-1.5 text-right">Despesas</th>
                   <th className="px-2 py-1.5 text-right">Sobra</th>
                   <th className="px-2 py-1.5 text-center">Incluir</th>
