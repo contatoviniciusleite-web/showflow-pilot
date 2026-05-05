@@ -58,6 +58,7 @@ export type ClosingTotals = {
   totalClipe: number;
   totalCustos: number;
   sobra: number;
+  sobraDistribuir: number;
   totalInvestimentos: number;
   distribution: DistributionRow[];
   totalImpostos: number;
