@@ -18,6 +18,7 @@ import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
 import { exportClosingPDF } from "@/lib/closingPdf";
 import { cn } from "@/lib/utils";
+import { DeleteClosingDialog } from "@/components/fechamento/DeleteClosingDialog";
 
 type Closing = {
   id: string;
