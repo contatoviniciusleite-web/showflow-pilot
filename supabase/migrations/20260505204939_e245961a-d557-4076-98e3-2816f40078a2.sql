@@ -1,0 +1,1 @@
+ALTER TABLE public.weekly_closing_crew ADD COLUMN IF NOT EXISTS shows_ids uuid[] NOT NULL DEFAULT '{}'::uuid[];
