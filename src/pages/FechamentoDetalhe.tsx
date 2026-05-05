@@ -415,9 +415,11 @@ export default function FechamentoDetalhe() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleExportPDF}>
-            <FileDown className="h-4 w-4 mr-2" />Exportar PDF
-          </Button>
+          {canExport && (
+            <Button variant="outline" onClick={handleExportPDF}>
+              <FileDown className="h-4 w-4 mr-2" />Exportar PDF
+            </Button>
+          )}
           {canEdit && closing.status === "finalizado" && (
             <Button variant="outline" onClick={reopen} disabled={saving}>
               <Unlock className="h-4 w-4 mr-2" />Reabrir
@@ -441,6 +443,36 @@ export default function FechamentoDetalhe() {
           )}
         </div>
       </div>
+
+      {isArtistOnly ? (
+        <Card className="p-6 shadow-soft space-y-4">
+          <h2 className="font-semibold text-lg">Resumo do seu fechamento</h2>
+          {!artistDist ? (
+            <p className="text-sm text-muted-foreground">
+              A distribuição financeira deste fechamento ainda não está disponível.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <Linha label="Total bruto dos shows" value={totals.totalBruto || 0} />
+              <Linha label={`Seu percentual (${artistDist.percentual.toFixed(2)}%)`} value={artistDist.valor_bruto} />
+              <Linha label="(-) Imposto" value={-artistDist.imposto_valor} />
+              <div className="border-t pt-2 sm:col-span-2 font-semibold flex justify-between">
+                <span>Valor líquido a receber</span>
+                <span>{fmtBRL(artistDist.valor_liquido)}</span>
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Esta é a visão resumida disponível para o artista. Para detalhes completos, fale com a gerência.
+          </p>
+        </Card>
+      ) : (
+        <></>
+      )}
+
+      {!isArtistOnly && (
+      <></>
+      )}
 
       {/* Seção A — Shows */}
       <Card className="p-4 shadow-soft">
