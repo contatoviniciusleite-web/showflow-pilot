@@ -37,6 +37,7 @@ export default function Fechamento() {
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
   const [openNew, setOpenNew] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
 
   const load = async () => {
     setLoading(true);
