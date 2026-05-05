@@ -189,15 +189,24 @@ export default function AceitarConvite() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="telefone">Telefone / WhatsApp *</Label>
-                <Input
-                  id="telefone"
-                  required
-                  maxLength={40}
-                  value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
-                  placeholder="(00) 00000-0000"
-                />
+                <Label htmlFor="telefone">WhatsApp *</Label>
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-sm text-muted-foreground">
+                    +55
+                  </span>
+                  <Input
+                    id="telefone"
+                    required
+                    className="rounded-l-none"
+                    value={telefone}
+                    onChange={(e) => setTelefone(maskPhone(e.target.value))}
+                    inputMode="tel"
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Informe seu WhatsApp para receber notificações do sistema.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Nova senha *</Label>
