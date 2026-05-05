@@ -58,7 +58,7 @@ export function NewClosingDialog({ open, onOpenChange, artists, onCreated }: Pro
       .eq("artist_id", artistId)
       .gte("data_show", semanaInicio)
       .lte("data_show", semanaFim)
-      .in("status", ["confirmada"])
+      .in("status", ["confirmado"])
       .order("data_show")
       .then(({ data, error }) => {
         if (error) toast.error(error.message);
