@@ -19,6 +19,7 @@ export type ClosingPdfInput = {
     cache_total: number;
     comissao_vendedor: number;
     custo_equipe: number;
+    van: number;
     despesas_show: number;
     despesas_detalhe: { categoria: string; descricao: string | null; valor: number }[];
     incluido: boolean;
@@ -33,7 +34,7 @@ export type ClosingPdfInput = {
   expenses: {
     categoria: string;
     descricao: string | null;
-    show_label: string; // "Geral" ou "DD/MM — Local"
+    show_label: string;
     responsavel: "produtora" | "contratante";
     incluir_no_calculo: boolean;
     valor: number;
@@ -45,6 +46,14 @@ export type ClosingPdfInput = {
     total_parcelas: number;
     numero_parcela: number;
     valor_descontado: number;
+  }[];
+  clipes: {
+    profissional: string;
+    funcao: string;
+    clipe: string;
+    quantidade: number;
+    valor_por_clipe: number;
+    total: number;
   }[];
   totals: ClosingTotals;
 };
