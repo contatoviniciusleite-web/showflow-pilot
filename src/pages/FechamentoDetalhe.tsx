@@ -905,7 +905,7 @@ export default function FechamentoDetalhe() {
                       {expanded && (
                         <tr key={s.id + "-exp"} className="bg-muted/20 border-t">
                           <td />
-                          <td colSpan={9} className="px-2 py-2">
+                          <td colSpan={10} className="px-2 py-2">
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas deste show</span>
