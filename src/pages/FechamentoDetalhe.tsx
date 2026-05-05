@@ -393,15 +393,23 @@ export default function FechamentoDetalhe() {
   );
 
   const totals = useMemo(
-    () =>
-      computeClosing(
-        shows.map((s) => ({
-          cache_total: Number(s.cache_total || 0),
-          comissao_vendedor: Number(s.comissao_vendedor || 0),
-          custo_equipe: Number(s.custo_equipe || 0),
-          despesas_show: showExpensesByShow.get(s.id) ?? 0,
-          incluido: s.incluido,
-        })),
+    () => {
+      const showInputs = shows.map((s) => ({
+        cache_total: Number(s.cache_total || 0),
+        comissao_vendedor: Number(s.comissao_vendedor || 0),
+        custo_equipe: Number(s.custo_equipe || 0),
+        despesas_show: showExpensesByShow.get(s.id) ?? 0,
+        incluido: s.incluido,
+      }));
+      // Despesas gerais NÃO vinculadas: adiciona como "show fantasma" só com despesas
+      if (totalDespesasGeraisCalc > 0) {
+        showInputs.push({
+          cache_total: 0, comissao_vendedor: 0, custo_equipe: 0,
+          despesas_show: totalDespesasGeraisCalc, incluido: true,
+        });
+      }
+      return computeClosing(
+        showInputs,
         crew.map((c) => ({
           cache_por_show: Number(c.cache_por_show || 0),
           shows_participados: Number(c.shows_participados || 0),
@@ -413,8 +421,9 @@ export default function FechamentoDetalhe() {
           imposto_percentual: config.imposto_percentual,
           partners,
         },
-      ),
-    [shows, showExpensesByShow, crew, investments, partners, config, artistName],
+      );
+    },
+    [shows, showExpensesByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc],
   );
 
   const totalEquipeBase = useMemo(
