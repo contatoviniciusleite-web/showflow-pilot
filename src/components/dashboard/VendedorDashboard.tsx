@@ -33,6 +33,7 @@ interface NotifLite {
 
 export function VendedorDashboard() {
   const { user } = useAuth();
+  const { displayName } = useProfile();
   const [period, setPeriod] = useState<Period>("mes");
   const [shows, setShows] = useState<ShowLite[]>([]);
   const [notifs, setNotifs] = useState<NotifLite[]>([]);
