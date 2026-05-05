@@ -36,24 +36,40 @@ const TIPO_COR: Record<NotifTipo, string> = {
 };
 
 export function NotificationBell() {
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const [items, setItems] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
 
-  const loadCount = async () => {
-    if (!session) return;
-    const { data, error } = await supabase.functions.invoke("notifications", {
-      body: { action: "unread_count" },
+  const handleAuthError = async (error: any) => {
+    const status = error?.context?.status ?? error?.status;
+    const msg = String(error?.message ?? "");
+    if (status === 401 || /Sess[aã]o (inv|aus)/i.test(msg) || /JWT|sub claim|refresh/i.test(msg)) {
+      try { await signOut(); } catch { /* noop */ }
+      return true;
+    }
+    return false;
+  };
+
+  const invokeNotif = async (body: any) => {
+    if (!session?.access_token) return { data: null, error: new Error("no-session") };
+    return supabase.functions.invoke("notifications", {
+      body,
+      headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    if (!error) setUnread(data?.count ?? 0);
+  };
+
+  const loadCount = async () => {
+    if (!session?.access_token) return;
+    const { data, error } = await invokeNotif({ action: "unread_count" });
+    if (error) { await handleAuthError(error); return; }
+    setUnread(data?.count ?? 0);
   };
   const loadList = async () => {
-    if (!session) return;
-    const { data, error } = await supabase.functions.invoke("notifications", {
-      body: { action: "list" },
-    });
-    if (!error) setItems((data?.notifications ?? []) as Notification[]);
+    if (!session?.access_token) return;
+    const { data, error } = await invokeNotif({ action: "list" });
+    if (error) { await handleAuthError(error); return; }
+    setItems((data?.notifications ?? []) as Notification[]);
   };
 
   useEffect(() => {
@@ -65,21 +81,25 @@ export function NotificationBell() {
     loadCount();
     const id = window.setInterval(loadCount, 30000);
     return () => window.clearInterval(id);
-  }, [session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token]);
 
   useEffect(() => {
     if (open && session) loadList();
-  }, [open, session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, session?.access_token]);
 
   const markAll = async () => {
-    const { error } = await supabase.functions.invoke("notifications", {
-      body: { action: "mark_read" },
-    });
-    if (error) return toast.error(error.message);
+    const { error } = await invokeNotif({ action: "mark_read" });
+    if (error) {
+      if (await handleAuthError(error)) return;
+      return toast.error(error.message);
+    }
     await Promise.all([loadList(), loadCount()]);
   };
   const markOne = async (id: string) => {
-    await supabase.functions.invoke("notifications", { body: { action: "mark_read", id } });
+    const { error } = await invokeNotif({ action: "mark_read", id });
+    if (error) { await handleAuthError(error); return; }
     await Promise.all([loadList(), loadCount()]);
   };
 
