@@ -1046,12 +1046,12 @@ export default function FechamentoDetalhe() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[800px]">
               <thead className="bg-[#0C447C] text-white">
-                <tr className="text-left">
-                  <th className="px-2 py-1.5">Nome</th>
-                  <th className="px-2 py-1.5">Função</th>
-                  <th className="px-2 py-1.5 text-right w-[140px]">Cachê/show</th>
-                  <th className="px-2 py-1.5">Shows participados</th>
-                  <th className="px-2 py-1.5 text-right w-[110px]">Total</th>
+                <tr className="text-left text-white">
+                  <th className="px-2 py-2 font-medium">Nome</th>
+                  <th className="px-2 py-2 font-medium">Função</th>
+                  <th className="px-2 py-2 font-medium text-right w-[140px]">Cachê/show</th>
+                  <th className="px-2 py-2 font-medium">Shows participados</th>
+                  <th className="px-2 py-2 font-medium text-right w-[110px]">Total</th>
                   <th className="w-8" />
                 </tr>
               </thead>
