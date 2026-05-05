@@ -143,6 +143,7 @@ export function computeClosing(
     totalClipe,
     totalCustos,
     sobra,
+    sobraDistribuir,
     totalInvestimentos,
     distribution: rows,
     totalImpostos,
