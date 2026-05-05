@@ -112,6 +112,18 @@ export default function FechamentoDetalhe() {
     setArtistName((c as any).artists?.nome ?? "");
     setObservacoes(c.observacoes ?? "");
 
+    if (isArtistOnly) {
+      const { data: dist } = await supabase
+        .from("weekly_closing_distribution")
+        .select("valor_bruto, imposto_valor, valor_liquido, percentual")
+        .eq("closing_id", id)
+        .eq("tipo", "artista")
+        .maybeSingle();
+      if (dist) setArtistDist(dist as any);
+      setLoading(false);
+      return;
+    }
+
     const [s, cr, ex, cfg, prt] = await Promise.all([
       supabase
         .from("weekly_closing_shows")
