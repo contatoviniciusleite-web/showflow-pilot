@@ -1096,6 +1096,50 @@ export type Database = {
           },
         ]
       }
+      weekly_closing_clipe: {
+        Row: {
+          clipe: string | null
+          closing_id: string
+          created_at: string
+          funcao: string | null
+          id: string
+          ordem: number
+          profissional: string
+          quantidade: number
+          valor_por_clipe: number
+        }
+        Insert: {
+          clipe?: string | null
+          closing_id: string
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          ordem?: number
+          profissional?: string
+          quantidade?: number
+          valor_por_clipe?: number
+        }
+        Update: {
+          clipe?: string | null
+          closing_id?: string
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          ordem?: number
+          profissional?: string
+          quantidade?: number
+          valor_por_clipe?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_closing_clipe_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_closing_crew: {
         Row: {
           cache_por_show: number
@@ -1374,6 +1418,7 @@ export type Database = {
           semana_inicio: string
           status: string
           total_bruto: number
+          total_clipe: number
           total_comissao_vendedores: number
           total_despesas: number
           total_equipe: number
@@ -1392,6 +1437,7 @@ export type Database = {
           semana_inicio: string
           status?: string
           total_bruto?: number
+          total_clipe?: number
           total_comissao_vendedores?: number
           total_despesas?: number
           total_equipe?: number
@@ -1410,6 +1456,7 @@ export type Database = {
           semana_inicio?: string
           status?: string
           total_bruto?: number
+          total_clipe?: number
           total_comissao_vendedores?: number
           total_despesas?: number
           total_equipe?: number
