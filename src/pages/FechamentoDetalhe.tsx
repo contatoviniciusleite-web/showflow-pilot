@@ -1473,3 +1473,22 @@ function ResumoBox({ label, value, accent }: { label: string; value: number; acc
     </div>
   );
 }
+
+function SummaryCard({
+  icon, iconBg, label, value, sub, accent,
+}: { icon: string; iconBg: string; label: string; value: string; sub: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl border bg-card shadow-soft p-4 transition-all hover:shadow-elevated">
+      <div className="flex items-start gap-3">
+        <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center text-lg shrink-0", iconBg)}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
+          <div className={cn("text-xl font-bold mt-0.5 truncate", accent && "text-[#00C853]")}>{value}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
