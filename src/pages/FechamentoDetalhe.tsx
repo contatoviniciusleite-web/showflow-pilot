@@ -1369,6 +1369,7 @@ export default function FechamentoDetalhe() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção F — Cálculo */}
