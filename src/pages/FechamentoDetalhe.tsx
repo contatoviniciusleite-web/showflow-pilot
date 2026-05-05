@@ -1020,24 +1020,32 @@ export default function FechamentoDetalhe() {
       </Card>
 
       {/* Seção B — Equipe */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#185FA5] animate-fade-in">
+        <div className="px-4 py-3 bg-blue-50/70 dark:bg-blue-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">B. Equipe</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>👥</span> B. Equipe
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Marque os shows em que cada membro participou. O custo de equipe de cada show é calculado automaticamente.
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#185FA5] text-white">
+              {crew.length} {crew.length === 1 ? "membro" : "membros"}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
         {crew.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum membro cadastrado.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[800px]">
-              <thead className="bg-muted/40">
+              <thead className="bg-[#0C447C] text-white">
                 <tr className="text-left">
                   <th className="px-2 py-1.5">Nome</th>
                   <th className="px-2 py-1.5">Função</th>
