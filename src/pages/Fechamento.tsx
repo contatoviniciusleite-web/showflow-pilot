@@ -6,11 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, FileSpreadsheet } from "lucide-react";
+import { Loader2, Plus, FileSpreadsheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { useAuth } from "@/contexts/AuthContext";
 import { NewClosingDialog } from "@/components/fechamento/NewClosingDialog";
+import { DeleteClosingDialog } from "@/components/fechamento/DeleteClosingDialog";
 
 type Row = {
   id: string;
