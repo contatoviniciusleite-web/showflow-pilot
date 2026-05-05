@@ -1104,9 +1104,9 @@ export default function FechamentoDetalhe() {
                   );
                 })}
               </tbody>
-              <tfoot className="bg-muted/30 font-medium">
+              <tfoot className="bg-[#0C447C] text-white font-semibold">
                 <tr>
-                  <td colSpan={4} className="px-2 py-2 text-xs text-muted-foreground">
+                  <td colSpan={4} className="px-2 py-2 text-xs text-white/80">
                     Baseado em {shows.filter((s) => s.incluido).length} show(s) incluído(s) neste fechamento
                   </td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totalEquipeBase)}</td>
@@ -1116,6 +1116,7 @@ export default function FechamentoDetalhe() {
             </table>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção C — Despesas gerais */}
