@@ -742,71 +742,18 @@ export default function FechamentoDetalhe() {
     load();
   };
 
-  const handleExportPDF = () => {
-    if (!closing) return;
-    exportClosingPDF({
-      artistName,
-      semanaInicio: closing.semana_inicio,
-      semanaFim: closing.semana_fim,
-      observacoes,
-      shows: shows.map((s) => ({
-        data_show: s.show?.data_show ?? "",
-        vendedor: s.show?.vendedor,
-        local: s.show?.local,
-        cidade: s.show?.cidade,
-        cache_total: Number(s.cache_total || 0),
-        comissao_vendedor: Number(s.comissao_vendedor || 0),
-        custo_equipe: crewCostByShow.get(s.id) ?? 0,
-        van: vanByShow.get(s.id) ?? 0,
-        despesas_show: showExpensesByShow.get(s.id) ?? 0,
-        despesas_detalhe: showExpenses
-          .filter((e) => e.closing_show_id === s.id)
-          .map((e) => ({ categoria: e.categoria, descricao: e.descricao, valor: Number(e.valor || 0) })),
-        incluido: s.incluido,
-      })),
-      crew: crew.map((c) => {
-        const indices = c.shows_ids
-          .map((sid) => shows.findIndex((s) => s.id === sid))
-          .filter((i) => i >= 0)
-          .map((i) => i + 1)
-          .sort((a, b) => a - b);
-        const showsLabel = indices.length === 0 ? "—" : indices.length === 1 ? `Show ${indices[0]}` : `Shows ${indices.join(",")}`;
-        return {
-          nome: c.nome, funcao: c.funcao,
-          cache_por_show: Number(c.cache_por_show || 0),
-          shows_participados: c.shows_ids.length,
-          shows_label: showsLabel,
-          total_receber: Number(c.cache_por_show || 0) * c.shows_ids.length,
-        };
-      }),
-      investments: investments.map((i) => ({
-        descricao: i.descricao, categoria: i.categoria,
-        valor_total: Number(i.valor_total || 0),
-        total_parcelas: i.total_parcelas, numero_parcela: i.numero_parcela,
-        valor_descontado: Number(i.valor_descontado || 0),
-      })),
-      expenses: generalExpenses.map((e) => {
-        const linkedShow = e.closing_show_id ? shows.find((s) => s.id === e.closing_show_id) : null;
-        const showLabel = linkedShow
-          ? `${fmtDateBR(linkedShow.show?.data_show ?? "")} — ${[linkedShow.show?.local, linkedShow.show?.cidade].filter(Boolean).join(", ") || "Show"}`
-          : "Geral";
-        return {
-          categoria: e.categoria,
-          descricao: e.descricao,
-          show_label: showLabel,
-          responsavel: e.responsavel,
-          incluir_no_calculo: e.incluir_no_calculo,
-          valor: Number(e.valor || 0),
-        };
-      }),
-      clipes: clipes.map((c) => ({
-        profissional: c.profissional, funcao: c.funcao, clipe: c.clipe,
-        quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0),
-        total: Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0),
-      })),
-      impostoPercentual: Number(config.imposto_percentual || 0),
-      totals,
-    });
+  const handleExportPDF = async () => {
+    if (!closing || !exportRef.current) return;
+    setExporting(true);
+    try {
+      const filename = `fechamento_${(artistName || "artista")}_${closing.semana_inicio}.pdf`
+        .replace(/\s+/g, "_").toLowerCase();
+      await exportClosingScreenshotPDF(exportRef.current, filename);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao exportar PDF");
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (loading) {
