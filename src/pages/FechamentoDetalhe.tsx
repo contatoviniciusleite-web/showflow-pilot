@@ -882,7 +882,6 @@ export default function FechamentoDetalhe() {
             <table className="w-full text-xs md:text-sm min-w-[1100px]">
               <thead className="bg-muted/40">
                 <tr className="text-left">
-                  <th className="px-2 py-1.5 w-8" />
                   <th className="px-2 py-1.5">Data</th>
                   <th className="px-2 py-1.5">Vendedor</th>
                   <th className="px-2 py-1.5">Local — Cidade</th>
@@ -911,8 +910,6 @@ export default function FechamentoDetalhe() {
                   const totalCustosShow = Number(s.comissao_vendedor || 0) + equipeShow + vanShow + despesasShow;
                   const sobraShow = Number(s.cache_total || 0) - totalCustosShow;
                   const pctComissao = s.cache_total > 0 ? (s.comissao_vendedor / s.cache_total) * 100 : 0;
-                  const expanded = expandedShows.has(s.id);
-                  const expensesOfShow = showExpenses.filter((e) => e.closing_show_id === s.id);
                   const equipeTooltip = crew
                     .filter((c) => c.shows_ids.includes(s.id))
                     .map((c) => `${c.nome || "—"}: ${fmtBRL(c.cache_por_show)}`)
@@ -920,11 +917,6 @@ export default function FechamentoDetalhe() {
                   return (
                     <>
                       <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
-                        <td className="px-2 py-1.5">
-                          <button onClick={() => toggleShowExpand(s.id)} className="text-muted-foreground hover:text-foreground">
-                            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          </button>
-                        </td>
                         <td className="px-2 py-1.5 whitespace-nowrap">{fmtDateBR(s.show?.data_show ?? "")}</td>
                         <td className="px-2 py-1.5">{s.show?.vendedor ?? "—"}</td>
                         <td className="px-2 py-1.5">{[s.show?.local, s.show?.cidade].filter(Boolean).join(" — ") || "—"}</td>
@@ -962,55 +954,12 @@ export default function FechamentoDetalhe() {
                             onCheckedChange={(v) => updateShow(s.id, { incluido: v })} />
                         </td>
                       </tr>
-                      {expanded && (
-                        <tr key={s.id + "-exp"} className="bg-muted/20 border-t">
-                          <td />
-                          <td colSpan={10} className="px-2 py-2">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas deste show</span>
-                                {!readonly && (
-                                  <Button size="sm" variant="outline" onClick={() => addShowExpense(s.id)}>
-                                    <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
-                                  </Button>
-                                )}
-                              </div>
-                              {expensesOfShow.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">Nenhuma despesa lançada para este show.</p>
-                              ) : (
-                                <div className="space-y-1">
-                                  {expensesOfShow.map((e) => (
-                                    <div key={e.id} className="grid grid-cols-12 gap-2 items-center">
-                                      <Select value={e.categoria} onValueChange={(v) => updateShowExpense(e.id, { categoria: v })} disabled={readonly}>
-                                        <SelectTrigger className="col-span-3 h-8"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{CATEGORIAS_DESPESA.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                                      </Select>
-                                      <Input className="col-span-5 h-8" placeholder="Descrição"
-                                        value={e.descricao ?? ""} disabled={readonly}
-                                        onChange={(ev) => updateShowExpense(e.id, { descricao: ev.target.value })} />
-                                      <CurrencyInput className="col-span-3 h-8 text-right" value={e.valor} disabled={readonly}
-                                        onValueChange={(v) => updateShowExpense(e.id, { valor: v })} />
-                                      {!readonly && (
-                                        <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
-                                          onClick={() => removeShowExpense(e.id)}>
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                     </>
                   );
                 })}
               </tbody>
               <tfoot className="bg-muted/30 font-medium">
                 <tr>
-                  <td />
                   <td colSpan={3} className="px-2 py-2">{nIncluidos} shows incluídos</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalComissoes)}</td>
