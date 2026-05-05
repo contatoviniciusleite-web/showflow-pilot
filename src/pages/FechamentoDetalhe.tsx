@@ -1425,6 +1425,21 @@ export default function FechamentoDetalhe() {
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobraDistribuir)}</span>
             </div>
+            {(() => {
+              const somaDist = totals.distribution.reduce((a, r) => a + r.valor_bruto, 0);
+              const diff = Math.abs(somaDist - totals.sobraDistribuir);
+              if (diff > 0.05) {
+                console.error("ERRO DE CÁLCULO: soma distribuída não bate com a sobra", {
+                  soma_distribuida: somaDist, sobra: totals.sobraDistribuir, diferenca: diff,
+                });
+                return (
+                  <div className="mt-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive font-medium">
+                    ⚠️ Erro de cálculo detectado. Contate o suporte.
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div className="space-y-2 text-sm">
