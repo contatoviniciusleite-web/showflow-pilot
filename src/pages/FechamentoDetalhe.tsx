@@ -106,6 +106,18 @@ type GeneralExpense = {
   _dirty?: boolean;
 };
 
+type ClipeRow = {
+  id: string;
+  profissional: string;
+  funcao: string;
+  clipe: string;
+  quantidade: number;
+  valor_por_clipe: number;
+  ordem: number;
+  _new?: boolean;
+  _dirty?: boolean;
+};
+
 const CATEGORIAS_DESPESA = ["Van", "Equipamento", "Efeitos", "Figurino", "Ensaio", "Combustível", "Alimentação", "Outros"];
 const CATEGORIAS_INVEST = ["Equipamento", "Figurino", "Clipe", "Marketing", "Outros"];
 
