@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "diretor" | "gerente" | "equipe" | "artista" | "vendedor" | "financeiro";
@@ -96,10 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
+        Sentry.setUser({ id: sess.user.id, email: sess.user.email ?? undefined });
         setLoading(false);
         // defer chamada do supabase para evitar deadlock no listener
         setTimeout(() => void loadRoles(sess.user.id, sess.access_token), 0);
       } else {
+        Sentry.setUser(null);
         roleLoadId.current += 1;
         setRoles([]);
         setArtistId(null);

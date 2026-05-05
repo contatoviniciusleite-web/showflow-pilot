@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -64,7 +65,28 @@ function InviteHashRedirect() {
   return null;
 }
 
+function GlobalErrorFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="max-w-md text-center space-y-4">
+        <div className="text-5xl" aria-hidden>⚠️</div>
+        <h1 className="text-xl font-semibold">Algo deu errado</h1>
+        <p className="text-sm text-muted-foreground">
+          Nossa equipe foi notificada automaticamente. Tente recarregar a página.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium"
+        >
+          Recarregar página
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const App = () => (
+  <Sentry.ErrorBoundary fallback={<GlobalErrorFallback />}>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -148,6 +170,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </Sentry.ErrorBoundary>
 );
 
 export default App;
