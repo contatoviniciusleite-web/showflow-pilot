@@ -302,6 +302,58 @@ export function exportClosingPDF(input: ClosingPdfInput) {
     y = (doc as any).lastAutoTable.finalY + 6;
   }
 
+  // ===== CLIPE =====
+  ensureSpace(40);
+  sectionTitle("CLIPE");
+  if (input.clipes.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.setTextColor(110);
+    doc.text("Nenhum lançamento de clipe nesta semana.", marginX, y + 2);
+    doc.setTextColor(0);
+    y += 8;
+  } else {
+    const clipeCols = {
+      0: { cellWidth: 60, halign: "left" as const },
+      1: { cellWidth: 45, halign: "left" as const },
+      2: { cellWidth: 60, halign: "left" as const },
+      3: { cellWidth: 20, halign: "center" as const },
+      4: { cellWidth: 40, halign: "right" as const },
+      5: { cellWidth: 44, halign: "right" as const },
+    };
+    const clipeBody: any[] = [
+      ...input.clipes.map((c) => [
+        c.profissional || "—", c.funcao || "—", c.clipe || "—",
+        String(c.quantidade), fmtBRL(c.valor_por_clipe), fmtBRL(c.total),
+      ]),
+      [
+        { content: "TOTAL CLIPE", colSpan: 5, styles: { halign: "right" as const, fontStyle: "bold" as const } },
+        { content: fmtBRL(input.totals.totalClipe), styles: { halign: "right" as const, fontStyle: "bold" as const } },
+      ],
+    ];
+    autoTable(doc, {
+      head: [["Profissional", "Função", "Clipe", "Qtd", "Valor/clipe", "Total"]],
+      body: clipeBody,
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      tableWidth: usableW,
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      headStyles: { fillColor: HEAD_FILL, textColor: 255, fontStyle: "bold" },
+      columnStyles: clipeCols,
+      alternateRowStyles: { fillColor: ALT_FILL },
+      didParseCell: (data) => {
+        if (data.section === "head") {
+          const col = (clipeCols as any)[data.column.index];
+          if (col?.halign) data.cell.styles.halign = col.halign;
+        }
+        if (data.section === "body" && data.row.index === input.clipes.length) {
+          data.cell.styles.fillColor = TOTAL_FILL;
+        }
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
+
   // ===== DISTRIBUIÇÃO — layout em 2 painéis =====
   const dist = input.totals.distribution;
   // Estimar altura dos cards
