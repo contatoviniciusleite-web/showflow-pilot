@@ -135,7 +135,7 @@ export default function Fechamento() {
                 {rows.map((r) => (
                   <tr key={r.id} className="border-t hover:bg-muted/30">
                     <td className="px-3 py-2">{r.artists?.nome ?? "—"}</td>
-                    <td className="px-3 py-2">{fmtDateBR(r.semana_inicio)} – {fmtDateBR(r.semana_fim)}</td>
+                    <td className="px-3 py-2">Fechamento de {fmtDateBR(r.semana_inicio)} a {fmtDateBR(r.semana_fim)}</td>
                     <td className="px-3 py-2">
                       <Badge variant={r.status === "finalizado" ? "default" : "secondary"}>
                         {r.status === "finalizado" ? "Finalizado" : "Rascunho"}

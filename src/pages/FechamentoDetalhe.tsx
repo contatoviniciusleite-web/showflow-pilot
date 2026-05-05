@@ -157,6 +157,13 @@ export default function FechamentoDetalhe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    if (closing) {
+      document.title = `Fechamento de ${fmtDateBR(closing.semana_inicio)} a ${fmtDateBR(closing.semana_fim)}`;
+    }
+    return () => { document.title = "ShowFlow"; };
+  }, [closing]);
+
   // ===== Updates =====
   const updateShow = (rowId: string, patch: Partial<ShowRow>) =>
     setShows((arr) => arr.map((s) => (s.id === rowId ? { ...s, ...patch } : s)));
