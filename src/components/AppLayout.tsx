@@ -25,6 +25,7 @@ const prefetchers: Record<string, () => Promise<unknown>> = {
   "/artistas": () => import("@/pages/Artistas"),
   "/bloqueios": () => import("@/pages/Bloqueios"),
   "/usuarios": () => import("@/pages/Usuarios"),
+  "/fechamento": () => import("@/pages/Fechamento"),
 };
 const prefetched = new Set<string>();
 function prefetchRoute(path: string) {
