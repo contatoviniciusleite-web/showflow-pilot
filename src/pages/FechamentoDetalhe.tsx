@@ -739,6 +739,8 @@ export default function FechamentoDetalhe() {
           placeholder="Anotações deste fechamento..."
         />
       </Card>
+      </>
+      )}
     </div>
   );
 }
