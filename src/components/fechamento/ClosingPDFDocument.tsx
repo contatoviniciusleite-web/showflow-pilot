@@ -210,7 +210,7 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
       {/* CARDS DE RESUMO */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginTop: "16px" }}>
         <SummaryCard icon="💰" iconBg="#dcfce7" iconFg={C.green} label="Cachê Bruto" value={fmtBRL(totals.totalBruto)} sub={`${incluidos} ${incluidos === 1 ? "show" : "shows"}`} />
-        <SummaryCard icon="📉" iconBg="#fee2e2" iconFg="#dc2626" label="Total Custos" value={fmtBRL(totals.totalCustos + totals.totalEquipe)} sub="Comissão + Equipe + Van + Despesas + Clipe" />
+        <SummaryCard icon="📉" iconBg="#fee2e2" iconFg="#dc2626" label="Total Custos" value={fmtBRL(totals.totalCustos)} sub="Comissão + Equipe + Van + Despesas + Clipe" />
         <SummaryCard icon="🏛️" iconBg="#fef3c7" iconFg="#92400e" label="Total Impostos" value={fmtBRL(totals.totalImpostos)} sub={`${impostoPercentual}% sobre bruto`} />
         <SummaryCard icon="✅" iconBg="#dcfce7" iconFg={C.green} label="Sobra" value={fmtBRL(totals.sobra)} sub="A distribuir" highlight />
       </div>
