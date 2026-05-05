@@ -134,6 +134,8 @@ export default function FechamentoDetalhe() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = useState<Closing | null>(null);
   const [artistName, setArtistName] = useState<string>("");
   const [openDelete, setOpenDelete] = useState(false);
