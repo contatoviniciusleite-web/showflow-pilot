@@ -157,12 +157,13 @@ export default function FechamentoDetalhe() {
     setArtistName((c as any).artists?.nome ?? "");
     setObservacoes(c.observacoes ?? "");
 
-    const [s, se, cr, inv, cfg, prt] = await Promise.all([
+    const [s, se, ge, cr, inv, cfg, prt] = await Promise.all([
       supabase
         .from("weekly_closing_shows")
         .select("*, show:shows(data_show, horario, local, cidade, vendedor)")
         .eq("closing_id", id),
       supabase.from("weekly_closing_show_expenses" as any).select("*").eq("closing_id", id),
+      supabase.from("weekly_closing_expenses").select("*").eq("closing_id", id),
       supabase.from("weekly_closing_crew").select("*").eq("closing_id", id).order("ordem"),
       supabase.from("weekly_closing_investments" as any).select("*").eq("closing_id", id).order("created_at"),
       supabase.from("artist_financial_config").select("*").eq("artist_id", c.artist_id).maybeSingle(),
@@ -170,6 +171,15 @@ export default function FechamentoDetalhe() {
     ]);
     setShows((s.data ?? []) as any);
     setShowExpenses(((se.data as any[]) ?? []) as any);
+    setGeneralExpenses(((ge.data as any[]) ?? []).map((e) => ({
+      id: e.id,
+      categoria: e.categoria,
+      descricao: e.descricao,
+      closing_show_id: e.closing_show_id ?? null,
+      responsavel: (e.responsavel ?? "produtora") as "produtora" | "contratante",
+      incluir_no_calculo: e.incluir_no_calculo ?? true,
+      valor: Number(e.valor ?? 0),
+    })));
     setCrew((cr.data ?? []) as any);
     setInvestments(((inv.data as any[]) ?? []) as any);
     if (cfg.data) {
