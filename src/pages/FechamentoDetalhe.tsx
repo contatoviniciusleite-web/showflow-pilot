@@ -1204,21 +1204,30 @@ export default function FechamentoDetalhe() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção D — Investimentos */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#534AB7] animate-fade-in">
+        <div className="px-4 py-3 bg-purple-50/70 dark:bg-purple-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">D. Investimentos</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>📦</span> D. Investimentos
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Descontados proporcionalmente apenas dos sócios/empresários — o artista não participa.
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addInvestment}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar investimento</Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#534AB7] text-white">
+              {investments.length} {investments.length === 1 ? "item" : "itens"} · {fmtBRL(totals.totalInvestimentos)}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addInvestment}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar investimento</Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
 
         {pendingInvestments.length > 0 && !readonly && (
           <div className="mb-3 p-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 text-sm">
