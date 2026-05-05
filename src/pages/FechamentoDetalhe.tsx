@@ -553,12 +553,12 @@ export default function FechamentoDetalhe() {
     if (!closing) return;
     setSaving(true);
     try {
-      // Shows
+      // Shows — custo_equipe é derivado da Seção B
       for (const s of shows) {
         await supabase.from("weekly_closing_shows").update({
           cache_total: s.cache_total,
           comissao_vendedor: s.comissao_vendedor,
-          custo_equipe: s.custo_equipe,
+          custo_equipe: crewCostByShow.get(s.id) ?? 0,
           incluido: s.incluido,
         }).eq("id", s.id);
       }
