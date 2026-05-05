@@ -679,7 +679,7 @@ export default function FechamentoDetalhe() {
       }
 
       toast.success(finalize ? "Fechamento finalizado" : "Rascunho salvo");
-      setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]);
+      setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]); setRemovedClipes([]);
       await load();
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
