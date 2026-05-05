@@ -1,12 +1,10 @@
 // Lógica pura de cálculo do fechamento semanal.
-// Mantém-se separada da UI para facilitar testes e reuso (PDF, dashboards).
 
 export type ClosingShowInput = {
   cache_total: number;
   comissao_vendedor: number;
   custo_equipe: number;
-  van: number;
-  outras_despesas: number;
+  despesas_show: number; // total de despesas operacionais do show
   incluido: boolean;
 };
 
@@ -15,17 +13,16 @@ export type ClosingCrewInput = {
   shows_participados: number;
 };
 
-export type ClosingExpenseInput = {
-  valor: number;
-  incluir_no_calculo: boolean;
-};
-
 export type ClosingPartnerInput = {
   nome: string;
   funcao?: string | null;
   percentual: number;
   ativo?: boolean;
   tipo?: "socio" | "parceiro";
+};
+
+export type ClosingInvestmentInput = {
+  valor_descontado: number;
 };
 
 export type ClosingConfigInput = {
@@ -39,8 +36,9 @@ export type DistributionRow = {
   beneficiario: string;
   tipo: "artista" | "socio" | "parceiro" | "produtora";
   percentual: number;
-  valor_bruto: number;
-  imposto_valor: number;
+  valor_bruto: number;        // % * sobra
+  imposto_valor: number;      // % * total bruto cachês * imposto%
+  investimento_valor: number; // só para sócios/parceiros
   valor_liquido: number;
 };
 
@@ -48,12 +46,11 @@ export type ClosingTotals = {
   totalBruto: number;
   totalComissoes: number;
   totalCustoEquipeShows: number;
-  totalVan: number;
-  totalOutrasShows: number;
-  totalEquipe: number; // soma da seção B (referência)
-  totalDespesas: number; // despesas gerais (seção C, no cálculo)
-  totalCustos: number; // soma de tudo que reduz da bruto
+  totalDespesasShows: number;
+  totalEquipe: number;
+  totalCustos: number;
   sobra: number;
+  totalInvestimentos: number;
   distribution: DistributionRow[];
   totalImpostos: number;
   totalLiquido: number;
@@ -68,29 +65,28 @@ export function computeCrewTotal(c: ClosingCrewInput): number {
 export function computeClosing(
   shows: ClosingShowInput[],
   crew: ClosingCrewInput[],
-  expenses: ClosingExpenseInput[],
+  investments: ClosingInvestmentInput[],
   config: ClosingConfigInput,
 ): ClosingTotals {
   const incluidos = shows.filter((s) => s.incluido);
   const totalBruto = round2(incluidos.reduce((a, s) => a + Number(s.cache_total || 0), 0));
   const totalComissoes = round2(incluidos.reduce((a, s) => a + Number(s.comissao_vendedor || 0), 0));
   const totalCustoEquipeShows = round2(incluidos.reduce((a, s) => a + Number(s.custo_equipe || 0), 0));
-  const totalVan = round2(incluidos.reduce((a, s) => a + Number(s.van || 0), 0));
-  const totalOutrasShows = round2(incluidos.reduce((a, s) => a + Number(s.outras_despesas || 0), 0));
+  const totalDespesasShows = round2(incluidos.reduce((a, s) => a + Number(s.despesas_show || 0), 0));
   const totalEquipe = round2(crew.reduce((a, c) => a + computeCrewTotal(c), 0));
-  const totalDespesas = round2(
-    expenses.filter((e) => e.incluir_no_calculo).reduce((a, e) => a + Number(e.valor || 0), 0),
-  );
-  const totalCustos = round2(
-    totalComissoes + totalCustoEquipeShows + totalVan + totalOutrasShows + totalDespesas,
-  );
+  const totalCustos = round2(totalComissoes + totalCustoEquipeShows + totalDespesasShows);
   const sobra = round2(totalBruto - totalCustos);
 
-  const imposto = Number(config.imposto_percentual || 0) / 100;
+  const totalInvestimentos = round2(investments.reduce((a, i) => a + Number(i.valor_descontado || 0), 0));
+
+  const impostoPct = Number(config.imposto_percentual || 0) / 100;
   const partners = (config.partners ?? []).filter((p) => p.ativo !== false);
   const somaPartners = partners.reduce((a, p) => a + Number(p.percentual || 0), 0);
   const somaTotal = Number(config.artista_percentual || 0) + somaPartners;
   const sobraProdutora = Math.max(0, round2(100 - somaTotal));
+
+  // Soma dos % dos sócios (para rateio dos investimentos)
+  const somaSocios = somaPartners; // somente sócios/parceiros, não inclui artista nem produtora
 
   const rows: DistributionRow[] = [];
 
@@ -100,9 +96,13 @@ export function computeClosing(
     percentual: number,
   ) => {
     const valor_bruto = round2((sobra * percentual) / 100);
-    const imposto_valor = round2(valor_bruto * imposto);
-    const valor_liquido = round2(valor_bruto - imposto_valor);
-    rows.push({ beneficiario, tipo, percentual, valor_bruto, imposto_valor, valor_liquido });
+    const imposto_valor = round2((totalBruto * percentual) / 100 * impostoPct);
+    let investimento_valor = 0;
+    if ((tipo === "socio" || tipo === "parceiro") && somaSocios > 0) {
+      investimento_valor = round2((totalInvestimentos * percentual) / somaSocios);
+    }
+    const valor_liquido = round2(valor_bruto - imposto_valor - investimento_valor);
+    rows.push({ beneficiario, tipo, percentual, valor_bruto, imposto_valor, investimento_valor, valor_liquido });
   };
 
   pushRow(config.artista_nome || "Artista", "artista", Number(config.artista_percentual || 0));
@@ -120,12 +120,11 @@ export function computeClosing(
     totalBruto,
     totalComissoes,
     totalCustoEquipeShows,
-    totalVan,
-    totalOutrasShows,
+    totalDespesasShows,
     totalEquipe,
-    totalDespesas,
     totalCustos,
     sobra,
+    totalInvestimentos,
     distribution: rows,
     totalImpostos,
     totalLiquido,
