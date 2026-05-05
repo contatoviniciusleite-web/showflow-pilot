@@ -72,10 +72,10 @@ export default function FechamentoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, roles } = useAuth();
-  const canEdit = roles.includes("diretor");
-  const canExport = canEdit || roles.includes("financeiro");
-  const isFullViewer = canEdit || roles.includes("financeiro");
-  const isArtistOnly = roles.includes("artista") && !isFullViewer;
+  const canEdit = roles.includes("financeiro");
+  const canExport = roles.includes("diretor") || roles.includes("financeiro") || roles.includes("artista");
+  // Todos os papéis com acesso (diretor, financeiro, artista) veem a tela completa.
+  const isArtistOnly = false;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -156,6 +156,13 @@ export default function FechamentoDetalhe() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (closing) {
+      document.title = `Fechamento de ${fmtDateBR(closing.semana_inicio)} a ${fmtDateBR(closing.semana_fim)}`;
+    }
+    return () => { document.title = "ShowFlow"; };
+  }, [closing]);
 
   // ===== Updates =====
   const updateShow = (rowId: string, patch: Partial<ShowRow>) =>
@@ -406,14 +413,14 @@ export default function FechamentoDetalhe() {
             <ArrowLeft className="h-4 w-4 mr-2" />Voltar
           </Button>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-semibold">{artistName}</h1>
+            <h1 className="text-2xl md:text-3xl font-semibold">
+              Fechamento de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
+            </h1>
             <Badge variant={closing.status === "finalizado" ? "default" : "secondary"}>
               {closing.status === "finalizado" ? "Finalizado" : "Rascunho"}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-1">
-            Semana de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
-          </p>
+          <p className="text-muted-foreground mt-1">{artistName}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canExport && (

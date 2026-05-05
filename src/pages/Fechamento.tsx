@@ -26,7 +26,7 @@ type Row = {
 
 export default function Fechamento() {
   const { roles } = useAuth();
-  const canEdit = roles.includes("diretor");
+  const canEdit = roles.includes("financeiro");
   const navigate = useNavigate();
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -123,7 +123,7 @@ export default function Fechamento() {
               <thead className="bg-muted/50">
                 <tr className="text-left">
                   <th className="px-3 py-2 font-medium">Artista</th>
-                  <th className="px-3 py-2 font-medium">Semana</th>
+                  <th className="px-3 py-2 font-medium">Período</th>
                   <th className="px-3 py-2 font-medium">Status</th>
                   <th className="px-3 py-2 font-medium text-right">Total bruto</th>
                   <th className="px-3 py-2 font-medium text-right">Sobra</th>
@@ -135,7 +135,7 @@ export default function Fechamento() {
                 {rows.map((r) => (
                   <tr key={r.id} className="border-t hover:bg-muted/30">
                     <td className="px-3 py-2">{r.artists?.nome ?? "—"}</td>
-                    <td className="px-3 py-2">{fmtDateBR(r.semana_inicio)} – {fmtDateBR(r.semana_fim)}</td>
+                    <td className="px-3 py-2">Fechamento de {fmtDateBR(r.semana_inicio)} a {fmtDateBR(r.semana_fim)}</td>
                     <td className="px-3 py-2">
                       <Badge variant={r.status === "finalizado" ? "default" : "secondary"}>
                         {r.status === "finalizado" ? "Finalizado" : "Rascunho"}
