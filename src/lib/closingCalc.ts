@@ -58,6 +58,7 @@ export type ClosingTotals = {
   totalClipe: number;
   totalCustos: number;
   sobra: number;
+  sobraDistribuir: number;
   totalInvestimentos: number;
   distribution: DistributionRow[];
   totalImpostos: number;
@@ -95,6 +96,9 @@ export function computeClosing(
   const totalInvestimentos = round2(investments.reduce((a, i) => a + Number(i.valor_descontado || 0), 0));
 
   const impostoPct = Number(config.imposto_percentual || 0) / 100;
+  const totalImpostos = round2(totalBruto * impostoPct);
+  // Sobra para distribuir já considera o imposto descontado
+  const sobraDistribuir = round2(sobra - totalImpostos);
   const partners = (config.partners ?? []).filter((p) => p.ativo !== false);
   const somaPartners = partners.reduce((a, p) => a + Number(p.percentual || 0), 0);
   const somaTotal = Number(config.artista_percentual || 0) + somaPartners;
@@ -108,13 +112,13 @@ export function computeClosing(
     tipo: DistributionRow["tipo"],
     percentual: number,
   ) => {
-    const valor_bruto = round2((sobra * percentual) / 100);
-    const imposto_valor = round2((totalBruto * percentual) / 100 * impostoPct);
+    const valor_bruto = round2((sobraDistribuir * percentual) / 100);
+    const imposto_valor = 0; // imposto já descontado antes da sobra
     let investimento_valor = 0;
     if ((tipo === "socio" || tipo === "parceiro") && somaSocios > 0) {
       investimento_valor = round2((totalInvestimentos * percentual) / somaSocios);
     }
-    const valor_liquido = round2(valor_bruto - imposto_valor - investimento_valor);
+    const valor_liquido = round2(valor_bruto - investimento_valor);
     rows.push({ beneficiario, tipo, percentual, valor_bruto, imposto_valor, investimento_valor, valor_liquido });
   };
 
@@ -126,7 +130,7 @@ export function computeClosing(
     pushRow("Produtora", "produtora", sobraProdutora);
   }
 
-  const totalImpostos = round2(rows.reduce((a, r) => a + r.imposto_valor, 0));
+  // totalImpostos já calculado acima
   const totalLiquido = round2(rows.reduce((a, r) => a + r.valor_liquido, 0));
 
   return {
@@ -139,6 +143,7 @@ export function computeClosing(
     totalClipe,
     totalCustos,
     sobra,
+    sobraDistribuir,
     totalInvestimentos,
     distribution: rows,
     totalImpostos,
