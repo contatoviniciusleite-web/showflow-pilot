@@ -934,7 +934,7 @@ export default function FechamentoDetalhe() {
           value={fmtBRL(totals.totalBruto)}
           sub={`${nIncluidos} ${nIncluidos === 1 ? "show confirmado" : "shows confirmados"}`} />
         <SummaryCard icon="📉" iconBg="bg-red-100" label="Total Custos"
-          value={fmtBRL(totals.totalCustos)} sub="Equipe + Van + Despesas" />
+          value={fmtBRL(totals.totalCustos)} sub="Comissão + Equipe + Van + Despesas + Clipe" />
         <SummaryCard icon="✅" iconBg="bg-green-100" label="Sobra para distribuir"
           value={fmtBRL(totals.sobraDistribuir)} sub="Após todos os descontos e impostos" accent />
         <SummaryCard icon="🏛️" iconBg="bg-gray-100" label="Total Impostos"
@@ -1046,7 +1046,7 @@ export default function FechamentoDetalhe() {
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalEquipe)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalVan)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalDespesasShows)}</td>
-                  <td className="px-2 py-2 text-right">{fmtBRL(totals.sobra)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto - totals.totalComissoes - totals.totalEquipe - totals.totalVan - totals.totalDespesasShows)}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -1425,6 +1425,21 @@ export default function FechamentoDetalhe() {
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobraDistribuir)}</span>
             </div>
+            {(() => {
+              const somaDist = totals.distribution.reduce((a, r) => a + r.valor_bruto, 0);
+              const diff = Math.abs(somaDist - totals.sobraDistribuir);
+              if (diff > 0.05) {
+                console.error("ERRO DE CÁLCULO: soma distribuída não bate com a sobra", {
+                  soma_distribuida: somaDist, sobra: totals.sobraDistribuir, diferenca: diff,
+                });
+                return (
+                  <div className="mt-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive font-medium">
+                    ⚠️ Erro de cálculo detectado. Contate o suporte.
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div className="space-y-2 text-sm">
