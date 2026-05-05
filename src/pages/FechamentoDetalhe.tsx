@@ -1302,23 +1302,32 @@ export default function FechamentoDetalhe() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção E — Clipe */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#DB2777] animate-fade-in">
+        <div className="px-4 py-3 bg-pink-50/70 dark:bg-pink-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">E. Clipe</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>🎬</span> E. Clipe
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Pagamentos por clipe à equipe. Descontado do bruto antes da distribuição (afeta todos os participantes proporcionalmente).
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addClipe}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#DB2777] text-white">
+              {clipes.length} {clipes.length === 1 ? "profissional" : "profissionais"} · {fmtBRL(totals.totalClipe)}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addClipe}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
+              </Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
         {clipes.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum lançamento de clipe nesta semana.</p>
         ) : (
