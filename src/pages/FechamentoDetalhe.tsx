@@ -171,7 +171,7 @@ export default function FechamentoDetalhe() {
     setArtistName((c as any).artists?.nome ?? "");
     setObservacoes(c.observacoes ?? "");
 
-    const [s, se, ge, cr, inv, cfg, prt] = await Promise.all([
+    const [s, se, ge, cr, inv, cfg, prt, cl] = await Promise.all([
       supabase
         .from("weekly_closing_shows")
         .select("*, show:shows(data_show, horario, local, cidade, vendedor)")
@@ -182,9 +182,15 @@ export default function FechamentoDetalhe() {
       supabase.from("weekly_closing_investments" as any).select("*").eq("closing_id", id).order("created_at"),
       supabase.from("artist_financial_config").select("*").eq("artist_id", c.artist_id).maybeSingle(),
       supabase.from("artist_partners").select("*").eq("artist_id", c.artist_id).order("ordem"),
+      supabase.from("weekly_closing_clipe" as any).select("*").eq("closing_id", id).order("ordem"),
     ]);
     setShows((s.data ?? []) as any);
     setShowExpenses(((se.data as any[]) ?? []) as any);
+    setClipes(((cl.data as any[]) ?? []).map((x) => ({
+      id: x.id, profissional: x.profissional ?? "", funcao: x.funcao ?? "",
+      clipe: x.clipe ?? "", quantidade: Number(x.quantidade ?? 0),
+      valor_por_clipe: Number(x.valor_por_clipe ?? 0), ordem: x.ordem ?? 0,
+    })));
     setGeneralExpenses(((ge.data as any[]) ?? []).map((e) => ({
       id: e.id,
       categoria: e.categoria,
