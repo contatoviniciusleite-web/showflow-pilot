@@ -890,14 +890,19 @@ export default function FechamentoDetalhe() {
                 </tr>
               </thead>
               <tbody>
-                {shows.map((s) => {
+                {shows.map((s, sIdx) => {
                   const despesasShow = showExpensesByShow.get(s.id) ?? 0;
                   const vanShow = vanByShow.get(s.id) ?? 0;
-                  const totalCustosShow = Number(s.comissao_vendedor || 0) + Number(s.custo_equipe || 0) + vanShow + despesasShow;
+                  const equipeShow = crewCostByShow.get(s.id) ?? 0;
+                  const totalCustosShow = Number(s.comissao_vendedor || 0) + equipeShow + vanShow + despesasShow;
                   const sobraShow = Number(s.cache_total || 0) - totalCustosShow;
                   const pctComissao = s.cache_total > 0 ? (s.comissao_vendedor / s.cache_total) * 100 : 0;
                   const expanded = expandedShows.has(s.id);
                   const expensesOfShow = showExpenses.filter((e) => e.closing_show_id === s.id);
+                  const equipeTooltip = crew
+                    .filter((c) => c.shows_ids.includes(s.id))
+                    .map((c) => `${c.nome || "—"}: ${fmtBRL(c.cache_por_show)}`)
+                    .join("\n") || "Nenhum membro de equipe marcou este show.";
                   return (
                     <>
                       <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
@@ -926,9 +931,11 @@ export default function FechamentoDetalhe() {
                               onValueChange={(v) => updateShow(s.id, { comissao_vendedor: v })} />
                           </div>
                         </td>
-                        <td className="px-2 py-1.5">
-                          <CurrencyInput className="h-8 text-right" value={s.custo_equipe} disabled={readonly}
-                            onValueChange={(v) => updateShow(s.id, { custo_equipe: v })} />
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                          <Tooltip>
+                            <TooltipTrigger asChild><span className="cursor-help">{fmtBRL(equipeShow)}</span></TooltipTrigger>
+                            <TooltipContent className="whitespace-pre-wrap max-w-xs text-left">{equipeTooltip}</TooltipContent>
+                          </Tooltip>
                         </td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(vanShow)}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(despesasShow)}</td>
