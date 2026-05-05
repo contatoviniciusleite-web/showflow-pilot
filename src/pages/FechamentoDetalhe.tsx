@@ -1046,7 +1046,7 @@ export default function FechamentoDetalhe() {
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalEquipe)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalVan)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalDespesasShows)}</td>
-                  <td className="px-2 py-2 text-right">{fmtBRL(totals.sobra)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto - totals.totalComissoes - totals.totalEquipe - totals.totalVan - totals.totalDespesasShows)}</td>
                   <td />
                 </tr>
               </tfoot>
