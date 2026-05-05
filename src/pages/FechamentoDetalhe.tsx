@@ -853,7 +853,8 @@ export default function FechamentoDetalhe() {
               <tbody>
                 {shows.map((s) => {
                   const despesasShow = showExpensesByShow.get(s.id) ?? 0;
-                  const totalCustosShow = Number(s.comissao_vendedor || 0) + Number(s.custo_equipe || 0) + despesasShow;
+                  const vanShow = vanByShow.get(s.id) ?? 0;
+                  const totalCustosShow = Number(s.comissao_vendedor || 0) + Number(s.custo_equipe || 0) + vanShow + despesasShow;
                   const sobraShow = Number(s.cache_total || 0) - totalCustosShow;
                   const pctComissao = s.cache_total > 0 ? (s.comissao_vendedor / s.cache_total) * 100 : 0;
                   const expanded = expandedShows.has(s.id);
