@@ -1001,7 +1001,7 @@ export default function FechamentoDetalhe() {
                   );
                 })}
               </tbody>
-              <tfoot className="bg-muted/30 font-medium">
+              <tfoot className="bg-[#1a1a1a] text-white font-semibold">
                 <tr>
                   <td colSpan={3} className="px-2 py-2">{nIncluidos} shows incluídos</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto)}</td>
@@ -1016,6 +1016,7 @@ export default function FechamentoDetalhe() {
             </table>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção B — Equipe */}
