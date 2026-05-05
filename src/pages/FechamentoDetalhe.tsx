@@ -905,14 +905,22 @@ export default function FechamentoDetalhe() {
       </div>
 
       {/* Seção A — Shows */}
-      <Card className="p-4 shadow-soft">
-        <h2 className="font-semibold mb-3">A. Shows da semana</h2>
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#00C853] animate-fade-in">
+        <div className="px-4 py-3 bg-green-50/70 dark:bg-green-950/20 border-b flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-semibold flex items-center gap-2">
+            <span>🎤</span> A. Shows da semana
+          </h2>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#00C853] text-black">
+            {shows.length} {shows.length === 1 ? "show" : "shows"}
+          </span>
+        </div>
+        <div className="p-4">
         {shows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum show vinculado.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs md:text-sm min-w-[1100px]">
-              <thead className="bg-muted/40">
+              <thead className="bg-[#1a1a1a] text-white">
                 <tr className="text-left">
                   <th className="px-2 py-1.5">Data</th>
                   <th className="px-2 py-1.5">Vendedor</th>
