@@ -1120,20 +1120,28 @@ export default function FechamentoDetalhe() {
       </Card>
 
       {/* Seção C — Despesas gerais */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#EA7517] animate-fade-in">
+        <div className="px-4 py-3 bg-orange-50/70 dark:bg-orange-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">C. Despesas</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>🧾</span> C. Despesas
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Despesas gerais do período. Vincule a um show para somar à coluna "Despesas" daquele show.
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addGeneralExpense}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EA7517] text-white">
+              {generalExpenses.length} {generalExpenses.length === 1 ? "item" : "itens"} · {fmtBRL(totalDespesasGeraisCalcAll)}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addGeneralExpense}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
+              </Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
         {generalExpenses.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma despesa lançada.</p>
         ) : (
