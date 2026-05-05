@@ -826,51 +826,83 @@ export default function FechamentoDetalhe() {
   return (
     <TooltipProvider delayDuration={200}>
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/fechamento")} className="mb-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />Voltar
-          </Button>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-semibold">
-              Fechamento de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
-            </h1>
-            <Badge variant={closing.status === "finalizado" ? "default" : "secondary"}>
-              {closing.status === "finalizado" ? "Finalizado" : "Rascunho"}
-            </Badge>
+      {/* HEADER ESCURO */}
+      <div className="rounded-xl overflow-hidden shadow-elevated animate-fade-in">
+        <div className="bg-[#1a1a1a] text-white p-5 md:p-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/fechamento")}
+              className="text-white/80 hover:text-white hover:bg-white/10 -ml-2">
+              <ArrowLeft className="h-4 w-4 mr-2" />Voltar
+            </Button>
+            <span className={cn(
+              "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold",
+              closing.status === "finalizado"
+                ? "bg-[#00C853] text-black"
+                : "bg-[#f59e0b] text-black"
+            )}>
+              {closing.status === "finalizado" ? "✓ Finalizado" : "● Rascunho"}
+            </span>
           </div>
-          <p className="text-muted-foreground mt-1">{artistName} · {nIncluidos} {nIncluidos === 1 ? "show" : "shows"}</p>
+          <div className="flex items-end justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-semibold text-white">
+                Fechamento de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
+              </h1>
+              <p className="text-white/70 mt-1.5 text-sm md:text-base">
+                <span className="font-medium text-white">{artistName}</span>
+                <span className="mx-2 text-white/40">·</span>
+                {nIncluidos} {nIncluidos === 1 ? "show" : "shows"}
+                <span className="mx-2 text-white/40">·</span>
+                <span className="text-[#00C853] font-medium">{fmtBRL(totals.totalBruto)}</span>
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {canExport && (
+                <Button variant="outline" onClick={handleExportPDF}
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+                  <FileDown className="h-4 w-4 mr-2" />Exportar PDF
+                </Button>
+              )}
+              {canEdit && closing.status === "finalizado" && (
+                <Button variant="outline" onClick={reopen} disabled={saving}
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+                  <Unlock className="h-4 w-4 mr-2" />Reabrir
+                </Button>
+              )}
+              {!readonly && (
+                <>
+                  <Button variant="outline" onClick={() => persist(false)} disabled={saving}
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Salvar rascunho
+                  </Button>
+                  <Button
+                    onClick={() => { if (confirm("Ao finalizar, o fechamento será bloqueado para edição. Confirmar?")) persist(true); }}
+                    disabled={saving}
+                    className="bg-[#00C853] hover:bg-[#00a843] text-black font-semibold"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />Finalizar
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {canExport && (
-            <Button variant="outline" onClick={handleExportPDF}><FileDown className="h-4 w-4 mr-2" />Exportar PDF</Button>
-          )}
-          {canEdit && closing.status === "finalizado" && (
-            <Button variant="outline" onClick={reopen} disabled={saving}><Unlock className="h-4 w-4 mr-2" />Reabrir</Button>
-          )}
-          {!readonly && (
-            <>
-              <Button variant="outline" onClick={() => persist(false)} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Salvar rascunho
-              </Button>
-              <Button onClick={() => { if (confirm("Ao finalizar, o fechamento será bloqueado para edição. Confirmar?")) persist(true); }} disabled={saving}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />Finalizar
-              </Button>
-            </>
-          )}
-        </div>
+        <div className="h-0.5 bg-[#00C853]" />
       </div>
 
-      {/* RESUMO */}
-      <Card className="p-4 shadow-soft">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-          <ResumoBox label="Bruto" value={totals.totalBruto} />
-          <ResumoBox label="Custos operacionais" value={totals.totalCustos} />
-          <ResumoBox label="Sobra" value={totals.sobra} accent="primary" />
-          <ResumoBox label={`Imposto (${config.imposto_percentual.toFixed(2)}% do bruto)`} value={totals.totalImpostos} />
-        </div>
-      </Card>
+      {/* CARDS DE RESUMO */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 animate-fade-in">
+        <SummaryCard icon="💰" iconBg="bg-green-100" label="Cachê Bruto"
+          value={fmtBRL(totals.totalBruto)}
+          sub={`${nIncluidos} ${nIncluidos === 1 ? "show confirmado" : "shows confirmados"}`} />
+        <SummaryCard icon="📉" iconBg="bg-red-100" label="Total Custos"
+          value={fmtBRL(totals.totalCustos)} sub="Equipe + Van + Despesas" />
+        <SummaryCard icon="✅" iconBg="bg-green-100" label="Sobra para distribuir"
+          value={fmtBRL(totals.sobra)} sub="Após todos os descontos" accent />
+        <SummaryCard icon="🏛️" iconBg="bg-gray-100" label="Total Impostos"
+          value={fmtBRL(totals.totalImpostos)} sub={`${config.imposto_percentual.toFixed(2)}% sobre o bruto`} />
+      </div>
 
       {/* Seção A — Shows */}
       <Card className="p-4 shadow-soft">
