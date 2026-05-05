@@ -321,19 +321,39 @@ export default function FechamentoDetalhe() {
     setCrew((arr) =>
       arr.map((c) => {
         if (c.id !== rowId) return c;
-        const next = { ...c, ...patch, _dirty: true };
-        next.total_receber = Number(next.cache_por_show || 0) * Number(next.shows_participados || 0);
+        const next: CrewRow = { ...c, ...patch, _dirty: true };
+        next.shows_participados = next.shows_ids.length;
+        next.total_receber = Number(next.cache_por_show || 0) * next.shows_participados;
         return next;
       }),
     );
+  const toggleCrewShow = (rowId: string, showId: string) =>
+    setCrew((arr) =>
+      arr.map((c) => {
+        if (c.id !== rowId) return c;
+        const has = c.shows_ids.includes(showId);
+        const ids = has ? c.shows_ids.filter((i) => i !== showId) : [...c.shows_ids, showId];
+        return {
+          ...c, shows_ids: ids,
+          shows_participados: ids.length,
+          total_receber: Number(c.cache_por_show || 0) * ids.length,
+          _dirty: true,
+        };
+      }),
+    );
   const addCrew = () =>
-    setCrew((arr) => [
-      ...arr,
-      {
-        id: crypto.randomUUID(), nome: "", funcao: "", cache_por_show: 0,
-        shows_participados: 0, total_receber: 0, ordem: arr.length, _new: true,
-      },
-    ]);
+    setCrew((arr) => {
+      const defaultIds = shows.filter((s) => s.incluido).map((s) => s.id);
+      return [
+        ...arr,
+        {
+          id: crypto.randomUUID(), nome: "", funcao: "", cache_por_show: 0,
+          shows_ids: defaultIds,
+          shows_participados: defaultIds.length,
+          total_receber: 0, ordem: arr.length, _new: true,
+        },
+      ];
+    });
   const removeCrewMember = (rowId: string) => {
     setCrew((arr) => arr.filter((c) => c.id !== rowId));
     setRemovedCrew((arr) => [...arr, rowId]);
