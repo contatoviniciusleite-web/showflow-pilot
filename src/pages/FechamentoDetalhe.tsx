@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, Wand2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, Wand2, ChevronDown, ChevronRight, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
@@ -94,7 +94,19 @@ type PendingInvestment = {
   data_compra: string | null;
 };
 
-const CATEGORIAS_DESPESA = ["Van", "Equipamento", "Efeitos", "Combustível", "Alimentação", "Outros"];
+type GeneralExpense = {
+  id: string;
+  categoria: string;
+  descricao: string | null;
+  closing_show_id: string | null;
+  responsavel: "produtora" | "contratante";
+  incluir_no_calculo: boolean;
+  valor: number;
+  _new?: boolean;
+  _dirty?: boolean;
+};
+
+const CATEGORIAS_DESPESA = ["Van", "Equipamento", "Efeitos", "Figurino", "Ensaio", "Combustível", "Alimentação", "Outros"];
 const CATEGORIAS_INVEST = ["Equipamento", "Figurino", "Clipe", "Marketing", "Outros"];
 
 export default function FechamentoDetalhe() {
@@ -117,6 +129,8 @@ export default function FechamentoDetalhe() {
   const [investments, setInvestments] = useState<InvestmentRow[]>([]);
   const [removedInvestments, setRemovedInvestments] = useState<string[]>([]);
   const [pendingInvestments, setPendingInvestments] = useState<PendingInvestment[]>([]);
+  const [generalExpenses, setGeneralExpenses] = useState<GeneralExpense[]>([]);
+  const [removedGeneralExpenses, setRemovedGeneralExpenses] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState("");
   const [config, setConfig] = useState<{ artista_percentual: number; imposto_percentual: number }>({
     artista_percentual: 0,
@@ -143,12 +157,13 @@ export default function FechamentoDetalhe() {
     setArtistName((c as any).artists?.nome ?? "");
     setObservacoes(c.observacoes ?? "");
 
-    const [s, se, cr, inv, cfg, prt] = await Promise.all([
+    const [s, se, ge, cr, inv, cfg, prt] = await Promise.all([
       supabase
         .from("weekly_closing_shows")
         .select("*, show:shows(data_show, horario, local, cidade, vendedor)")
         .eq("closing_id", id),
       supabase.from("weekly_closing_show_expenses" as any).select("*").eq("closing_id", id),
+      supabase.from("weekly_closing_expenses").select("*").eq("closing_id", id),
       supabase.from("weekly_closing_crew").select("*").eq("closing_id", id).order("ordem"),
       supabase.from("weekly_closing_investments" as any).select("*").eq("closing_id", id).order("created_at"),
       supabase.from("artist_financial_config").select("*").eq("artist_id", c.artist_id).maybeSingle(),
@@ -156,6 +171,15 @@ export default function FechamentoDetalhe() {
     ]);
     setShows((s.data ?? []) as any);
     setShowExpenses(((se.data as any[]) ?? []) as any);
+    setGeneralExpenses(((ge.data as any[]) ?? []).map((e) => ({
+      id: e.id,
+      categoria: e.categoria,
+      descricao: e.descricao,
+      closing_show_id: e.closing_show_id ?? null,
+      responsavel: (e.responsavel ?? "produtora") as "produtora" | "contratante",
+      incluir_no_calculo: e.incluir_no_calculo ?? true,
+      valor: Number(e.valor ?? 0),
+    })));
     setCrew((cr.data ?? []) as any);
     setInvestments(((inv.data as any[]) ?? []) as any);
     if (cfg.data) {
@@ -235,6 +259,28 @@ export default function FechamentoDetalhe() {
   const removeShowExpense = (rowId: string) => {
     setShowExpenses((arr) => arr.filter((e) => e.id !== rowId));
     setRemovedShowExpenses((arr) => [...arr, rowId]);
+  };
+
+  // ===== Despesas gerais (Seção C) =====
+  const addGeneralExpense = () =>
+    setGeneralExpenses((arr) => [
+      ...arr,
+      {
+        id: crypto.randomUUID(),
+        categoria: "Outros",
+        descricao: "",
+        closing_show_id: null,
+        responsavel: "produtora",
+        incluir_no_calculo: true,
+        valor: 0,
+        _new: true,
+      },
+    ]);
+  const updateGeneralExpense = (rowId: string, patch: Partial<GeneralExpense>) =>
+    setGeneralExpenses((arr) => arr.map((e) => (e.id === rowId ? { ...e, ...patch, _dirty: true } : e)));
+  const removeGeneralExpense = (rowId: string) => {
+    setGeneralExpenses((arr) => arr.filter((e) => e.id !== rowId));
+    setRemovedGeneralExpenses((arr) => [...arr, rowId]);
   };
 
   const updateCrew = (rowId: string, patch: Partial<CrewRow>) =>
@@ -323,19 +369,47 @@ export default function FechamentoDetalhe() {
     for (const e of showExpenses) {
       map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
     }
+    // Despesas gerais vinculadas a um show (e que entram no cálculo) também somam
+    for (const e of generalExpenses) {
+      if (e.closing_show_id && e.incluir_no_calculo && e.responsavel === "produtora") {
+        map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
+      }
+    }
     return map;
-  }, [showExpenses]);
+  }, [showExpenses, generalExpenses]);
+
+  const totalDespesasGeraisCalc = useMemo(
+    () => generalExpenses
+      .filter((e) => e.incluir_no_calculo && e.responsavel === "produtora" && !e.closing_show_id)
+      .reduce((a, e) => a + Number(e.valor || 0), 0),
+    [generalExpenses],
+  );
+
+  const totalDespesasGeraisCalcAll = useMemo(
+    () => generalExpenses
+      .filter((e) => e.incluir_no_calculo && e.responsavel === "produtora")
+      .reduce((a, e) => a + Number(e.valor || 0), 0),
+    [generalExpenses],
+  );
 
   const totals = useMemo(
-    () =>
-      computeClosing(
-        shows.map((s) => ({
-          cache_total: Number(s.cache_total || 0),
-          comissao_vendedor: Number(s.comissao_vendedor || 0),
-          custo_equipe: Number(s.custo_equipe || 0),
-          despesas_show: showExpensesByShow.get(s.id) ?? 0,
-          incluido: s.incluido,
-        })),
+    () => {
+      const showInputs = shows.map((s) => ({
+        cache_total: Number(s.cache_total || 0),
+        comissao_vendedor: Number(s.comissao_vendedor || 0),
+        custo_equipe: Number(s.custo_equipe || 0),
+        despesas_show: showExpensesByShow.get(s.id) ?? 0,
+        incluido: s.incluido,
+      }));
+      // Despesas gerais NÃO vinculadas: adiciona como "show fantasma" só com despesas
+      if (totalDespesasGeraisCalc > 0) {
+        showInputs.push({
+          cache_total: 0, comissao_vendedor: 0, custo_equipe: 0,
+          despesas_show: totalDespesasGeraisCalc, incluido: true,
+        });
+      }
+      return computeClosing(
+        showInputs,
         crew.map((c) => ({
           cache_por_show: Number(c.cache_por_show || 0),
           shows_participados: Number(c.shows_participados || 0),
@@ -347,14 +421,33 @@ export default function FechamentoDetalhe() {
           imposto_percentual: config.imposto_percentual,
           partners,
         },
-      ),
-    [shows, showExpensesByShow, crew, investments, partners, config, artistName],
+      );
+    },
+    [shows, showExpensesByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc],
   );
 
   const totalEquipeBase = useMemo(
     () => crew.reduce((a, c) => a + Number(c.cache_por_show || 0) * Number(c.shows_participados || 0), 0),
     [crew],
   );
+
+  const maxShowsCrew = useMemo(() => shows.filter((s) => s.incluido).length, [shows]);
+
+  // Clamp shows_participados ao máximo disponível quando o número de shows incluídos muda
+  useEffect(() => {
+    let adjustedAny = false;
+    setCrew((arr) =>
+      arr.map((c) => {
+        if (Number(c.shows_participados || 0) > maxShowsCrew) {
+          adjustedAny = true;
+          return { ...c, shows_participados: maxShowsCrew, total_receber: Number(c.cache_por_show || 0) * maxShowsCrew, _dirty: true };
+        }
+        return c;
+      }),
+    );
+    if (adjustedAny) toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxShowsCrew]);
 
   const distributeCrewToShows = () => {
     const incluidos = shows.filter((s) => s.incluido);
@@ -401,7 +494,25 @@ export default function FechamentoDetalhe() {
         else if (e._dirty) await supabase.from("weekly_closing_show_expenses" as any).update(payload).eq("id", e.id);
       }
 
-      // Crew
+      // Despesas gerais (Seção C)
+      if (removedGeneralExpenses.length > 0) {
+        const real = removedGeneralExpenses.filter((id) => !generalExpenses.find((e) => e.id === id));
+        if (real.length > 0) await supabase.from("weekly_closing_expenses").delete().in("id", real);
+      }
+      for (const e of generalExpenses) {
+        const payload = {
+          closing_id: closing.id,
+          closing_show_id: e.closing_show_id,
+          categoria: e.categoria,
+          descricao: e.descricao,
+          responsavel: e.responsavel,
+          incluir_no_calculo: e.incluir_no_calculo,
+          valor: e.valor,
+        };
+        if (e._new) await supabase.from("weekly_closing_expenses").insert(payload);
+        else if (e._dirty) await supabase.from("weekly_closing_expenses").update(payload).eq("id", e.id);
+      }
+
       if (removedCrew.length > 0) {
         const real = removedCrew.filter((id) => !crew.find((c) => c.id === id));
         if (real.length > 0) await supabase.from("weekly_closing_crew").delete().in("id", real);
@@ -497,7 +608,7 @@ export default function FechamentoDetalhe() {
       }
 
       toast.success(finalize ? "Fechamento finalizado" : "Rascunho salvo");
-      setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]);
+      setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]);
       await load();
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
@@ -800,9 +911,36 @@ export default function FechamentoDetalhe() {
                   onChange={(e) => updateCrew(c.id, { funcao: e.target.value })} />
                 <CurrencyInput className="col-span-2 text-right" value={c.cache_por_show} disabled={readonly}
                   onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })} />
-                <Input className="col-span-2 text-center" type="number" min={0} placeholder="Shows"
-                  value={c.shows_participados} disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { shows_participados: Number(e.target.value) || 0 })} />
+                <div className="col-span-2 flex items-center justify-center gap-1">
+                  {!readonly && (
+                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
+                      onClick={() => updateCrew(c.id, { shows_participados: Math.max(0, Number(c.shows_participados || 0) - 1) })}
+                      disabled={Number(c.shows_participados || 0) <= 0}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                  )}
+                  <Input className="h-8 text-center w-14" type="number" min={0} max={maxShowsCrew}
+                    placeholder={`Máx. ${maxShowsCrew}`}
+                    value={c.shows_participados} disabled={readonly}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(maxShowsCrew, Number(e.target.value) || 0));
+                      updateCrew(c.id, { shows_participados: v });
+                    }} />
+                  {!readonly && (
+                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
+                      onClick={() => {
+                        const cur = Number(c.shows_participados || 0);
+                        if (cur >= maxShowsCrew) {
+                          toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
+                          return;
+                        }
+                        updateCrew(c.id, { shows_participados: cur + 1 });
+                      }}
+                      disabled={Number(c.shows_participados || 0) >= maxShowsCrew}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
                 <div className="col-span-2 text-right text-sm">{fmtBRL(c.cache_por_show * c.shows_participados)}</div>
                 {!readonly && (
                   <Button size="icon" variant="ghost" className="col-span-1 text-destructive hover:text-destructive"
@@ -810,7 +948,89 @@ export default function FechamentoDetalhe() {
                 )}
               </div>
             ))}
-            <div className="flex justify-end pt-2 text-sm font-medium">TOTAL EQUIPE: {fmtBRL(totalEquipeBase)}</div>
+            <div className="flex items-center justify-between pt-2 text-sm">
+              <span className="text-xs text-muted-foreground">Baseado em {maxShowsCrew} show(s) incluído(s) neste fechamento</span>
+              <span className="font-medium">TOTAL EQUIPE: {fmtBRL(totalEquipeBase)}</span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Seção C — Despesas gerais */}
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="font-semibold">C. Despesas</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Despesas gerais do período. Vincule a um show para somar à coluna "Despesas" daquele show.
+            </p>
+          </div>
+          {!readonly && (
+            <Button size="sm" variant="outline" onClick={addGeneralExpense}>
+              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
+            </Button>
+          )}
+        </div>
+        {generalExpenses.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma despesa lançada.</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
+              <div className="col-span-2">Categoria</div>
+              <div className="col-span-3">Descrição</div>
+              <div className="col-span-2">Vincular show</div>
+              <div className="col-span-2">Responsável</div>
+              <div className="col-span-1 text-center">Calcular</div>
+              <div className="col-span-1 text-right">Valor</div>
+              <div className="col-span-1" />
+            </div>
+            {generalExpenses.map((e) => (
+              <div key={e.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
+                <Select value={e.categoria} onValueChange={(v) => updateGeneralExpense(e.id, { categoria: v })} disabled={readonly}>
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{CATEGORIAS_DESPESA.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+                <Input className="col-span-3 h-8" placeholder="Descrição" value={e.descricao ?? ""} disabled={readonly}
+                  onChange={(ev) => updateGeneralExpense(e.id, { descricao: ev.target.value })} />
+                <Select
+                  value={e.closing_show_id ?? "__none__"}
+                  onValueChange={(v) => updateGeneralExpense(e.id, { closing_show_id: v === "__none__" ? null : v })}
+                  disabled={readonly}
+                >
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue placeholder="Não vinculado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Não vinculado</SelectItem>
+                    {shows.map((s, idx) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        Show {idx + 1} — {[s.show?.local, fmtDateBR(s.show?.data_show ?? "")].filter(Boolean).join(" ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={e.responsavel} onValueChange={(v) => updateGeneralExpense(e.id, { responsavel: v as any, incluir_no_calculo: v === "produtora" })} disabled={readonly}>
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="produtora">Produtora</SelectItem>
+                    <SelectItem value="contratante">Contratante</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="col-span-1 flex justify-center">
+                  <Switch checked={e.incluir_no_calculo} disabled={readonly || e.responsavel === "contratante"}
+                    onCheckedChange={(v) => updateGeneralExpense(e.id, { incluir_no_calculo: v })} />
+                </div>
+                <CurrencyInput className="col-span-1 h-8 text-right" value={e.valor} disabled={readonly}
+                  onValueChange={(v) => updateGeneralExpense(e.id, { valor: v })} />
+                {!readonly && (
+                  <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
+                    onClick={() => removeGeneralExpense(e.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-end pt-2 text-sm font-medium">
+              TOTAL DESPESAS (no cálculo): {fmtBRL(totalDespesasGeraisCalcAll)}
+            </div>
           </div>
         )}
       </Card>
