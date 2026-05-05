@@ -8,11 +8,15 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Music2, Loader2 } from "lucide-react";
 import { z } from "zod";
+import { maskPhone, phoneDigits, toStoredPhone } from "@/lib/phone";
 
 const schema = z
   .object({
     nome: z.string().trim().min(2, "Informe seu nome completo").max(120),
-    telefone: z.string().trim().min(8, "Informe um telefone válido").max(40),
+    telefoneDigits: z
+      .string()
+      .min(10, "Informe um WhatsApp válido (mínimo 10 dígitos)")
+      .max(11, "Telefone inválido"),
     password: z.string().min(6, "Senha deve ter ao menos 6 caracteres").max(72),
     confirm: z.string(),
   })
