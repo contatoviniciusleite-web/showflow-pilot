@@ -663,6 +663,21 @@ export default function FechamentoDetalhe() {
         total_parcelas: i.total_parcelas, numero_parcela: i.numero_parcela,
         valor_descontado: Number(i.valor_descontado || 0),
       })),
+      expenses: generalExpenses.map((e) => {
+        const linkedShow = e.closing_show_id ? shows.find((s) => s.id === e.closing_show_id) : null;
+        const showLabel = linkedShow
+          ? `${fmtDateBR(linkedShow.show?.data_show ?? "")} — ${[linkedShow.show?.local, linkedShow.show?.cidade].filter(Boolean).join(", ") || "Show"}`
+          : "Geral";
+        return {
+          categoria: e.categoria,
+          descricao: e.descricao,
+          show_label: showLabel,
+          responsavel: e.responsavel,
+          incluir_no_calculo: e.incluir_no_calculo,
+          valor: Number(e.valor || 0),
+        };
+      }),
+      impostoPercentual: Number(config.imposto_percentual || 0),
       totals,
     });
   };
