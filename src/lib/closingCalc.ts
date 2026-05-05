@@ -129,7 +129,7 @@ export function computeClosing(
     pushRow("Produtora", "produtora", sobraProdutora);
   }
 
-  const totalImpostos = round2(rows.reduce((a, r) => a + r.imposto_valor, 0));
+  // totalImpostos já calculado acima
   const totalLiquido = round2(rows.reduce((a, r) => a + r.valor_liquido, 0));
 
   return {
