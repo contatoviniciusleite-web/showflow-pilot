@@ -312,6 +312,14 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
                 )}
               </div>
             )}
+
+            {canDeleteShow && (
+              <div className="border-t pt-3">
+                <Button size="sm" variant="destructive" onClick={deleteMinuta} disabled={busy}>
+                  Excluir minuta
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {!isArtista && (
