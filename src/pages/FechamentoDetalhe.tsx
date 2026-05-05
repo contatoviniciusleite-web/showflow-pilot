@@ -497,7 +497,7 @@ export default function FechamentoDetalhe() {
       const showInputs = shows.map((s) => ({
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
-        custo_equipe: 0, // a equipe é somada via parâmetro `crew` para evitar duplicidade
+        custo_equipe: crewCostByShow.get(s.id) ?? 0,
         van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         incluido: s.incluido,
