@@ -91,6 +91,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
     roles.includes("gerente") || roles.includes("equipe") || roles.includes("financeiro") || roles.includes("diretor") ||
     (roles.includes("vendedor") && isOwner);
   const canManageActions = isManager || isDiretor; // remarcar/cancelar
+  const canDeleteShow = isFinanceiro; // excluir minuta
   const canApproveOrReject = isDiretor; // só diretor aprova/rejeita
   const canSeeAutorizado = isDiretor || isManager || isFinanceiro;
 
@@ -121,6 +122,10 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   };
 
   const approve = () => callAction("approve");
+  const deleteMinuta = async () => {
+    if (!confirm("Excluir esta minuta permanentemente? Esta ação não pode ser desfeita.")) return;
+    await callAction("delete");
+  };
   const cancel = async () => {
     if (!confirm("Confirmar cancelamento deste show?")) return;
     await callAction("cancel", { motivo: "Cancelado pela gerência" });
@@ -305,6 +310,14 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
                     <Button size="sm" onClick={reschedule} disabled={busy}>Confirmar remarcação</Button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {canDeleteShow && (
+              <div className="border-t pt-3">
+                <Button size="sm" variant="destructive" onClick={deleteMinuta} disabled={busy}>
+                  Excluir minuta
+                </Button>
               </div>
             )}
           </TabsContent>

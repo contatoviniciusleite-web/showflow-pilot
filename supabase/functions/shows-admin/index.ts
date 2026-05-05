@@ -1170,7 +1170,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "delete") {
-      if (!isManager) return json({ error: "Apenas o gerente pode excluir" }, 403);
+      if (!isFinanceiro) return json({ error: "Apenas o Financeiro pode excluir minutas" }, 403);
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
       await sql`delete from public.shows where id = ${body.id}`;
       return json({ ok: true });
