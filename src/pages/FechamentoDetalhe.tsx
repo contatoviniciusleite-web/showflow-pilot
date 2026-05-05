@@ -911,9 +911,36 @@ export default function FechamentoDetalhe() {
                   onChange={(e) => updateCrew(c.id, { funcao: e.target.value })} />
                 <CurrencyInput className="col-span-2 text-right" value={c.cache_por_show} disabled={readonly}
                   onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })} />
-                <Input className="col-span-2 text-center" type="number" min={0} placeholder="Shows"
-                  value={c.shows_participados} disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { shows_participados: Number(e.target.value) || 0 })} />
+                <div className="col-span-2 flex items-center justify-center gap-1">
+                  {!readonly && (
+                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
+                      onClick={() => updateCrew(c.id, { shows_participados: Math.max(0, Number(c.shows_participados || 0) - 1) })}
+                      disabled={Number(c.shows_participados || 0) <= 0}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                  )}
+                  <Input className="h-8 text-center w-14" type="number" min={0} max={maxShowsCrew}
+                    placeholder={`Máx. ${maxShowsCrew}`}
+                    value={c.shows_participados} disabled={readonly}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(maxShowsCrew, Number(e.target.value) || 0));
+                      updateCrew(c.id, { shows_participados: v });
+                    }} />
+                  {!readonly && (
+                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
+                      onClick={() => {
+                        const cur = Number(c.shows_participados || 0);
+                        if (cur >= maxShowsCrew) {
+                          toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
+                          return;
+                        }
+                        updateCrew(c.id, { shows_participados: cur + 1 });
+                      }}
+                      disabled={Number(c.shows_participados || 0) >= maxShowsCrew}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
                 <div className="col-span-2 text-right text-sm">{fmtBRL(c.cache_por_show * c.shows_participados)}</div>
                 {!readonly && (
                   <Button size="icon" variant="ghost" className="col-span-1 text-destructive hover:text-destructive"
@@ -921,7 +948,89 @@ export default function FechamentoDetalhe() {
                 )}
               </div>
             ))}
-            <div className="flex justify-end pt-2 text-sm font-medium">TOTAL EQUIPE: {fmtBRL(totalEquipeBase)}</div>
+            <div className="flex items-center justify-between pt-2 text-sm">
+              <span className="text-xs text-muted-foreground">Baseado em {maxShowsCrew} show(s) incluído(s) neste fechamento</span>
+              <span className="font-medium">TOTAL EQUIPE: {fmtBRL(totalEquipeBase)}</span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Seção C — Despesas gerais */}
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="font-semibold">C. Despesas</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Despesas gerais do período. Vincule a um show para somar à coluna "Despesas" daquele show.
+            </p>
+          </div>
+          {!readonly && (
+            <Button size="sm" variant="outline" onClick={addGeneralExpense}>
+              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
+            </Button>
+          )}
+        </div>
+        {generalExpenses.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma despesa lançada.</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
+              <div className="col-span-2">Categoria</div>
+              <div className="col-span-3">Descrição</div>
+              <div className="col-span-2">Vincular show</div>
+              <div className="col-span-2">Responsável</div>
+              <div className="col-span-1 text-center">Calcular</div>
+              <div className="col-span-1 text-right">Valor</div>
+              <div className="col-span-1" />
+            </div>
+            {generalExpenses.map((e) => (
+              <div key={e.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
+                <Select value={e.categoria} onValueChange={(v) => updateGeneralExpense(e.id, { categoria: v })} disabled={readonly}>
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{CATEGORIAS_DESPESA.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+                <Input className="col-span-3 h-8" placeholder="Descrição" value={e.descricao ?? ""} disabled={readonly}
+                  onChange={(ev) => updateGeneralExpense(e.id, { descricao: ev.target.value })} />
+                <Select
+                  value={e.closing_show_id ?? "__none__"}
+                  onValueChange={(v) => updateGeneralExpense(e.id, { closing_show_id: v === "__none__" ? null : v })}
+                  disabled={readonly}
+                >
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue placeholder="Não vinculado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Não vinculado</SelectItem>
+                    {shows.map((s, idx) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        Show {idx + 1} — {[s.show?.local, fmtDateBR(s.show?.data_show ?? "")].filter(Boolean).join(" ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={e.responsavel} onValueChange={(v) => updateGeneralExpense(e.id, { responsavel: v as any, incluir_no_calculo: v === "produtora" })} disabled={readonly}>
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="produtora">Produtora</SelectItem>
+                    <SelectItem value="contratante">Contratante</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="col-span-1 flex justify-center">
+                  <Switch checked={e.incluir_no_calculo} disabled={readonly || e.responsavel === "contratante"}
+                    onCheckedChange={(v) => updateGeneralExpense(e.id, { incluir_no_calculo: v })} />
+                </div>
+                <CurrencyInput className="col-span-1 h-8 text-right" value={e.valor} disabled={readonly}
+                  onValueChange={(v) => updateGeneralExpense(e.id, { valor: v })} />
+                {!readonly && (
+                  <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
+                    onClick={() => removeGeneralExpense(e.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-end pt-2 text-sm font-medium">
+              TOTAL DESPESAS (no cálculo): {fmtBRL(totalDespesasGeraisCalcAll)}
+            </div>
           </div>
         )}
       </Card>
