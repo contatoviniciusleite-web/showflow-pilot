@@ -73,7 +73,10 @@ export default function Fechamento() {
           </p>
         </div>
         {canEdit && (
-          <Button onClick={() => setOpenNew(true)}>
+          <Button
+            onClick={() => setOpenNew(true)}
+            className="bg-[hsl(var(--stage-green))] hover:bg-[hsl(var(--stage-green-deep))] text-black font-semibold shadow-soft transition-colors"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Novo fechamento
           </Button>
