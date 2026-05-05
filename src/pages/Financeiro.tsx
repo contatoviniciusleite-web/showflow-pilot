@@ -643,7 +643,7 @@ export default function Financeiro() {
                         <TableCell colSpan={3}></TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 ))
               )}
             </TableBody>
