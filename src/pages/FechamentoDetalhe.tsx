@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, Wand2 } from "lucide-react";
+import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, Wand2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
@@ -36,8 +36,6 @@ type ShowRow = {
   cache_total: number;
   comissao_vendedor: number;
   custo_equipe: number;
-  van: number;
-  outras_despesas: number;
   incluido: boolean;
   show?: {
     data_show: string;
@@ -46,6 +44,16 @@ type ShowRow = {
     cidade: string | null;
     vendedor: string | null;
   };
+};
+
+type ShowExpense = {
+  id: string;
+  closing_show_id: string;
+  categoria: string;
+  descricao: string | null;
+  valor: number;
+  _new?: boolean;
+  _dirty?: boolean;
 };
 
 type CrewRow = {
@@ -60,18 +68,34 @@ type CrewRow = {
   _dirty?: boolean;
 };
 
-type ExpenseRow = {
+type InvestmentRow = {
   id: string;
+  investment_id: string | null;
+  descricao: string;
   categoria: string;
-  descricao: string | null;
-  valor: number;
-  responsavel: string;
-  incluir_no_calculo: boolean;
+  valor_total: number;
+  total_parcelas: number;
+  numero_parcela: number;
+  valor_descontado: number;
+  data_compra: string | null;
+  observacoes: string | null;
   _new?: boolean;
   _dirty?: boolean;
 };
 
-const CATEGORIAS = ["Van", "Clipe", "Equipamento", "Figurino", "Ensaio", "Outros"];
+type PendingInvestment = {
+  id: string;
+  descricao: string;
+  categoria: string;
+  valor_total: number;
+  total_parcelas: number;
+  parcelas_pagas: number;
+  valor_por_parcela: number;
+  data_compra: string | null;
+};
+
+const CATEGORIAS_DESPESA = ["Van", "Equipamento", "Efeitos", "Combustível", "Alimentação", "Outros"];
+const CATEGORIAS_INVEST = ["Equipamento", "Figurino", "Clipe", "Marketing", "Outros"];
 
 export default function FechamentoDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -85,10 +109,14 @@ export default function FechamentoDetalhe() {
   const [closing, setClosing] = useState<Closing | null>(null);
   const [artistName, setArtistName] = useState<string>("");
   const [shows, setShows] = useState<ShowRow[]>([]);
+  const [showExpenses, setShowExpenses] = useState<ShowExpense[]>([]);
+  const [removedShowExpenses, setRemovedShowExpenses] = useState<string[]>([]);
+  const [expandedShows, setExpandedShows] = useState<Set<string>>(new Set());
   const [crew, setCrew] = useState<CrewRow[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [removedCrew, setRemovedCrew] = useState<string[]>([]);
-  const [removedExpenses, setRemovedExpenses] = useState<string[]>([]);
+  const [investments, setInvestments] = useState<InvestmentRow[]>([]);
+  const [removedInvestments, setRemovedInvestments] = useState<string[]>([]);
+  const [pendingInvestments, setPendingInvestments] = useState<PendingInvestment[]>([]);
   const [observacoes, setObservacoes] = useState("");
   const [config, setConfig] = useState<{ artista_percentual: number; imposto_percentual: number }>({
     artista_percentual: 0,
@@ -115,19 +143,21 @@ export default function FechamentoDetalhe() {
     setArtistName((c as any).artists?.nome ?? "");
     setObservacoes(c.observacoes ?? "");
 
-    const [s, cr, ex, cfg, prt] = await Promise.all([
+    const [s, se, cr, inv, cfg, prt] = await Promise.all([
       supabase
         .from("weekly_closing_shows")
         .select("*, show:shows(data_show, horario, local, cidade, vendedor)")
         .eq("closing_id", id),
+      supabase.from("weekly_closing_show_expenses" as any).select("*").eq("closing_id", id),
       supabase.from("weekly_closing_crew").select("*").eq("closing_id", id).order("ordem"),
-      supabase.from("weekly_closing_expenses").select("*").eq("closing_id", id).order("created_at"),
+      supabase.from("weekly_closing_investments" as any).select("*").eq("closing_id", id).order("created_at"),
       supabase.from("artist_financial_config").select("*").eq("artist_id", c.artist_id).maybeSingle(),
       supabase.from("artist_partners").select("*").eq("artist_id", c.artist_id).order("ordem"),
     ]);
     setShows((s.data ?? []) as any);
+    setShowExpenses(((se.data as any[]) ?? []) as any);
     setCrew((cr.data ?? []) as any);
-    setExpenses((ex.data ?? []) as any);
+    setInvestments(((inv.data as any[]) ?? []) as any);
     if (cfg.data) {
       setConfig({
         artista_percentual: Number(cfg.data.artista_percentual ?? 0),
@@ -137,8 +167,29 @@ export default function FechamentoDetalhe() {
     setPartners(
       ((prt.data ?? []) as any[])
         .filter((p) => p.ativo)
-        .map((p) => ({ nome: p.nome, funcao: p.funcao, percentual: Number(p.percentual), ativo: true, tipo: "socio" })),
+        .map((p) => ({ nome: p.nome, funcao: p.funcao, percentual: Number(p.percentual), ativo: true, tipo: "socio" as const })),
     );
+
+    // Carrega investimentos pendentes do artista (parceláveis com saldo)
+    const { data: pend } = await supabase
+      .from("artist_investments" as any)
+      .select("*")
+      .eq("artist_id", c.artist_id)
+      .eq("ativo", true);
+    const pendList = ((pend as any[]) ?? [])
+      .filter((p) => p.parcelas_pagas < p.total_parcelas)
+      .map((p) => ({
+        id: p.id,
+        descricao: p.descricao,
+        categoria: p.categoria,
+        valor_total: Number(p.valor_total),
+        total_parcelas: p.total_parcelas,
+        parcelas_pagas: p.parcelas_pagas,
+        valor_por_parcela: Number(p.valor_por_parcela),
+        data_compra: p.data_compra,
+      }));
+    setPendingInvestments(pendList);
+
     setLoading(false);
   };
 
@@ -157,6 +208,35 @@ export default function FechamentoDetalhe() {
   // ===== Updates =====
   const updateShow = (rowId: string, patch: Partial<ShowRow>) =>
     setShows((arr) => arr.map((s) => (s.id === rowId ? { ...s, ...patch } : s)));
+
+  const toggleShowExpand = (showId: string) =>
+    setExpandedShows((set) => {
+      const next = new Set(set);
+      if (next.has(showId)) next.delete(showId); else next.add(showId);
+      return next;
+    });
+
+  const addShowExpense = (closingShowId: string) => {
+    setShowExpenses((arr) => [
+      ...arr,
+      {
+        id: crypto.randomUUID(),
+        closing_show_id: closingShowId,
+        categoria: "Outros",
+        descricao: "",
+        valor: 0,
+        _new: true,
+      },
+    ]);
+    setExpandedShows((set) => new Set(set).add(closingShowId));
+  };
+  const updateShowExpense = (rowId: string, patch: Partial<ShowExpense>) =>
+    setShowExpenses((arr) => arr.map((e) => (e.id === rowId ? { ...e, ...patch, _dirty: true } : e)));
+  const removeShowExpense = (rowId: string) => {
+    setShowExpenses((arr) => arr.filter((e) => e.id !== rowId));
+    setRemovedShowExpenses((arr) => [...arr, rowId]);
+  };
+
   const updateCrew = (rowId: string, patch: Partial<CrewRow>) =>
     setCrew((arr) =>
       arr.map((c) => {
@@ -170,14 +250,8 @@ export default function FechamentoDetalhe() {
     setCrew((arr) => [
       ...arr,
       {
-        id: crypto.randomUUID(),
-        nome: "",
-        funcao: "",
-        cache_por_show: 0,
-        shows_participados: 0,
-        total_receber: 0,
-        ordem: arr.length,
-        _new: true,
+        id: crypto.randomUUID(), nome: "", funcao: "", cache_por_show: 0,
+        shows_participados: 0, total_receber: 0, ordem: arr.length, _new: true,
       },
     ]);
   const removeCrewMember = (rowId: string) => {
@@ -185,27 +259,73 @@ export default function FechamentoDetalhe() {
     setRemovedCrew((arr) => [...arr, rowId]);
   };
 
-  const addExpense = () =>
-    setExpenses((arr) => [
+  // ===== Investimentos =====
+  const addInvestment = () =>
+    setInvestments((arr) => [
       ...arr,
       {
         id: crypto.randomUUID(),
-        categoria: "Outros",
+        investment_id: null,
         descricao: "",
-        valor: 0,
-        responsavel: "produtora",
-        incluir_no_calculo: true,
+        categoria: "Equipamento",
+        valor_total: 0,
+        total_parcelas: 1,
+        numero_parcela: 1,
+        valor_descontado: 0,
+        data_compra: null,
+        observacoes: "",
         _new: true,
       },
     ]);
-  const updateExpense = (rowId: string, patch: Partial<ExpenseRow>) =>
-    setExpenses((arr) => arr.map((e) => (e.id === rowId ? { ...e, ...patch, _dirty: true } : e)));
-  const removeExpense = (rowId: string) => {
-    setExpenses((arr) => arr.filter((e) => e.id !== rowId));
-    setRemovedExpenses((arr) => [...arr, rowId]);
+  const updateInvestment = (rowId: string, patch: Partial<InvestmentRow>) =>
+    setInvestments((arr) =>
+      arr.map((i) => {
+        if (i.id !== rowId) return i;
+        const next = { ...i, ...patch, _dirty: true };
+        // Recalcula valor por parcela se valor_total ou total_parcelas mudou
+        if (("valor_total" in patch || "total_parcelas" in patch) && next.total_parcelas > 0) {
+          const auto = Math.round((next.valor_total / next.total_parcelas) * 100) / 100;
+          next.valor_descontado = auto;
+        }
+        return next;
+      }),
+    );
+  const removeInvestment = (rowId: string) => {
+    setInvestments((arr) => arr.filter((i) => i.id !== rowId));
+    setRemovedInvestments((arr) => [...arr, rowId]);
+  };
+
+  const addPendingInvestment = (p: PendingInvestment) => {
+    const nextParcela = p.parcelas_pagas + 1;
+    setInvestments((arr) => [
+      ...arr,
+      {
+        id: crypto.randomUUID(),
+        investment_id: p.id,
+        descricao: `${p.descricao} (parcela ${nextParcela}/${p.total_parcelas})`,
+        categoria: p.categoria,
+        valor_total: p.valor_total,
+        total_parcelas: p.total_parcelas,
+        numero_parcela: nextParcela,
+        valor_descontado: p.valor_por_parcela,
+        data_compra: p.data_compra,
+        observacoes: null,
+        _new: true,
+      },
+    ]);
+    setPendingInvestments((arr) => arr.filter((x) => x.id !== p.id));
+    toast.success(`Parcela de "${p.descricao}" incluída.`);
   };
 
   // ===== Cálculo =====
+  const showExpensesByShow = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of showExpenses) {
+      map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
+    }
+    return map;
+  }, [showExpenses]);
+
   const totals = useMemo(
     () =>
       computeClosing(
@@ -213,15 +333,14 @@ export default function FechamentoDetalhe() {
           cache_total: Number(s.cache_total || 0),
           comissao_vendedor: Number(s.comissao_vendedor || 0),
           custo_equipe: Number(s.custo_equipe || 0),
-          van: Number(s.van || 0),
-          outras_despesas: Number(s.outras_despesas || 0),
+          despesas_show: showExpensesByShow.get(s.id) ?? 0,
           incluido: s.incluido,
         })),
         crew.map((c) => ({
           cache_por_show: Number(c.cache_por_show || 0),
           shows_participados: Number(c.shows_participados || 0),
         })),
-        expenses.map((e) => ({ valor: Number(e.valor || 0), incluir_no_calculo: e.incluir_no_calculo })),
+        investments.map((i) => ({ valor_descontado: Number(i.valor_descontado || 0) })),
         {
           artista_nome: artistName || "Artista",
           artista_percentual: config.artista_percentual,
@@ -229,7 +348,7 @@ export default function FechamentoDetalhe() {
           partners,
         },
       ),
-    [shows, crew, expenses, partners, config, artistName],
+    [shows, showExpensesByShow, crew, investments, partners, config, artistName],
   );
 
   const totalEquipeBase = useMemo(
@@ -237,7 +356,6 @@ export default function FechamentoDetalhe() {
     [crew],
   );
 
-  // distribuir total equipe entre shows incluídos
   const distributeCrewToShows = () => {
     const incluidos = shows.filter((s) => s.incluido);
     if (incluidos.length === 0) {
@@ -254,60 +372,89 @@ export default function FechamentoDetalhe() {
     if (!closing) return;
     setSaving(true);
     try {
-      // Shows — só update
+      // Shows
       for (const s of shows) {
-        await supabase
-          .from("weekly_closing_shows")
-          .update({
-            cache_total: s.cache_total,
-            comissao_vendedor: s.comissao_vendedor,
-            custo_equipe: s.custo_equipe,
-            van: s.van,
-            outras_despesas: s.outras_despesas,
-            incluido: s.incluido,
-          })
-          .eq("id", s.id);
+        await supabase.from("weekly_closing_shows").update({
+          cache_total: s.cache_total,
+          comissao_vendedor: s.comissao_vendedor,
+          custo_equipe: s.custo_equipe,
+          incluido: s.incluido,
+        }).eq("id", s.id);
+      }
+
+      // Show expenses
+      if (removedShowExpenses.length > 0) {
+        const real = removedShowExpenses.filter((id) => !showExpenses.find((e) => e.id === id));
+        if (real.length > 0) {
+          await supabase.from("weekly_closing_show_expenses" as any).delete().in("id", real);
+        }
+      }
+      for (const e of showExpenses) {
+        const payload = {
+          closing_id: closing.id,
+          closing_show_id: e.closing_show_id,
+          categoria: e.categoria,
+          descricao: e.descricao,
+          valor: e.valor,
+        };
+        if (e._new) await supabase.from("weekly_closing_show_expenses" as any).insert(payload);
+        else if (e._dirty) await supabase.from("weekly_closing_show_expenses" as any).update(payload).eq("id", e.id);
       }
 
       // Crew
       if (removedCrew.length > 0) {
         const real = removedCrew.filter((id) => !crew.find((c) => c.id === id));
-        if (real.length > 0) {
-          await supabase.from("weekly_closing_crew").delete().in("id", real);
-        }
+        if (real.length > 0) await supabase.from("weekly_closing_crew").delete().in("id", real);
       }
       for (const [idx, c] of crew.entries()) {
         const payload = {
-          closing_id: closing.id,
-          nome: c.nome,
-          funcao: c.funcao,
-          cache_por_show: c.cache_por_show,
-          shows_participados: c.shows_participados,
-          total_receber: Number(c.cache_por_show || 0) * Number(c.shows_participados || 0),
-          ordem: idx,
+          closing_id: closing.id, nome: c.nome, funcao: c.funcao,
+          cache_por_show: c.cache_por_show, shows_participados: c.shows_participados,
+          total_receber: Number(c.cache_por_show || 0) * Number(c.shows_participados || 0), ordem: idx,
         };
         if (c._new) await supabase.from("weekly_closing_crew").insert(payload);
         else if (c._dirty) await supabase.from("weekly_closing_crew").update(payload).eq("id", c.id);
       }
 
-      // Expenses
-      if (removedExpenses.length > 0) {
-        const real = removedExpenses.filter((id) => !expenses.find((e) => e.id === id));
-        if (real.length > 0) {
-          await supabase.from("weekly_closing_expenses").delete().in("id", real);
+      // Investments — primeiro processa novos cadastros (parcelados sem investment_id)
+      for (const inv of investments) {
+        if (inv._new && !inv.investment_id && inv.total_parcelas > 1) {
+          const valorParcela = Math.round((inv.valor_total / inv.total_parcelas) * 100) / 100;
+          const { data: created } = await supabase.from("artist_investments" as any).insert({
+            artist_id: closing.artist_id,
+            descricao: inv.descricao.replace(/\s*\(parcela.*\)\s*$/i, ""),
+            categoria: inv.categoria,
+            valor_total: inv.valor_total,
+            total_parcelas: inv.total_parcelas,
+            parcelas_pagas: 1,
+            valor_por_parcela: valorParcela,
+            closing_id_origem: closing.id,
+            data_compra: inv.data_compra,
+            observacoes: inv.observacoes,
+          }).select().maybeSingle();
+          if (created) inv.investment_id = (created as any).id;
         }
       }
-      for (const e of expenses) {
+
+      if (removedInvestments.length > 0) {
+        const real = removedInvestments.filter((id) => !investments.find((i) => i.id === id));
+        if (real.length > 0) await supabase.from("weekly_closing_investments" as any).delete().in("id", real);
+      }
+      for (const inv of investments) {
         const payload = {
           closing_id: closing.id,
-          categoria: e.categoria,
-          descricao: e.descricao,
-          valor: e.valor,
-          responsavel: e.responsavel,
-          incluir_no_calculo: e.incluir_no_calculo,
+          investment_id: inv.investment_id,
+          descricao: inv.descricao,
+          categoria: inv.categoria,
+          valor_total: inv.valor_total,
+          total_parcelas: inv.total_parcelas,
+          numero_parcela: inv.numero_parcela,
+          valor_descontado: inv.valor_descontado,
+          data_compra: inv.data_compra,
+          observacoes: inv.observacoes,
         };
-        if (e._new) await supabase.from("weekly_closing_expenses").insert(payload);
-        else if (e._dirty) await supabase.from("weekly_closing_expenses").update(payload).eq("id", e.id);
+        if (inv._new) await supabase.from("weekly_closing_investments" as any).insert(payload);
+        else if (inv._dirty) await supabase.from("weekly_closing_investments" as any).update(payload).eq("id", inv.id);
       }
 
       // Closing principal
@@ -316,7 +463,7 @@ export default function FechamentoDetalhe() {
         total_bruto: totals.totalBruto,
         total_comissao_vendedores: totals.totalComissoes,
         total_equipe: totals.totalCustoEquipeShows,
-        total_despesas: totals.totalDespesas + totals.totalVan + totals.totalOutrasShows,
+        total_despesas: totals.totalDespesasShows,
         total_sobra: totals.sobra,
       };
       if (finalize) {
@@ -327,25 +474,30 @@ export default function FechamentoDetalhe() {
       const { error } = await supabase.from("weekly_closings").update(updates).eq("id", closing.id);
       if (error) throw error;
 
-      // Distribuição (somente em finalize, regrava do zero)
+      // Distribuição (somente em finalize)
       if (finalize) {
         await supabase.from("weekly_closing_distribution").delete().eq("closing_id", closing.id);
         const dist = totals.distribution.map((d, idx) => ({
           closing_id: closing.id,
-          beneficiario: d.beneficiario,
-          tipo: d.tipo,
-          percentual: d.percentual,
-          valor_bruto: d.valor_bruto,
-          imposto_valor: d.imposto_valor,
-          valor_liquido: d.valor_liquido,
-          ordem: idx,
+          beneficiario: d.beneficiario, tipo: d.tipo, percentual: d.percentual,
+          valor_bruto: d.valor_bruto, imposto_valor: d.imposto_valor,
+          investimento_valor: d.investimento_valor,
+          valor_liquido: d.valor_liquido, ordem: idx,
         }));
-        if (dist.length > 0) await supabase.from("weekly_closing_distribution").insert(dist);
+        if (dist.length > 0) await supabase.from("weekly_closing_distribution").insert(dist as any);
+
+        // Atualiza parcelas pagas dos investimentos vinculados
+        for (const inv of investments) {
+          if (inv.investment_id) {
+            await supabase.from("artist_investments" as any)
+              .update({ parcelas_pagas: inv.numero_parcela })
+              .eq("id", inv.investment_id);
+          }
+        }
       }
 
       toast.success(finalize ? "Fechamento finalizado" : "Rascunho salvo");
-      setRemovedCrew([]);
-      setRemovedExpenses([]);
+      setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]);
       await load();
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
@@ -358,8 +510,7 @@ export default function FechamentoDetalhe() {
     if (!closing) return;
     if (!confirm("Reabrir fechamento para edição?")) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("weekly_closings")
+    const { error } = await supabase.from("weekly_closings")
       .update({ status: "rascunho", finalizado_por: null, finalizado_em: null })
       .eq("id", closing.id);
     setSaving(false);
@@ -382,32 +533,31 @@ export default function FechamentoDetalhe() {
         cidade: s.show?.cidade,
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
+        custo_equipe: Number(s.custo_equipe || 0),
+        despesas_show: showExpensesByShow.get(s.id) ?? 0,
+        despesas_detalhe: showExpenses
+          .filter((e) => e.closing_show_id === s.id)
+          .map((e) => ({ categoria: e.categoria, descricao: e.descricao, valor: Number(e.valor || 0) })),
         incluido: s.incluido,
       })),
       crew: crew.map((c) => ({
-        nome: c.nome,
-        funcao: c.funcao,
+        nome: c.nome, funcao: c.funcao,
         cache_por_show: Number(c.cache_por_show || 0),
         shows_participados: Number(c.shows_participados || 0),
         total_receber: Number(c.cache_por_show || 0) * Number(c.shows_participados || 0),
       })),
-      expenses: expenses.map((e) => ({
-        categoria: e.categoria,
-        descricao: e.descricao,
-        valor: Number(e.valor || 0),
-        responsavel: e.responsavel,
-        incluir_no_calculo: e.incluir_no_calculo,
+      investments: investments.map((i) => ({
+        descricao: i.descricao, categoria: i.categoria,
+        valor_total: Number(i.valor_total || 0),
+        total_parcelas: i.total_parcelas, numero_parcela: i.numero_parcela,
+        valor_descontado: Number(i.valor_descontado || 0),
       })),
       totals,
     });
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
   if (!closing) {
     return (
@@ -421,9 +571,7 @@ export default function FechamentoDetalhe() {
   const nIncluidos = shows.filter((s) => s.incluido).length;
   const crewTooltipText = crew.length === 0
     ? "Nenhum membro de equipe cadastrado."
-    : crew
-        .map((c) => `${c.nome || "—"}: ${fmtBRL(c.cache_por_show)} × ${c.shows_participados} = ${fmtBRL(c.cache_por_show * c.shows_participados)}`)
-        .join("\n");
+    : crew.map((c) => `${c.nome || "—"}: ${fmtBRL(c.cache_por_show)} × ${c.shows_participados} = ${fmtBRL(c.cache_por_show * c.shows_participados)}`).join("\n");
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -445,14 +593,10 @@ export default function FechamentoDetalhe() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {canExport && (
-            <Button variant="outline" onClick={handleExportPDF}>
-              <FileDown className="h-4 w-4 mr-2" />Exportar PDF
-            </Button>
+            <Button variant="outline" onClick={handleExportPDF}><FileDown className="h-4 w-4 mr-2" />Exportar PDF</Button>
           )}
           {canEdit && closing.status === "finalizado" && (
-            <Button variant="outline" onClick={reopen} disabled={saving}>
-              <Unlock className="h-4 w-4 mr-2" />Reabrir
-            </Button>
+            <Button variant="outline" onClick={reopen} disabled={saving}><Unlock className="h-4 w-4 mr-2" />Reabrir</Button>
           )}
           {!readonly && (
             <>
@@ -460,12 +604,7 @@ export default function FechamentoDetalhe() {
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Salvar rascunho
               </Button>
-              <Button
-                onClick={() => {
-                  if (confirm("Ao finalizar, o fechamento será bloqueado para edição. Confirmar?")) persist(true);
-                }}
-                disabled={saving}
-              >
+              <Button onClick={() => { if (confirm("Ao finalizar, o fechamento será bloqueado para edição. Confirmar?")) persist(true); }} disabled={saving}>
                 <CheckCircle2 className="h-4 w-4 mr-2" />Finalizar
               </Button>
             </>
@@ -473,13 +612,13 @@ export default function FechamentoDetalhe() {
         </div>
       </div>
 
-      {/* RESUMO VISUAL */}
+      {/* RESUMO */}
       <Card className="p-4 shadow-soft">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
           <ResumoBox label="Bruto" value={totals.totalBruto} />
-          <ResumoBox label="Custos totais" value={totals.totalCustos} />
+          <ResumoBox label="Custos operacionais" value={totals.totalCustos} />
           <ResumoBox label="Sobra" value={totals.sobra} accent="primary" />
-          <ResumoBox label="Imposto" value={totals.totalImpostos} />
+          <ResumoBox label={`Imposto (${config.imposto_percentual.toFixed(2)}% do bruto)`} value={totals.totalImpostos} />
         </div>
       </Card>
 
@@ -493,6 +632,7 @@ export default function FechamentoDetalhe() {
             <table className="w-full text-xs md:text-sm min-w-[1100px]">
               <thead className="bg-muted/40">
                 <tr className="text-left">
+                  <th className="px-2 py-1.5 w-8" />
                   <th className="px-2 py-1.5">Data</th>
                   <th className="px-2 py-1.5">Vendedor</th>
                   <th className="px-2 py-1.5">Local — Cidade</th>
@@ -502,120 +642,121 @@ export default function FechamentoDetalhe() {
                     <span className="inline-flex items-center gap-1">
                       Custo equipe
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="whitespace-pre-wrap max-w-xs text-left">
-                          {crewTooltipText}
-                        </TooltipContent>
+                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="whitespace-pre-wrap max-w-xs text-left">{crewTooltipText}</TooltipContent>
                       </Tooltip>
                     </span>
                   </th>
-                  <th className="px-2 py-1.5 text-right w-[120px]">Van</th>
-                  <th className="px-2 py-1.5 text-right w-[120px]">Outras</th>
-                  <th className="px-2 py-1.5 text-right">Total custos</th>
+                  <th className="px-2 py-1.5 text-right">Despesas</th>
                   <th className="px-2 py-1.5 text-right">Sobra</th>
                   <th className="px-2 py-1.5 text-center">Incluir</th>
                 </tr>
               </thead>
               <tbody>
                 {shows.map((s) => {
-                  const totalCustosShow =
-                    Number(s.comissao_vendedor || 0) +
-                    Number(s.custo_equipe || 0) +
-                    Number(s.van || 0) +
-                    Number(s.outras_despesas || 0);
+                  const despesasShow = showExpensesByShow.get(s.id) ?? 0;
+                  const totalCustosShow = Number(s.comissao_vendedor || 0) + Number(s.custo_equipe || 0) + despesasShow;
                   const sobraShow = Number(s.cache_total || 0) - totalCustosShow;
                   const pctComissao = s.cache_total > 0 ? (s.comissao_vendedor / s.cache_total) * 100 : 0;
+                  const expanded = expandedShows.has(s.id);
+                  const expensesOfShow = showExpenses.filter((e) => e.closing_show_id === s.id);
                   return (
-                    <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
-                      <td className="px-2 py-1.5 whitespace-nowrap">{fmtDateBR(s.show?.data_show ?? "")}</td>
-                      <td className="px-2 py-1.5">{s.show?.vendedor ?? "—"}</td>
-                      <td className="px-2 py-1.5">{[s.show?.local, s.show?.cidade].filter(Boolean).join(" — ") || "—"}</td>
-                      <td className="px-2 py-1.5">
-                        <CurrencyInput
-                          className="h-8 text-right"
-                          value={s.cache_total}
-                          disabled={readonly}
-                          onValueChange={(v) => updateShow(s.id, { cache_total: v })}
-                        />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <div className="flex gap-1">
-                          <Input
-                            type="number"
-                            step={0.5}
-                            className="h-8 w-16 text-right"
-                            placeholder="%"
-                            value={pctComissao ? Number(pctComissao.toFixed(2)) : ""}
-                            disabled={readonly || !s.cache_total}
-                            onChange={(e) => {
-                              const pct = Number(e.target.value) || 0;
-                              updateShow(s.id, {
-                                comissao_vendedor: Math.round(((s.cache_total * pct) / 100) * 100) / 100,
-                              });
-                            }}
-                          />
-                          <CurrencyInput
-                            className="h-8 text-right"
-                            value={s.comissao_vendedor}
-                            disabled={readonly}
-                            onValueChange={(v) => updateShow(s.id, { comissao_vendedor: v })}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <CurrencyInput
-                          className="h-8 text-right"
-                          value={s.custo_equipe}
-                          disabled={readonly}
-                          onValueChange={(v) => updateShow(s.id, { custo_equipe: v })}
-                        />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <CurrencyInput
-                          className="h-8 text-right"
-                          value={s.van}
-                          disabled={readonly}
-                          onValueChange={(v) => updateShow(s.id, { van: v })}
-                        />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <CurrencyInput
-                          className="h-8 text-right"
-                          value={s.outras_despesas}
-                          disabled={readonly}
-                          onValueChange={(v) => updateShow(s.id, { outras_despesas: v })}
-                        />
-                      </td>
-                      <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(totalCustosShow)}</td>
-                      <td className={cn(
-                        "px-2 py-1.5 text-right whitespace-nowrap font-medium",
-                        sobraShow >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive",
-                      )}>
-                        {fmtBRL(sobraShow)}
-                      </td>
-                      <td className="px-2 py-1.5 text-center">
-                        <Switch
-                          checked={s.incluido}
-                          disabled={readonly}
-                          onCheckedChange={(v) => updateShow(s.id, { incluido: v })}
-                        />
-                      </td>
-                    </tr>
+                    <>
+                      <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
+                        <td className="px-2 py-1.5">
+                          <button onClick={() => toggleShowExpand(s.id)} className="text-muted-foreground hover:text-foreground">
+                            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                        </td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{fmtDateBR(s.show?.data_show ?? "")}</td>
+                        <td className="px-2 py-1.5">{s.show?.vendedor ?? "—"}</td>
+                        <td className="px-2 py-1.5">{[s.show?.local, s.show?.cidade].filter(Boolean).join(" — ") || "—"}</td>
+                        <td className="px-2 py-1.5">
+                          <CurrencyInput className="h-8 text-right" value={s.cache_total} disabled={readonly}
+                            onValueChange={(v) => updateShow(s.id, { cache_total: v })} />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <div className="flex gap-1">
+                            <Input type="number" step={0.5} className="h-8 w-16 text-right" placeholder="%"
+                              value={pctComissao ? Number(pctComissao.toFixed(2)) : ""}
+                              disabled={readonly || !s.cache_total}
+                              onChange={(e) => {
+                                const pct = Number(e.target.value) || 0;
+                                updateShow(s.id, { comissao_vendedor: Math.round(((s.cache_total * pct) / 100) * 100) / 100 });
+                              }} />
+                            <CurrencyInput className="h-8 text-right" value={s.comissao_vendedor} disabled={readonly}
+                              onValueChange={(v) => updateShow(s.id, { comissao_vendedor: v })} />
+                          </div>
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <CurrencyInput className="h-8 text-right" value={s.custo_equipe} disabled={readonly}
+                            onValueChange={(v) => updateShow(s.id, { custo_equipe: v })} />
+                        </td>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(despesasShow)}</td>
+                        <td className={cn("px-2 py-1.5 text-right whitespace-nowrap font-medium",
+                          sobraShow >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>
+                          {fmtBRL(sobraShow)}
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          <Switch checked={s.incluido} disabled={readonly}
+                            onCheckedChange={(v) => updateShow(s.id, { incluido: v })} />
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr key={s.id + "-exp"} className="bg-muted/20 border-t">
+                          <td />
+                          <td colSpan={9} className="px-2 py-2">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas deste show</span>
+                                {!readonly && (
+                                  <Button size="sm" variant="outline" onClick={() => addShowExpense(s.id)}>
+                                    <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
+                                  </Button>
+                                )}
+                              </div>
+                              {expensesOfShow.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">Nenhuma despesa lançada para este show.</p>
+                              ) : (
+                                <div className="space-y-1">
+                                  {expensesOfShow.map((e) => (
+                                    <div key={e.id} className="grid grid-cols-12 gap-2 items-center">
+                                      <Select value={e.categoria} onValueChange={(v) => updateShowExpense(e.id, { categoria: v })} disabled={readonly}>
+                                        <SelectTrigger className="col-span-3 h-8"><SelectValue /></SelectTrigger>
+                                        <SelectContent>{CATEGORIAS_DESPESA.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                                      </Select>
+                                      <Input className="col-span-5 h-8" placeholder="Descrição"
+                                        value={e.descricao ?? ""} disabled={readonly}
+                                        onChange={(ev) => updateShowExpense(e.id, { descricao: ev.target.value })} />
+                                      <CurrencyInput className="col-span-3 h-8 text-right" value={e.valor} disabled={readonly}
+                                        onValueChange={(v) => updateShowExpense(e.id, { valor: v })} />
+                                      {!readonly && (
+                                        <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
+                                          onClick={() => removeShowExpense(e.id)}>
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   );
                 })}
               </tbody>
               <tfoot className="bg-muted/30 font-medium">
                 <tr>
+                  <td />
                   <td colSpan={3} className="px-2 py-2">{nIncluidos} shows incluídos</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalComissoes)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalCustoEquipeShows)}</td>
-                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalVan)}</td>
-                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalOutrasShows)}</td>
-                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalComissoes + totals.totalCustoEquipeShows + totals.totalVan + totals.totalOutrasShows)}</td>
-                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto - (totals.totalComissoes + totals.totalCustoEquipeShows + totals.totalVan + totals.totalOutrasShows))}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalDespesasShows)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.sobra)}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -635,9 +776,7 @@ export default function FechamentoDetalhe() {
               </Button>
             )}
             {!readonly && (
-              <Button size="sm" variant="outline" onClick={addCrew}>
-                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro
-              </Button>
+              <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
             )}
           </div>
         </div>
@@ -648,52 +787,26 @@ export default function FechamentoDetalhe() {
             <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
               <div className="col-span-3">Nome</div>
               <div className="col-span-2">Função</div>
-              <div className="col-span-2 text-right">Cachê por show (R$)</div>
+              <div className="col-span-2 text-right">Cachê por show</div>
               <div className="col-span-2 text-center">Qtd. shows</div>
-              <div className="col-span-2 text-right">Total (R$)</div>
+              <div className="col-span-2 text-right">Total</div>
               <div className="col-span-1" />
             </div>
             {crew.map((c) => (
               <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
-                <Input
-                  className="col-span-3"
-                  placeholder="Nome"
-                  value={c.nome}
-                  disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { nome: e.target.value })}
-                />
-                <Input
-                  className="col-span-2"
-                  placeholder="Função"
-                  value={c.funcao ?? ""}
-                  disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { funcao: e.target.value })}
-                />
-                <CurrencyInput
-                  className="col-span-2 text-right"
-                  value={c.cache_por_show}
-                  disabled={readonly}
-                  onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })}
-                />
-                <Input
-                  className="col-span-2 text-center"
-                  type="number"
-                  min={0}
-                  placeholder="Shows"
-                  value={c.shows_participados}
-                  disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { shows_participados: Number(e.target.value) || 0 })}
-                />
+                <Input className="col-span-3" placeholder="Nome" value={c.nome} disabled={readonly}
+                  onChange={(e) => updateCrew(c.id, { nome: e.target.value })} />
+                <Input className="col-span-2" placeholder="Função" value={c.funcao ?? ""} disabled={readonly}
+                  onChange={(e) => updateCrew(c.id, { funcao: e.target.value })} />
+                <CurrencyInput className="col-span-2 text-right" value={c.cache_por_show} disabled={readonly}
+                  onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })} />
+                <Input className="col-span-2 text-center" type="number" min={0} placeholder="Shows"
+                  value={c.shows_participados} disabled={readonly}
+                  onChange={(e) => updateCrew(c.id, { shows_participados: Number(e.target.value) || 0 })} />
                 <div className="col-span-2 text-right text-sm">{fmtBRL(c.cache_por_show * c.shows_participados)}</div>
                 {!readonly && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="col-span-1 text-destructive hover:text-destructive"
-                    onClick={() => removeCrewMember(c.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <Button size="icon" variant="ghost" className="col-span-1 text-destructive hover:text-destructive"
+                    onClick={() => removeCrewMember(c.id)}><Trash2 className="h-4 w-4" /></Button>
                 )}
               </div>
             ))}
@@ -702,107 +815,111 @@ export default function FechamentoDetalhe() {
         )}
       </Card>
 
-      {/* Seção C — Despesas gerais */}
+      {/* Seção D — Investimentos */}
       <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">C. Despesas gerais da semana</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Não duplique aqui valores já lançados por show (van/outras).</p>
+            <h2 className="font-semibold">D. Investimentos</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Descontados proporcionalmente apenas dos sócios/empresários — o artista não participa.
+            </p>
           </div>
           {!readonly && (
-            <Button size="sm" variant="outline" onClick={addExpense}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
-            </Button>
+            <Button size="sm" variant="outline" onClick={addInvestment}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar investimento</Button>
           )}
         </div>
-        {expenses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma despesa registrada.</p>
+
+        {pendingInvestments.length > 0 && !readonly && (
+          <div className="mb-3 p-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 text-sm">
+            <p className="font-medium mb-2">
+              Há {pendingInvestments.length} investimento(s) parcelado(s) com saldo pendente. Deseja incluir neste fechamento?
+            </p>
+            <div className="space-y-2">
+              {pendingInvestments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs">
+                    {p.descricao} — {p.parcelas_pagas}/{p.total_parcelas} pagas — parcela: {fmtBRL(p.valor_por_parcela)}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="default" onClick={() => addPendingInvestment(p)}>Sim, incluir</Button>
+                    <Button size="sm" variant="ghost"
+                      onClick={() => setPendingInvestments((arr) => arr.filter((x) => x.id !== p.id))}>
+                      Ignorar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {investments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum investimento neste fechamento.</p>
         ) : (
           <div className="space-y-2">
-            {expenses.map((e) => (
-              <div key={e.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
-                <div className="col-span-2">
-                  <Select
-                    value={e.categoria}
-                    onValueChange={(v) => updateExpense(e.id, { categoria: v })}
-                    disabled={readonly}
-                  >
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIAS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
+            {investments.map((inv) => (
+              <div key={inv.id} className="rounded-md border p-3 space-y-2">
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <Input className="col-span-5" placeholder="Descrição (ex: Microfone Shure SM58)"
+                    value={inv.descricao} disabled={readonly}
+                    onChange={(e) => updateInvestment(inv.id, { descricao: e.target.value })} />
+                  <Select value={inv.categoria} onValueChange={(v) => updateInvestment(inv.id, { categoria: v })} disabled={readonly}>
+                    <SelectTrigger className="col-span-2"><SelectValue /></SelectTrigger>
+                    <SelectContent>{CATEGORIAS_INVEST.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
+                  <Input type="date" className="col-span-2" value={inv.data_compra ?? ""} disabled={readonly}
+                    onChange={(e) => updateInvestment(inv.id, { data_compra: e.target.value })} />
+                  <CurrencyInput className="col-span-2 text-right" value={inv.valor_total} disabled={readonly}
+                    onValueChange={(v) => updateInvestment(inv.id, { valor_total: v })} />
+                  {!readonly && (
+                    <Button size="icon" variant="ghost" className="col-span-1 text-destructive"
+                      onClick={() => removeInvestment(inv.id)}><Trash2 className="h-4 w-4" /></Button>
+                  )}
                 </div>
-                <Input
-                  className="col-span-3"
-                  placeholder="Descrição"
-                  value={e.descricao ?? ""}
-                  disabled={readonly}
-                  onChange={(ev) => updateExpense(e.id, { descricao: ev.target.value })}
-                />
-                <CurrencyInput
-                  className="col-span-2 text-right"
-                  value={e.valor}
-                  disabled={readonly}
-                  onValueChange={(v) => updateExpense(e.id, { valor: v })}
-                />
-                <div className="col-span-2">
-                  <Select
-                    value={e.responsavel}
-                    onValueChange={(v) => updateExpense(e.id, { responsavel: v })}
-                    disabled={readonly}
-                  >
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="produtora">Produtora</SelectItem>
-                      <SelectItem value="contratante">Contratante</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-3 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Parcelas:</span>
+                    <Input type="number" min={1} className="h-8" value={inv.total_parcelas} disabled={readonly}
+                      onChange={(e) => updateInvestment(inv.id, { total_parcelas: Math.max(1, Number(e.target.value) || 1) })} />
+                  </div>
+                  <div className="col-span-3 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Nº parcela:</span>
+                    <Input type="number" min={1} className="h-8" value={inv.numero_parcela} disabled={readonly}
+                      onChange={(e) => updateInvestment(inv.id, { numero_parcela: Math.max(1, Number(e.target.value) || 1) })} />
+                  </div>
+                  <div className="col-span-3 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">A descontar:</span>
+                    <CurrencyInput className="h-8 text-right" value={inv.valor_descontado} disabled={readonly}
+                      onValueChange={(v) => updateInvestment(inv.id, { valor_descontado: v })} />
+                  </div>
+                  <Input className="col-span-3 h-8" placeholder="Observações" value={inv.observacoes ?? ""} disabled={readonly}
+                    onChange={(e) => updateInvestment(inv.id, { observacoes: e.target.value })} />
                 </div>
-                <div className="col-span-2 flex items-center gap-2">
-                  <Switch
-                    checked={e.incluir_no_calculo}
-                    disabled={readonly}
-                    onCheckedChange={(v) => updateExpense(e.id, { incluir_no_calculo: v })}
-                  />
-                  <span className="text-xs text-muted-foreground">No cálculo</span>
-                </div>
-                {!readonly && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="col-span-1 text-destructive hover:text-destructive"
-                    onClick={() => removeExpense(e.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
               </div>
             ))}
             <div className="flex justify-end pt-2 text-sm font-medium">
-              Total despesas gerais no cálculo: {fmtBRL(totals.totalDespesas)}
+              Total investimentos a descontar: {fmtBRL(totals.totalInvestimentos)}
             </div>
           </div>
         )}
       </Card>
 
-      {/* Seção D — Cálculo */}
+      {/* Seção E — Cálculo */}
       <Card className="p-4 shadow-soft bg-muted/20">
-        <h2 className="font-semibold mb-3">D. Cálculo automático</h2>
+        <h2 className="font-semibold mb-3">E. Cálculo automático</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1.5 text-sm">
             <Linha label="Total cachê bruto" value={totals.totalBruto} />
-            <Linha label="(-) Total comissões vendedores" value={-totals.totalComissoes} />
-            <Linha label="(-) Total custo equipe" value={-totals.totalCustoEquipeShows} />
-            <Linha label="(-) Total van (todos os shows)" value={-totals.totalVan} />
-            <Linha label="(-) Outras despesas dos shows" value={-totals.totalOutrasShows} />
-            <Linha label="(-) Despesas gerais (seção C)" value={-totals.totalDespesas} />
+            <div className="text-xs text-muted-foreground italic pl-2">
+              Imposto ({config.imposto_percentual.toFixed(2)}% sobre o bruto): {fmtBRL(totals.totalImpostos)}
+            </div>
+            <div className="border-t my-2" />
+            <Linha label="(-) Comissão vendedores" value={-totals.totalComissoes} />
+            <Linha label="(-) Custo equipe" value={-totals.totalCustoEquipeShows} />
+            <Linha label="(-) Despesas dos shows" value={-totals.totalDespesasShows} />
             <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobra)}</span>
-            </div>
-            <div className="text-xs text-muted-foreground pt-2">
-              Imposto aplicado: {config.imposto_percentual.toFixed(2)}% sobre o bruto de cada participante.
             </div>
           </div>
 
@@ -817,31 +934,30 @@ export default function FechamentoDetalhe() {
                     <span>{d.beneficiario} ({d.percentual.toFixed(2)}%)</span>
                     <span className="text-base">{fmtBRL(d.valor_liquido)}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground flex justify-between">
-                    <span>Base: {fmtBRL(d.valor_bruto)}</span>
-                    <span>Imposto: {fmtBRL(d.imposto_valor)}</span>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <div className="flex justify-between"><span>Bruto (% da sobra)</span><span>{fmtBRL(d.valor_bruto)}</span></div>
+                    <div className="flex justify-between"><span>(-) Imposto</span><span>{fmtBRL(d.imposto_valor)}</span></div>
+                    {d.investimento_valor > 0 && (
+                      <div className="flex justify-between"><span>(-) Investimentos</span><span>{fmtBRL(d.investimento_valor)}</span></div>
+                    )}
                   </div>
                 </div>
               ))
             )}
             <div className="border-t pt-2 text-xs text-muted-foreground space-y-0.5">
               <div className="flex justify-between"><span>Total impostos</span><span>{fmtBRL(totals.totalImpostos)}</span></div>
-              <div className="flex justify-between font-semibold text-foreground"><span>Total líquido</span><span>{fmtBRL(totals.totalLiquido)}</span></div>
+              <div className="flex justify-between"><span>Total investimentos</span><span>{fmtBRL(totals.totalInvestimentos)}</span></div>
+              <div className="flex justify-between font-semibold text-foreground"><span>Total líquido distribuído</span><span>{fmtBRL(totals.totalLiquido)}</span></div>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Seção E — Observações */}
+      {/* Observações */}
       <Card className="p-4 shadow-soft">
-        <h2 className="font-semibold mb-3">E. Observações</h2>
-        <Textarea
-          rows={4}
-          value={observacoes}
-          disabled={readonly}
-          onChange={(e) => setObservacoes(e.target.value)}
-          placeholder="Anotações deste fechamento..."
-        />
+        <h2 className="font-semibold mb-3">Observações</h2>
+        <Textarea rows={4} value={observacoes} disabled={readonly}
+          onChange={(e) => setObservacoes(e.target.value)} placeholder="Anotações deste fechamento..." />
       </Card>
     </div>
     </TooltipProvider>
@@ -860,10 +976,8 @@ function Linha({ label, value }: { label: string; value: number }) {
 function ResumoBox({ label, value, accent }: { label: string; value: number; accent?: "primary" }) {
   return (
     <div className={cn("rounded-lg border p-3", accent === "primary" && "bg-primary/5 border-primary/30")}>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("text-lg md:text-xl font-semibold mt-1", accent === "primary" && "text-primary")}>
-        {fmtBRL(value)}
-      </div>
+      <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
+      <div className={cn("text-lg font-semibold mt-1", accent === "primary" && (value >= 0 ? "text-primary" : "text-destructive"))}>{fmtBRL(value)}</div>
     </div>
   );
 }
