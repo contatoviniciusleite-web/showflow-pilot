@@ -255,7 +255,7 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
                 <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.totalEquipe)}</td>
                 <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.totalVan)}</td>
                 <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.totalDespesasShows)}</td>
-                <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.sobra)}</td>
+                <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.totalBruto - totals.totalComissoes - totals.totalEquipe - totals.totalVan - totals.totalDespesasShows)}</td>
                 <td style={{ ...S.td, ...S.center, color: "#fff" }}>—</td>
               </tr>
             </tbody>
