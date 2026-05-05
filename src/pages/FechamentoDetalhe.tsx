@@ -454,7 +454,7 @@ export default function FechamentoDetalhe() {
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <Linha label="Total bruto dos shows" value={totals.totalBruto || 0} />
+              <Linha label="Total bruto dos shows" value={Number(closing.total_bruto || 0)} />
               <Linha label={`Seu percentual (${artistDist.percentual.toFixed(2)}%)`} value={artistDist.valor_bruto} />
               <Linha label="(-) Imposto" value={-artistDist.imposto_valor} />
               <div className="border-t pt-2 sm:col-span-2 font-semibold flex justify-between">
