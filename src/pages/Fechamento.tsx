@@ -6,11 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, FileSpreadsheet } from "lucide-react";
+import { Loader2, Plus, FileSpreadsheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { useAuth } from "@/contexts/AuthContext";
 import { NewClosingDialog } from "@/components/fechamento/NewClosingDialog";
+import { DeleteClosingDialog } from "@/components/fechamento/DeleteClosingDialog";
 
 type Row = {
   id: string;
@@ -36,6 +37,7 @@ export default function Fechamento() {
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
   const [openNew, setOpenNew] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -145,9 +147,22 @@ export default function Fechamento() {
                     <td className="px-3 py-2 text-right">{fmtBRL(r.total_sobra)}</td>
                     <td className="px-3 py-2">{new Date(r.created_at).toLocaleDateString("pt-BR")}</td>
                     <td className="px-3 py-2 text-right">
-                      <Button asChild size="sm" variant="ghost">
-                        <Link to={`/fechamento/${r.id}`}>Abrir</Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link to={`/fechamento/${r.id}`}>Abrir</Link>
+                        </Button>
+                        {canEdit && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(r)}
+                            aria-label="Excluir fechamento"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -162,6 +177,19 @@ export default function Fechamento() {
         onOpenChange={setOpenNew}
         artists={artists}
         onCreated={(id) => { setOpenNew(false); navigate(`/fechamento/${id}`); }}
+      />
+
+      <DeleteClosingDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        closing={deleteTarget ? {
+          id: deleteTarget.id,
+          semana_inicio: deleteTarget.semana_inicio,
+          semana_fim: deleteTarget.semana_fim,
+          status: deleteTarget.status,
+          artistName: deleteTarget.artists?.nome ?? null,
+        } : null}
+        onDeleted={() => { setDeleteTarget(null); load(); }}
       />
     </div>
   );

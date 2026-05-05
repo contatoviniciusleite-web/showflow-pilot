@@ -18,6 +18,7 @@ import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
 import { exportClosingPDF } from "@/lib/closingPdf";
 import { cn } from "@/lib/utils";
+import { DeleteClosingDialog } from "@/components/fechamento/DeleteClosingDialog";
 
 type Closing = {
   id: string;
@@ -134,6 +135,7 @@ export default function FechamentoDetalhe() {
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState<Closing | null>(null);
   const [artistName, setArtistName] = useState<string>("");
+  const [openDelete, setOpenDelete] = useState(false);
   const [shows, setShows] = useState<ShowRow[]>([]);
   const [showExpenses, setShowExpenses] = useState<ShowExpense[]>([]);
   const [removedShowExpenses, setRemovedShowExpenses] = useState<string[]>([]);
@@ -1398,6 +1400,28 @@ export default function FechamentoDetalhe() {
         <Textarea rows={4} value={observacoes} disabled={readonly}
           onChange={(e) => setObservacoes(e.target.value)} placeholder="Anotações deste fechamento..." />
       </Card>
+
+      {canEdit && (
+        <div className="flex justify-end pt-2">
+          <Button variant="destructive" onClick={() => setOpenDelete(true)}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Excluir fechamento
+          </Button>
+        </div>
+      )}
+
+      <DeleteClosingDialog
+        open={openDelete}
+        onOpenChange={setOpenDelete}
+        closing={closing ? {
+          id: closing.id,
+          semana_inicio: closing.semana_inicio,
+          semana_fim: closing.semana_fim,
+          status: closing.status,
+          artistName,
+        } : null}
+        onDeleted={() => navigate("/fechamento")}
+      />
     </div>
     </TooltipProvider>
   );
