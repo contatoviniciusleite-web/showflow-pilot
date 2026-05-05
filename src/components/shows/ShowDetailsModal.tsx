@@ -122,6 +122,10 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   };
 
   const approve = () => callAction("approve");
+  const deleteMinuta = async () => {
+    if (!confirm("Excluir esta minuta permanentemente? Esta ação não pode ser desfeita.")) return;
+    await callAction("delete");
+  };
   const cancel = async () => {
     if (!confirm("Confirmar cancelamento deste show?")) return;
     await callAction("cancel", { motivo: "Cancelado pela gerência" });
