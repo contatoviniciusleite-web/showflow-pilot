@@ -4,6 +4,9 @@
 export type ClosingShowInput = {
   cache_total: number;
   comissao_vendedor: number;
+  custo_equipe: number;
+  van: number;
+  outras_despesas: number;
   incluido: boolean;
 };
 
@@ -44,8 +47,12 @@ export type DistributionRow = {
 export type ClosingTotals = {
   totalBruto: number;
   totalComissoes: number;
-  totalEquipe: number;
-  totalDespesas: number;
+  totalCustoEquipeShows: number;
+  totalVan: number;
+  totalOutrasShows: number;
+  totalEquipe: number; // soma da seção B (referência)
+  totalDespesas: number; // despesas gerais (seção C, no cálculo)
+  totalCustos: number; // soma de tudo que reduz da bruto
   sobra: number;
   distribution: DistributionRow[];
   totalImpostos: number;
@@ -67,11 +74,17 @@ export function computeClosing(
   const incluidos = shows.filter((s) => s.incluido);
   const totalBruto = round2(incluidos.reduce((a, s) => a + Number(s.cache_total || 0), 0));
   const totalComissoes = round2(incluidos.reduce((a, s) => a + Number(s.comissao_vendedor || 0), 0));
+  const totalCustoEquipeShows = round2(incluidos.reduce((a, s) => a + Number(s.custo_equipe || 0), 0));
+  const totalVan = round2(incluidos.reduce((a, s) => a + Number(s.van || 0), 0));
+  const totalOutrasShows = round2(incluidos.reduce((a, s) => a + Number(s.outras_despesas || 0), 0));
   const totalEquipe = round2(crew.reduce((a, c) => a + computeCrewTotal(c), 0));
   const totalDespesas = round2(
     expenses.filter((e) => e.incluir_no_calculo).reduce((a, e) => a + Number(e.valor || 0), 0),
   );
-  const sobra = round2(totalBruto - totalComissoes - totalEquipe - totalDespesas);
+  const totalCustos = round2(
+    totalComissoes + totalCustoEquipeShows + totalVan + totalOutrasShows + totalDespesas,
+  );
+  const sobra = round2(totalBruto - totalCustos);
 
   const imposto = Number(config.imposto_percentual || 0) / 100;
   const partners = (config.partners ?? []).filter((p) => p.ativo !== false);
@@ -103,5 +116,18 @@ export function computeClosing(
   const totalImpostos = round2(rows.reduce((a, r) => a + r.imposto_valor, 0));
   const totalLiquido = round2(rows.reduce((a, r) => a + r.valor_liquido, 0));
 
-  return { totalBruto, totalComissoes, totalEquipe, totalDespesas, sobra, distribution: rows, totalImpostos, totalLiquido };
+  return {
+    totalBruto,
+    totalComissoes,
+    totalCustoEquipeShows,
+    totalVan,
+    totalOutrasShows,
+    totalEquipe,
+    totalDespesas,
+    totalCustos,
+    sobra,
+    distribution: rows,
+    totalImpostos,
+    totalLiquido,
+  };
 }

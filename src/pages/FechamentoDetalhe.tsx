@@ -5,16 +5,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock } from "lucide-react";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
 import { exportClosingPDF } from "@/lib/closingPdf";
+import { cn } from "@/lib/utils";
 
 type Closing = {
   id: string;
@@ -33,6 +35,9 @@ type ShowRow = {
   show_id: string;
   cache_total: number;
   comissao_vendedor: number;
+  custo_equipe: number;
+  van: number;
+  outras_despesas: number;
   incluido: boolean;
   show?: {
     data_show: string;
@@ -74,8 +79,6 @@ export default function FechamentoDetalhe() {
   const { user, roles } = useAuth();
   const canEdit = roles.includes("financeiro");
   const canExport = roles.includes("diretor") || roles.includes("financeiro") || roles.includes("artista");
-  // Todos os papéis com acesso (diretor, financeiro, artista) veem a tela completa.
-  const isArtistOnly = false;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,7 +95,6 @@ export default function FechamentoDetalhe() {
     imposto_percentual: 0,
   });
   const [partners, setPartners] = useState<ClosingPartnerInput[]>([]);
-  const [artistDist, setArtistDist] = useState<{ valor_bruto: number; imposto_valor: number; valor_liquido: number; percentual: number } | null>(null);
 
   const readonly = !canEdit || closing?.status === "finalizado";
 
@@ -112,18 +114,6 @@ export default function FechamentoDetalhe() {
     setClosing(c as any);
     setArtistName((c as any).artists?.nome ?? "");
     setObservacoes(c.observacoes ?? "");
-
-    if (isArtistOnly) {
-      const { data: dist } = await supabase
-        .from("weekly_closing_distribution")
-        .select("valor_bruto, imposto_valor, valor_liquido, percentual")
-        .eq("closing_id", id)
-        .eq("tipo", "artista")
-        .maybeSingle();
-      if (dist) setArtistDist(dist as any);
-      setLoading(false);
-      return;
-    }
 
     const [s, cr, ex, cfg, prt] = await Promise.all([
       supabase
@@ -222,6 +212,9 @@ export default function FechamentoDetalhe() {
         shows.map((s) => ({
           cache_total: Number(s.cache_total || 0),
           comissao_vendedor: Number(s.comissao_vendedor || 0),
+          custo_equipe: Number(s.custo_equipe || 0),
+          van: Number(s.van || 0),
+          outras_despesas: Number(s.outras_despesas || 0),
           incluido: s.incluido,
         })),
         crew.map((c) => ({
@@ -239,18 +232,38 @@ export default function FechamentoDetalhe() {
     [shows, crew, expenses, partners, config, artistName],
   );
 
+  const totalEquipeBase = useMemo(
+    () => crew.reduce((a, c) => a + Number(c.cache_por_show || 0) * Number(c.shows_participados || 0), 0),
+    [crew],
+  );
+
+  // distribuir total equipe entre shows incluídos
+  const distributeCrewToShows = () => {
+    const incluidos = shows.filter((s) => s.incluido);
+    if (incluidos.length === 0) {
+      toast.error("Nenhum show incluído para distribuir.");
+      return;
+    }
+    const perShow = Math.round((totalEquipeBase / incluidos.length) * 100) / 100;
+    setShows((arr) => arr.map((s) => (s.incluido ? { ...s, custo_equipe: perShow } : s)));
+    toast.success("Custo de equipe distribuído entre os shows.");
+  };
+
   // ===== Save =====
   const persist = async (finalize: boolean) => {
     if (!closing) return;
     setSaving(true);
     try {
-      // Shows — só update (não adicionamos novos aqui)
+      // Shows — só update
       for (const s of shows) {
         await supabase
           .from("weekly_closing_shows")
           .update({
             cache_total: s.cache_total,
             comissao_vendedor: s.comissao_vendedor,
+            custo_equipe: s.custo_equipe,
+            van: s.van,
+            outras_despesas: s.outras_despesas,
             incluido: s.incluido,
           })
           .eq("id", s.id);
@@ -302,8 +315,8 @@ export default function FechamentoDetalhe() {
         observacoes,
         total_bruto: totals.totalBruto,
         total_comissao_vendedores: totals.totalComissoes,
-        total_equipe: totals.totalEquipe,
-        total_despesas: totals.totalDespesas,
+        total_equipe: totals.totalCustoEquipeShows,
+        total_despesas: totals.totalDespesas + totals.totalVan + totals.totalOutrasShows,
         total_sobra: totals.sobra,
       };
       if (finalize) {
@@ -405,7 +418,15 @@ export default function FechamentoDetalhe() {
     );
   }
 
+  const nIncluidos = shows.filter((s) => s.incluido).length;
+  const crewTooltipText = crew.length === 0
+    ? "Nenhum membro de equipe cadastrado."
+    : crew
+        .map((c) => `${c.nome || "—"}: ${fmtBRL(c.cache_por_show)} × ${c.shows_participados} = ${fmtBRL(c.cache_por_show * c.shows_participados)}`)
+        .join("\n");
+
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -420,7 +441,7 @@ export default function FechamentoDetalhe() {
               {closing.status === "finalizado" ? "Finalizado" : "Rascunho"}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-1">{artistName}</p>
+          <p className="text-muted-foreground mt-1">{artistName} · {nIncluidos} {nIncluidos === 1 ? "show" : "shows"}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {canExport && (
@@ -452,31 +473,16 @@ export default function FechamentoDetalhe() {
         </div>
       </div>
 
-      {isArtistOnly ? (
-        <Card className="p-6 shadow-soft space-y-4">
-          <h2 className="font-semibold text-lg">Resumo do seu fechamento</h2>
-          {!artistDist ? (
-            <p className="text-sm text-muted-foreground">
-              A distribuição financeira deste fechamento ainda não está disponível.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <Linha label="Total bruto dos shows" value={Number(closing.total_bruto || 0)} />
-              <Linha label={`Seu percentual (${artistDist.percentual.toFixed(2)}%)`} value={artistDist.valor_bruto} />
-              <Linha label="(-) Imposto" value={-artistDist.imposto_valor} />
-              <div className="border-t pt-2 sm:col-span-2 font-semibold flex justify-between">
-                <span>Valor líquido a receber</span>
-                <span>{fmtBRL(artistDist.valor_liquido)}</span>
-              </div>
-            </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Esta é a visão resumida disponível para o artista. Para detalhes completos, fale com a gerência.
-          </p>
-        </Card>
-      ) : (
-      <>
-      {/* Seções completas (diretor/financeiro) */}
+      {/* RESUMO VISUAL */}
+      <Card className="p-4 shadow-soft">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+          <ResumoBox label="Bruto" value={totals.totalBruto} />
+          <ResumoBox label="Custos totais" value={totals.totalCustos} />
+          <ResumoBox label="Sobra" value={totals.sobra} accent="primary" />
+          <ResumoBox label="Imposto" value={totals.totalImpostos} />
+        </div>
+      </Card>
+
       {/* Seção A — Shows */}
       <Card className="p-4 shadow-soft">
         <h2 className="font-semibold mb-3">A. Shows da semana</h2>
@@ -484,60 +490,132 @@ export default function FechamentoDetalhe() {
           <p className="text-sm text-muted-foreground">Nenhum show vinculado.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs md:text-sm min-w-[1100px]">
               <thead className="bg-muted/40">
                 <tr className="text-left">
                   <th className="px-2 py-1.5">Data</th>
                   <th className="px-2 py-1.5">Vendedor</th>
-                  <th className="px-2 py-1.5">Local</th>
-                  <th className="px-2 py-1.5 text-right">Cachê</th>
-                  <th className="px-2 py-1.5 text-right">Comissão</th>
+                  <th className="px-2 py-1.5">Local — Cidade</th>
+                  <th className="px-2 py-1.5 text-right w-[120px]">Cachê</th>
+                  <th className="px-2 py-1.5 text-right w-[180px]">Comissão (% / R$)</th>
+                  <th className="px-2 py-1.5 text-right w-[140px]">
+                    <span className="inline-flex items-center gap-1">
+                      Custo equipe
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="whitespace-pre-wrap max-w-xs text-left">
+                          {crewTooltipText}
+                        </TooltipContent>
+                      </Tooltip>
+                    </span>
+                  </th>
+                  <th className="px-2 py-1.5 text-right w-[120px]">Van</th>
+                  <th className="px-2 py-1.5 text-right w-[120px]">Outras</th>
+                  <th className="px-2 py-1.5 text-right">Total custos</th>
+                  <th className="px-2 py-1.5 text-right">Sobra</th>
                   <th className="px-2 py-1.5 text-center">Incluir</th>
                 </tr>
               </thead>
               <tbody>
-                {shows.map((s) => (
-                  <tr key={s.id} className="border-t">
-                    <td className="px-2 py-1.5">{fmtDateBR(s.show?.data_show ?? "")}</td>
-                    <td className="px-2 py-1.5">{s.show?.vendedor ?? "—"}</td>
-                    <td className="px-2 py-1.5">{[s.show?.local, s.show?.cidade].filter(Boolean).join(" — ") || "—"}</td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        step={50}
-                        className="h-8 text-right"
-                        value={s.cache_total}
-                        disabled={readonly}
-                        onChange={(e) => updateShow(s.id, { cache_total: Number(e.target.value) || 0 })}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        step={50}
-                        className="h-8 text-right"
-                        value={s.comissao_vendedor}
-                        disabled={readonly}
-                        onChange={(e) => updateShow(s.id, { comissao_vendedor: Number(e.target.value) || 0 })}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5 text-center">
-                      <Switch
-                        checked={s.incluido}
-                        disabled={readonly}
-                        onCheckedChange={(v) => updateShow(s.id, { incluido: v })}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {shows.map((s) => {
+                  const totalCustosShow =
+                    Number(s.comissao_vendedor || 0) +
+                    Number(s.custo_equipe || 0) +
+                    Number(s.van || 0) +
+                    Number(s.outras_despesas || 0);
+                  const sobraShow = Number(s.cache_total || 0) - totalCustosShow;
+                  const pctComissao = s.cache_total > 0 ? (s.comissao_vendedor / s.cache_total) * 100 : 0;
+                  return (
+                    <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
+                      <td className="px-2 py-1.5 whitespace-nowrap">{fmtDateBR(s.show?.data_show ?? "")}</td>
+                      <td className="px-2 py-1.5">{s.show?.vendedor ?? "—"}</td>
+                      <td className="px-2 py-1.5">{[s.show?.local, s.show?.cidade].filter(Boolean).join(" — ") || "—"}</td>
+                      <td className="px-2 py-1.5">
+                        <CurrencyInput
+                          className="h-8 text-right"
+                          value={s.cache_total}
+                          disabled={readonly}
+                          onValueChange={(v) => updateShow(s.id, { cache_total: v })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            step={0.5}
+                            className="h-8 w-16 text-right"
+                            placeholder="%"
+                            value={pctComissao ? Number(pctComissao.toFixed(2)) : ""}
+                            disabled={readonly || !s.cache_total}
+                            onChange={(e) => {
+                              const pct = Number(e.target.value) || 0;
+                              updateShow(s.id, {
+                                comissao_vendedor: Math.round(((s.cache_total * pct) / 100) * 100) / 100,
+                              });
+                            }}
+                          />
+                          <CurrencyInput
+                            className="h-8 text-right"
+                            value={s.comissao_vendedor}
+                            disabled={readonly}
+                            onValueChange={(v) => updateShow(s.id, { comissao_vendedor: v })}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <CurrencyInput
+                          className="h-8 text-right"
+                          value={s.custo_equipe}
+                          disabled={readonly}
+                          onValueChange={(v) => updateShow(s.id, { custo_equipe: v })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <CurrencyInput
+                          className="h-8 text-right"
+                          value={s.van}
+                          disabled={readonly}
+                          onValueChange={(v) => updateShow(s.id, { van: v })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <CurrencyInput
+                          className="h-8 text-right"
+                          value={s.outras_despesas}
+                          disabled={readonly}
+                          onValueChange={(v) => updateShow(s.id, { outras_despesas: v })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(totalCustosShow)}</td>
+                      <td className={cn(
+                        "px-2 py-1.5 text-right whitespace-nowrap font-medium",
+                        sobraShow >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive",
+                      )}>
+                        {fmtBRL(sobraShow)}
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <Switch
+                          checked={s.incluido}
+                          disabled={readonly}
+                          onCheckedChange={(v) => updateShow(s.id, { incluido: v })}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot className="bg-muted/30 font-medium">
                 <tr>
-                  <td colSpan={3} className="px-2 py-2">
-                    {shows.filter((s) => s.incluido).length} shows incluídos
-                  </td>
+                  <td colSpan={3} className="px-2 py-2">{nIncluidos} shows incluídos</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalComissoes)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalCustoEquipeShows)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalVan)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalOutrasShows)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalComissoes + totals.totalCustoEquipeShows + totals.totalVan + totals.totalOutrasShows)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto - (totals.totalComissoes + totals.totalCustoEquipeShows + totals.totalVan + totals.totalOutrasShows))}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -548,18 +626,33 @@ export default function FechamentoDetalhe() {
 
       {/* Seção B — Equipe */}
       <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-semibold">B. Equipe</h2>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addCrew}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {!readonly && crew.length > 0 && (
+              <Button size="sm" variant="outline" onClick={distributeCrewToShows} title="Distribui o total de equipe entre os shows incluídos">
+                <Wand2 className="h-3.5 w-3.5 mr-1" />Distribuir nos shows
+              </Button>
+            )}
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addCrew}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro
+              </Button>
+            )}
+          </div>
         </div>
         {crew.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum membro cadastrado.</p>
         ) : (
           <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
+              <div className="col-span-3">Nome</div>
+              <div className="col-span-2">Função</div>
+              <div className="col-span-2 text-right">Cachê por show (R$)</div>
+              <div className="col-span-2 text-center">Qtd. shows</div>
+              <div className="col-span-2 text-right">Total (R$)</div>
+              <div className="col-span-1" />
+            </div>
             {crew.map((c) => (
               <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
                 <Input
@@ -576,13 +669,11 @@ export default function FechamentoDetalhe() {
                   disabled={readonly}
                   onChange={(e) => updateCrew(c.id, { funcao: e.target.value })}
                 />
-                <Input
+                <CurrencyInput
                   className="col-span-2 text-right"
-                  type="number"
-                  placeholder="Cachê"
                   value={c.cache_por_show}
                   disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { cache_por_show: Number(e.target.value) || 0 })}
+                  onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })}
                 />
                 <Input
                   className="col-span-2 text-center"
@@ -606,15 +697,18 @@ export default function FechamentoDetalhe() {
                 )}
               </div>
             ))}
-            <div className="flex justify-end pt-2 text-sm font-medium">Total equipe: {fmtBRL(totals.totalEquipe)}</div>
+            <div className="flex justify-end pt-2 text-sm font-medium">TOTAL EQUIPE: {fmtBRL(totalEquipeBase)}</div>
           </div>
         )}
       </Card>
 
-      {/* Seção C — Despesas */}
+      {/* Seção C — Despesas gerais */}
       <Card className="p-4 shadow-soft">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold">C. Despesas</h2>
+          <div>
+            <h2 className="font-semibold">C. Despesas gerais da semana</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Não duplique aqui valores já lançados por show (van/outras).</p>
+          </div>
           {!readonly && (
             <Button size="sm" variant="outline" onClick={addExpense}>
               <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
@@ -646,14 +740,11 @@ export default function FechamentoDetalhe() {
                   disabled={readonly}
                   onChange={(ev) => updateExpense(e.id, { descricao: ev.target.value })}
                 />
-                <Input
+                <CurrencyInput
                   className="col-span-2 text-right"
-                  type="number"
-                  step={0.01}
-                  placeholder="Valor"
                   value={e.valor}
                   disabled={readonly}
-                  onChange={(ev) => updateExpense(e.id, { valor: Number(ev.target.value) || 0 })}
+                  onValueChange={(v) => updateExpense(e.id, { valor: v })}
                 />
                 <div className="col-span-2">
                   <Select
@@ -689,7 +780,7 @@ export default function FechamentoDetalhe() {
               </div>
             ))}
             <div className="flex justify-end pt-2 text-sm font-medium">
-              Total despesas no cálculo: {fmtBRL(totals.totalDespesas)}
+              Total despesas gerais no cálculo: {fmtBRL(totals.totalDespesas)}
             </div>
           </div>
         )}
@@ -700,29 +791,34 @@ export default function FechamentoDetalhe() {
         <h2 className="font-semibold mb-3">D. Cálculo automático</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1.5 text-sm">
-            <Linha label="Total bruto dos shows" value={totals.totalBruto} />
-            <Linha label="(-) Comissão vendedores" value={-totals.totalComissoes} />
-            <Linha label="(-) Equipe" value={-totals.totalEquipe} />
-            <Linha label="(-) Despesas (produtora)" value={-totals.totalDespesas} />
+            <Linha label="Total cachê bruto" value={totals.totalBruto} />
+            <Linha label="(-) Total comissões vendedores" value={-totals.totalComissoes} />
+            <Linha label="(-) Total custo equipe" value={-totals.totalCustoEquipeShows} />
+            <Linha label="(-) Total van (todos os shows)" value={-totals.totalVan} />
+            <Linha label="(-) Outras despesas dos shows" value={-totals.totalOutrasShows} />
+            <Linha label="(-) Despesas gerais (seção C)" value={-totals.totalDespesas} />
             <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobra)}</span>
             </div>
+            <div className="text-xs text-muted-foreground pt-2">
+              Imposto aplicado: {config.imposto_percentual.toFixed(2)}% sobre o bruto de cada participante.
+            </div>
           </div>
 
           <div className="space-y-2 text-sm">
-            <h3 className="font-medium uppercase text-xs tracking-wider text-muted-foreground">Distribuição da sobra</h3>
+            <h3 className="font-medium uppercase text-xs tracking-wider text-muted-foreground">Distribuição final por participante</h3>
             {totals.distribution.length === 0 ? (
               <p className="text-muted-foreground">Configure a distribuição financeira do artista.</p>
             ) : (
               totals.distribution.map((d, i) => (
-                <div key={i} className="rounded border bg-background p-2">
+                <div key={i} className="rounded border bg-background p-2 space-y-0.5">
                   <div className="flex justify-between font-medium">
                     <span>{d.beneficiario} ({d.percentual.toFixed(2)}%)</span>
-                    <span>{fmtBRL(d.valor_liquido)}</span>
+                    <span className="text-base">{fmtBRL(d.valor_liquido)}</span>
                   </div>
                   <div className="text-xs text-muted-foreground flex justify-between">
-                    <span>Bruto: {fmtBRL(d.valor_bruto)}</span>
+                    <span>Base: {fmtBRL(d.valor_bruto)}</span>
                     <span>Imposto: {fmtBRL(d.imposto_valor)}</span>
                   </div>
                 </div>
@@ -747,9 +843,8 @@ export default function FechamentoDetalhe() {
           placeholder="Anotações deste fechamento..."
         />
       </Card>
-      </>
-      )}
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -758,6 +853,17 @@ function Linha({ label, value }: { label: string; value: number }) {
     <div className="flex justify-between">
       <span className="text-muted-foreground">{label}</span>
       <span>{fmtBRL(value)}</span>
+    </div>
+  );
+}
+
+function ResumoBox({ label, value, accent }: { label: string; value: number; accent?: "primary" }) {
+  return (
+    <div className={cn("rounded-lg border p-3", accent === "primary" && "bg-primary/5 border-primary/30")}>
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={cn("text-lg md:text-xl font-semibold mt-1", accent === "primary" && "text-primary")}>
+        {fmtBRL(value)}
+      </div>
     </div>
   );
 }
