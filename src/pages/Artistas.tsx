@@ -56,6 +56,8 @@ function ArtistAvatar({ artist }: { artist: Artist }) {
 }
 
 export default function Artistas() {
+  const { roles } = useAuth();
+  const canFinancialConfig = roles.includes("diretor") || roles.includes("gerente");
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
