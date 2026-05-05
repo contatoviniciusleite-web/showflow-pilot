@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { z } from "zod";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { FinancialConfigTab } from "@/components/artists/FinancialConfigTab";
 
 interface Artist {
   id: string;
