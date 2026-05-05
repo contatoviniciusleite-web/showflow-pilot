@@ -130,7 +130,7 @@ export function exportClosingPDF(input: ClosingPdfInput) {
     { content: "TOTAIS", colSpan: 3, styles: { halign: "right" as const, fontStyle: "bold" as const } },
     { content: fmtBRL(input.totals.totalBruto), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     { content: fmtBRL(input.totals.totalComissoes), styles: { halign: "right" as const, fontStyle: "bold" as const } },
-    { content: fmtBRL(input.totals.totalCustoEquipeShows), styles: { halign: "right" as const, fontStyle: "bold" as const } },
+    { content: fmtBRL(input.totals.totalEquipe), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     { content: fmtBRL(input.totals.totalVan), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     { content: fmtBRL(input.totals.totalDespesasShows), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     "",
