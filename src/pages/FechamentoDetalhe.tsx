@@ -623,6 +623,21 @@ export default function FechamentoDetalhe() {
         else if (inv._dirty) await supabase.from("weekly_closing_investments" as any).update(payload).eq("id", inv.id);
       }
 
+      // Clipes
+      if (removedClipes.length > 0) {
+        const real = removedClipes.filter((id) => !clipes.find((c) => c.id === id));
+        if (real.length > 0) await supabase.from("weekly_closing_clipe" as any).delete().in("id", real);
+      }
+      for (const [idx, c] of clipes.entries()) {
+        const payload = {
+          closing_id: closing.id,
+          profissional: c.profissional, funcao: c.funcao, clipe: c.clipe,
+          quantidade: c.quantidade, valor_por_clipe: c.valor_por_clipe, ordem: idx,
+        };
+        if (c._new) await supabase.from("weekly_closing_clipe" as any).insert(payload);
+        else if (c._dirty) await supabase.from("weekly_closing_clipe" as any).update(payload).eq("id", c.id);
+      }
+
       // Closing principal
       const updates: any = {
         observacoes,
@@ -630,6 +645,7 @@ export default function FechamentoDetalhe() {
         total_comissao_vendedores: totals.totalComissoes,
         total_equipe: totals.totalCustoEquipeShows,
         total_despesas: totals.totalDespesasShows,
+        total_clipe: totals.totalClipe,
         total_sobra: totals.sobra,
       };
       if (finalize) {
