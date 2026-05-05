@@ -106,6 +106,18 @@ type GeneralExpense = {
   _dirty?: boolean;
 };
 
+type ClipeRow = {
+  id: string;
+  profissional: string;
+  funcao: string;
+  clipe: string;
+  quantidade: number;
+  valor_por_clipe: number;
+  ordem: number;
+  _new?: boolean;
+  _dirty?: boolean;
+};
+
 const CATEGORIAS_DESPESA = ["Van", "Equipamento", "Efeitos", "Figurino", "Ensaio", "Combustível", "Alimentação", "Outros"];
 const CATEGORIAS_INVEST = ["Equipamento", "Figurino", "Clipe", "Marketing", "Outros"];
 
@@ -131,6 +143,8 @@ export default function FechamentoDetalhe() {
   const [pendingInvestments, setPendingInvestments] = useState<PendingInvestment[]>([]);
   const [generalExpenses, setGeneralExpenses] = useState<GeneralExpense[]>([]);
   const [removedGeneralExpenses, setRemovedGeneralExpenses] = useState<string[]>([]);
+  const [clipes, setClipes] = useState<ClipeRow[]>([]);
+  const [removedClipes, setRemovedClipes] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState("");
   const [config, setConfig] = useState<{ artista_percentual: number; imposto_percentual: number }>({
     artista_percentual: 0,
@@ -157,7 +171,7 @@ export default function FechamentoDetalhe() {
     setArtistName((c as any).artists?.nome ?? "");
     setObservacoes(c.observacoes ?? "");
 
-    const [s, se, ge, cr, inv, cfg, prt] = await Promise.all([
+    const [s, se, ge, cr, inv, cfg, prt, cl] = await Promise.all([
       supabase
         .from("weekly_closing_shows")
         .select("*, show:shows(data_show, horario, local, cidade, vendedor)")
@@ -168,9 +182,15 @@ export default function FechamentoDetalhe() {
       supabase.from("weekly_closing_investments" as any).select("*").eq("closing_id", id).order("created_at"),
       supabase.from("artist_financial_config").select("*").eq("artist_id", c.artist_id).maybeSingle(),
       supabase.from("artist_partners").select("*").eq("artist_id", c.artist_id).order("ordem"),
+      supabase.from("weekly_closing_clipe" as any).select("*").eq("closing_id", id).order("ordem"),
     ]);
     setShows((s.data ?? []) as any);
     setShowExpenses(((se.data as any[]) ?? []) as any);
+    setClipes(((cl.data as any[]) ?? []).map((x) => ({
+      id: x.id, profissional: x.profissional ?? "", funcao: x.funcao ?? "",
+      clipe: x.clipe ?? "", quantidade: Number(x.quantidade ?? 0),
+      valor_por_clipe: Number(x.valor_por_clipe ?? 0), ordem: x.ordem ?? 0,
+    })));
     setGeneralExpenses(((ge.data as any[]) ?? []).map((e) => ({
       id: e.id,
       categoria: e.categoria,
@@ -363,17 +383,46 @@ export default function FechamentoDetalhe() {
     toast.success(`Parcela de "${p.descricao}" incluída.`);
   };
 
-  // ===== Cálculo =====
+  // ===== Clipe =====
+  const addClipe = () =>
+    setClipes((arr) => [
+      ...arr,
+      { id: crypto.randomUUID(), profissional: "", funcao: "", clipe: "", quantidade: 1, valor_por_clipe: 0, ordem: arr.length, _new: true },
+    ]);
+  const updateClipe = (rowId: string, patch: Partial<ClipeRow>) =>
+    setClipes((arr) => arr.map((c) => (c.id === rowId ? { ...c, ...patch, _dirty: true } : c)));
+  const removeClipe = (rowId: string) => {
+    setClipes((arr) => arr.filter((c) => c.id !== rowId));
+    setRemovedClipes((arr) => [...arr, rowId]);
+  };
+
   const showExpensesByShow = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of showExpenses) {
+      if ((e.categoria ?? "").toLowerCase() === "van") continue;
       map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
     }
-    // Despesas gerais vinculadas a um show (e que entram no cálculo) também somam
     for (const e of generalExpenses) {
-      if (e.closing_show_id && e.incluir_no_calculo && e.responsavel === "produtora") {
-        map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
-      }
+      if (!e.closing_show_id) continue;
+      if (!e.incluir_no_calculo || e.responsavel !== "produtora") continue;
+      if ((e.categoria ?? "").toLowerCase() === "van") continue;
+      map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
+    }
+    return map;
+  }, [showExpenses, generalExpenses]);
+
+  // Van por show — agregada APENAS das despesas Van vinculadas (Seção C ou despesas internas)
+  const vanByShow = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of showExpenses) {
+      if ((e.categoria ?? "").toLowerCase() !== "van") continue;
+      map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
+    }
+    for (const e of generalExpenses) {
+      if (!e.closing_show_id) continue;
+      if (!e.incluir_no_calculo || e.responsavel !== "produtora") continue;
+      if ((e.categoria ?? "").toLowerCase() !== "van") continue;
+      map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
     }
     return map;
   }, [showExpenses, generalExpenses]);
@@ -392,19 +441,24 @@ export default function FechamentoDetalhe() {
     [generalExpenses],
   );
 
+  const totalClipe = useMemo(
+    () => clipes.reduce((a, c) => a + Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0), 0),
+    [clipes],
+  );
+
   const totals = useMemo(
     () => {
       const showInputs = shows.map((s) => ({
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
         custo_equipe: Number(s.custo_equipe || 0),
+        van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         incluido: s.incluido,
       }));
-      // Despesas gerais NÃO vinculadas: adiciona como "show fantasma" só com despesas
       if (totalDespesasGeraisCalc > 0) {
         showInputs.push({
-          cache_total: 0, comissao_vendedor: 0, custo_equipe: 0,
+          cache_total: 0, comissao_vendedor: 0, custo_equipe: 0, van: 0,
           despesas_show: totalDespesasGeraisCalc, incluido: true,
         });
       }
@@ -421,9 +475,10 @@ export default function FechamentoDetalhe() {
           imposto_percentual: config.imposto_percentual,
           partners,
         },
+        clipes.map((c) => ({ quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0) })),
       );
     },
-    [shows, showExpensesByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc],
+    [shows, showExpensesByShow, vanByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
   );
 
   const totalEquipeBase = useMemo(
@@ -568,6 +623,21 @@ export default function FechamentoDetalhe() {
         else if (inv._dirty) await supabase.from("weekly_closing_investments" as any).update(payload).eq("id", inv.id);
       }
 
+      // Clipes
+      if (removedClipes.length > 0) {
+        const real = removedClipes.filter((id) => !clipes.find((c) => c.id === id));
+        if (real.length > 0) await supabase.from("weekly_closing_clipe" as any).delete().in("id", real);
+      }
+      for (const [idx, c] of clipes.entries()) {
+        const payload = {
+          closing_id: closing.id,
+          profissional: c.profissional, funcao: c.funcao, clipe: c.clipe,
+          quantidade: c.quantidade, valor_por_clipe: c.valor_por_clipe, ordem: idx,
+        };
+        if (c._new) await supabase.from("weekly_closing_clipe" as any).insert(payload);
+        else if (c._dirty) await supabase.from("weekly_closing_clipe" as any).update(payload).eq("id", c.id);
+      }
+
       // Closing principal
       const updates: any = {
         observacoes,
@@ -575,6 +645,7 @@ export default function FechamentoDetalhe() {
         total_comissao_vendedores: totals.totalComissoes,
         total_equipe: totals.totalCustoEquipeShows,
         total_despesas: totals.totalDespesasShows,
+        total_clipe: totals.totalClipe,
         total_sobra: totals.sobra,
       };
       if (finalize) {
@@ -608,7 +679,7 @@ export default function FechamentoDetalhe() {
       }
 
       toast.success(finalize ? "Fechamento finalizado" : "Rascunho salvo");
-      setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]);
+      setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]); setRemovedClipes([]);
       await load();
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
@@ -645,6 +716,7 @@ export default function FechamentoDetalhe() {
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
         custo_equipe: Number(s.custo_equipe || 0),
+        van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         despesas_detalhe: showExpenses
           .filter((e) => e.closing_show_id === s.id)
@@ -677,6 +749,11 @@ export default function FechamentoDetalhe() {
           valor: Number(e.valor || 0),
         };
       }),
+      clipes: clipes.map((c) => ({
+        profissional: c.profissional, funcao: c.funcao, clipe: c.clipe,
+        quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0),
+        total: Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0),
+      })),
       impostoPercentual: Number(config.imposto_percentual || 0),
       totals,
     });
@@ -773,6 +850,7 @@ export default function FechamentoDetalhe() {
                       </Tooltip>
                     </span>
                   </th>
+                  <th className="px-2 py-1.5 text-right">Van</th>
                   <th className="px-2 py-1.5 text-right">Despesas</th>
                   <th className="px-2 py-1.5 text-right">Sobra</th>
                   <th className="px-2 py-1.5 text-center">Incluir</th>
@@ -781,7 +859,8 @@ export default function FechamentoDetalhe() {
               <tbody>
                 {shows.map((s) => {
                   const despesasShow = showExpensesByShow.get(s.id) ?? 0;
-                  const totalCustosShow = Number(s.comissao_vendedor || 0) + Number(s.custo_equipe || 0) + despesasShow;
+                  const vanShow = vanByShow.get(s.id) ?? 0;
+                  const totalCustosShow = Number(s.comissao_vendedor || 0) + Number(s.custo_equipe || 0) + vanShow + despesasShow;
                   const sobraShow = Number(s.cache_total || 0) - totalCustosShow;
                   const pctComissao = s.cache_total > 0 ? (s.comissao_vendedor / s.cache_total) * 100 : 0;
                   const expanded = expandedShows.has(s.id);
@@ -818,6 +897,7 @@ export default function FechamentoDetalhe() {
                           <CurrencyInput className="h-8 text-right" value={s.custo_equipe} disabled={readonly}
                             onValueChange={(v) => updateShow(s.id, { custo_equipe: v })} />
                         </td>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(vanShow)}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(despesasShow)}</td>
                         <td className={cn("px-2 py-1.5 text-right whitespace-nowrap font-medium",
                           sobraShow >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>
@@ -831,7 +911,7 @@ export default function FechamentoDetalhe() {
                       {expanded && (
                         <tr key={s.id + "-exp"} className="bg-muted/20 border-t">
                           <td />
-                          <td colSpan={9} className="px-2 py-2">
+                          <td colSpan={10} className="px-2 py-2">
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas deste show</span>
@@ -881,6 +961,7 @@ export default function FechamentoDetalhe() {
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalComissoes)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalCustoEquipeShows)}</td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totals.totalVan)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalDespesasShows)}</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.sobra)}</td>
                   <td />
@@ -1139,9 +1220,67 @@ export default function FechamentoDetalhe() {
         )}
       </Card>
 
-      {/* Seção E — Cálculo */}
+      {/* Seção E — Clipe */}
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="font-semibold">E. Clipe</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Pagamentos por clipe à equipe. Descontado do bruto antes da distribuição (afeta todos os participantes proporcionalmente).
+            </p>
+          </div>
+          {!readonly && (
+            <Button size="sm" variant="outline" onClick={addClipe}>
+              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
+            </Button>
+          )}
+        </div>
+        {clipes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum lançamento de clipe nesta semana.</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
+              <div className="col-span-3">Profissional</div>
+              <div className="col-span-2">Função</div>
+              <div className="col-span-2">Clipe</div>
+              <div className="col-span-1 text-center">Qtd</div>
+              <div className="col-span-2 text-right">Valor/clipe</div>
+              <div className="col-span-1 text-right">Total</div>
+              <div className="col-span-1" />
+            </div>
+            {clipes.map((c) => (
+              <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
+                <Input className="col-span-3 h-8" placeholder="Nome" value={c.profissional} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { profissional: e.target.value })} />
+                <Input className="col-span-2 h-8" placeholder="Função" value={c.funcao} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { funcao: e.target.value })} />
+                <Input className="col-span-2 h-8" placeholder="Nome do clipe" value={c.clipe} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { clipe: e.target.value })} />
+                <Input className="col-span-1 h-8 text-center" type="number" min={0} value={c.quantidade} disabled={readonly}
+                  onChange={(e) => updateClipe(c.id, { quantidade: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
+                <CurrencyInput className="col-span-2 h-8 text-right" value={c.valor_por_clipe} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { valor_por_clipe: v })} />
+                <div className="col-span-1 text-right text-sm font-medium">
+                  {fmtBRL(Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0))}
+                </div>
+                {!readonly && (
+                  <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
+                    onClick={() => removeClipe(c.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-end pt-2 text-sm font-medium">
+              TOTAL CLIPE: {fmtBRL(totals.totalClipe)}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Seção F — Cálculo */}
       <Card className="p-4 shadow-soft bg-muted/20">
-        <h2 className="font-semibold mb-3">E. Cálculo automático</h2>
+        <h2 className="font-semibold mb-3">F. Cálculo automático</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1.5 text-sm">
             <Linha label="Total cachê bruto" value={totals.totalBruto} />
@@ -1151,7 +1290,9 @@ export default function FechamentoDetalhe() {
             <div className="border-t my-2" />
             <Linha label="(-) Comissão vendedores" value={-totals.totalComissoes} />
             <Linha label="(-) Custo equipe" value={-totals.totalCustoEquipeShows} />
+            <Linha label="(-) Van" value={-totals.totalVan} />
             <Linha label="(-) Despesas dos shows" value={-totals.totalDespesasShows} />
+            <Linha label="(-) Custo clipe" value={-totals.totalClipe} />
             <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobra)}</span>

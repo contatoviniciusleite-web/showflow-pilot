@@ -4,7 +4,8 @@ export type ClosingShowInput = {
   cache_total: number;
   comissao_vendedor: number;
   custo_equipe: number;
-  despesas_show: number; // total de despesas operacionais do show
+  van: number;
+  despesas_show: number; // total de despesas operacionais do show (exceto van)
   incluido: boolean;
 };
 
@@ -23,6 +24,11 @@ export type ClosingPartnerInput = {
 
 export type ClosingInvestmentInput = {
   valor_descontado: number;
+};
+
+export type ClosingClipeInput = {
+  quantidade: number;
+  valor_por_clipe: number;
 };
 
 export type ClosingConfigInput = {
@@ -46,8 +52,10 @@ export type ClosingTotals = {
   totalBruto: number;
   totalComissoes: number;
   totalCustoEquipeShows: number;
+  totalVan: number;
   totalDespesasShows: number;
   totalEquipe: number;
+  totalClipe: number;
   totalCustos: number;
   sobra: number;
   totalInvestimentos: number;
@@ -62,19 +70,26 @@ export function computeCrewTotal(c: ClosingCrewInput): number {
   return round2(Number(c.cache_por_show || 0) * Number(c.shows_participados || 0));
 }
 
+export function computeClipeTotal(c: ClosingClipeInput): number {
+  return round2(Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0));
+}
+
 export function computeClosing(
   shows: ClosingShowInput[],
   crew: ClosingCrewInput[],
   investments: ClosingInvestmentInput[],
   config: ClosingConfigInput,
+  clipes: ClosingClipeInput[] = [],
 ): ClosingTotals {
   const incluidos = shows.filter((s) => s.incluido);
   const totalBruto = round2(incluidos.reduce((a, s) => a + Number(s.cache_total || 0), 0));
   const totalComissoes = round2(incluidos.reduce((a, s) => a + Number(s.comissao_vendedor || 0), 0));
   const totalCustoEquipeShows = round2(incluidos.reduce((a, s) => a + Number(s.custo_equipe || 0), 0));
+  const totalVan = round2(incluidos.reduce((a, s) => a + Number(s.van || 0), 0));
   const totalDespesasShows = round2(incluidos.reduce((a, s) => a + Number(s.despesas_show || 0), 0));
   const totalEquipe = round2(crew.reduce((a, c) => a + computeCrewTotal(c), 0));
-  const totalCustos = round2(totalComissoes + totalCustoEquipeShows + totalDespesasShows);
+  const totalClipe = round2(clipes.reduce((a, c) => a + computeClipeTotal(c), 0));
+  const totalCustos = round2(totalComissoes + totalCustoEquipeShows + totalVan + totalDespesasShows + totalClipe);
   const sobra = round2(totalBruto - totalCustos);
 
   const totalInvestimentos = round2(investments.reduce((a, i) => a + Number(i.valor_descontado || 0), 0));
@@ -84,9 +99,7 @@ export function computeClosing(
   const somaPartners = partners.reduce((a, p) => a + Number(p.percentual || 0), 0);
   const somaTotal = Number(config.artista_percentual || 0) + somaPartners;
   const sobraProdutora = Math.max(0, round2(100 - somaTotal));
-
-  // Soma dos % dos sócios (para rateio dos investimentos)
-  const somaSocios = somaPartners; // somente sócios/parceiros, não inclui artista nem produtora
+  const somaSocios = somaPartners;
 
   const rows: DistributionRow[] = [];
 
@@ -120,8 +133,10 @@ export function computeClosing(
     totalBruto,
     totalComissoes,
     totalCustoEquipeShows,
+    totalVan,
     totalDespesasShows,
     totalEquipe,
+    totalClipe,
     totalCustos,
     sobra,
     totalInvestimentos,
