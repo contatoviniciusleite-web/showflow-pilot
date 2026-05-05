@@ -217,10 +217,10 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
 
       {/* SEÇÃO A — SHOWS */}
       {shows.length > 0 && (
-        <Section bg={C.black} title="🎤 A. Shows da semana" badge={`${shows.length} ${shows.length === 1 ? "show" : "shows"}`} badgeBg={C.green} badgeFg="#000">
+        <Section bg={C.black} title="🎤 A. Shows da semana" badge={`${shows.length} ${shows.length === 1 ? "show" : "shows"}`} badgeBg="#fff" badgeFg={C.black}>
           <table style={S.table}>
             <thead>
-              <tr style={{ background: C.black }}>
+              <tr style={{ background: C.totalBg }}>
                 <th style={S.th}>Data</th>
                 <th style={S.th}>Vendedor</th>
                 <th style={S.th}>Local</th>
@@ -240,11 +240,11 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
                   <td style={S.td}>{s.vendedor ?? "—"}</td>
                   <td style={S.td}>{[s.local, s.cidade].filter(Boolean).join(" — ") || "—"}</td>
                   <td style={{ ...S.td, ...S.num }}>{fmtBRL(s.cache_total)}</td>
-                  <td style={{ ...S.td, ...S.num, color: "#dc2626" }}>{fmtBRL(s.comissao_vendedor)}</td>
-                  <td style={{ ...S.td, ...S.num, color: "#dc2626" }}>{fmtBRL(s.custo_equipe)}</td>
-                  <td style={{ ...S.td, ...S.num, color: "#dc2626" }}>{fmtBRL(s.van)}</td>
-                  <td style={{ ...S.td, ...S.num, color: "#dc2626" }}>{fmtBRL(s.despesas_show)}</td>
-                  <td style={{ ...S.td, ...S.num, color: s.sobra >= 0 ? C.green : "#dc2626", fontWeight: 700 }}>{fmtBRL(s.sobra)}</td>
+                  <td style={{ ...S.td, ...S.num }}>{fmtBRL(s.comissao_vendedor)}</td>
+                  <td style={{ ...S.td, ...S.num }}>{fmtBRL(s.custo_equipe)}</td>
+                  <td style={{ ...S.td, ...S.num }}>{fmtBRL(s.van)}</td>
+                  <td style={{ ...S.td, ...S.num }}>{fmtBRL(s.despesas_show)}</td>
+                  <td style={{ ...S.td, ...S.num, fontWeight: 700 }}>{fmtBRL(s.sobra)}</td>
                   <td style={{ ...S.td, ...S.center }}>{s.incluido ? "✓" : "—"}</td>
                 </tr>
               ))}
@@ -265,10 +265,10 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
 
       {/* SEÇÃO B — EQUIPE */}
       {crew.length > 0 && (
-        <Section bg={C.blue} title="👥 B. Equipe" badge={`${crew.length} ${crew.length === 1 ? "membro" : "membros"}`} badgeBg="#bfdbfe" badgeFg={C.blue}>
+        <Section bg={C.black} title="👥 B. Equipe" badge={`${crew.length} ${crew.length === 1 ? "membro" : "membros"}`} badgeBg="#fff" badgeFg={C.black}>
           <table style={S.table}>
             <thead>
-              <tr style={{ background: C.blue }}>
+              <tr style={{ background: C.totalBg }}>
                 <th style={S.th}>Nome</th>
                 <th style={S.th}>Função</th>
                 <th style={{ ...S.th, ...S.num }}>Cachê / show</th>
@@ -286,7 +286,7 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
                   <td style={{ ...S.td, ...S.num, fontWeight: 700 }}>{fmtBRL(c.total_receber)}</td>
                 </tr>
               ))}
-              <tr style={{ background: C.blue, color: "#fff", fontWeight: 700 }}>
+              <tr style={S.totalRow}>
                 <td style={{ ...S.td, color: "#fff", textAlign: "right" }} colSpan={4}>TOTAL EQUIPE</td>
                 <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.totalEquipe)}</td>
               </tr>
@@ -297,10 +297,10 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
 
       {/* SEÇÃO C — DESPESAS */}
       {expenses.length > 0 && (
-        <Section bg={C.orange} title="🧾 C. Despesas" badge={`${expenses.length} ${expenses.length === 1 ? "lançamento" : "lançamentos"}`} badgeBg="#fed7aa" badgeFg={C.orange}>
+        <Section bg={C.black} title="🧾 C. Despesas" badge={`${expenses.length} ${expenses.length === 1 ? "lançamento" : "lançamentos"}`} badgeBg="#fff" badgeFg={C.black}>
           <table style={S.table}>
             <thead>
-              <tr style={{ background: C.orange }}>
+              <tr style={{ background: C.totalBg }}>
                 <th style={S.th}>Categoria</th>
                 <th style={S.th}>Descrição</th>
                 <th style={S.th}>Show vinculado</th>
@@ -310,22 +310,17 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
               </tr>
             </thead>
             <tbody>
-              {expenses.map((e, i) => {
-                const cor = categoriaCor(e.categoria);
-                return (
-                  <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : C.zebra }}>
-                    <td style={S.td}>
-                      <span style={{ ...S.badge(cor.bg, cor.fg) }}>{e.categoria}</span>
-                    </td>
-                    <td style={S.td}>{e.descricao || "—"}</td>
-                    <td style={S.td}>{e.show_label || "—"}</td>
-                    <td style={{ ...S.td, ...S.center }}>{e.responsavel === "produtora" ? "Produtora" : "Contratante"}</td>
-                    <td style={{ ...S.td, ...S.center }}>{e.incluir_no_calculo ? "Sim" : "Não"}</td>
-                    <td style={{ ...S.td, ...S.num }}>{fmtBRL(e.valor)}</td>
-                  </tr>
-                );
-              })}
-              <tr style={{ background: C.orange, color: "#fff", fontWeight: 700 }}>
+              {expenses.map((e, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : C.zebra }}>
+                  <td style={S.td}>{e.categoria}</td>
+                  <td style={S.td}>{e.descricao || "—"}</td>
+                  <td style={S.td}>{e.show_label || "—"}</td>
+                  <td style={{ ...S.td, ...S.center }}>{e.responsavel === "produtora" ? "Produtora" : "Contratante"}</td>
+                  <td style={{ ...S.td, ...S.center }}>{e.incluir_no_calculo ? "Sim" : "Não"}</td>
+                  <td style={{ ...S.td, ...S.num }}>{fmtBRL(e.valor)}</td>
+                </tr>
+              ))}
+              <tr style={S.totalRow}>
                 <td style={{ ...S.td, color: "#fff", textAlign: "right" }} colSpan={5}>TOTAL DESPESAS (no cálculo)</td>
                 <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totalDespesasCalc)}</td>
               </tr>
@@ -336,10 +331,10 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
 
       {/* SEÇÃO D — INVESTIMENTOS */}
       {investments.length > 0 && (
-        <Section bg={C.purple} title="📦 D. Investimentos" badge={`${investments.length} ${investments.length === 1 ? "item" : "itens"}`} badgeBg="#ddd6fe" badgeFg={C.purple}>
+        <Section bg={C.black} title="📦 D. Investimentos" badge={`${investments.length} ${investments.length === 1 ? "item" : "itens"}`} badgeBg="#fff" badgeFg={C.black}>
           <table style={S.table}>
             <thead>
-              <tr style={{ background: C.purple }}>
+              <tr style={{ background: C.totalBg }}>
                 <th style={S.th}>Descrição</th>
                 <th style={S.th}>Categoria</th>
                 <th style={{ ...S.th, ...S.num }}>Valor total</th>
@@ -357,7 +352,7 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
                   <td style={{ ...S.td, ...S.num, fontWeight: 700 }}>{fmtBRL(i.valor_descontado)}</td>
                 </tr>
               ))}
-              <tr style={{ background: C.purple, color: "#fff", fontWeight: 700 }}>
+              <tr style={S.totalRow}>
                 <td style={{ ...S.td, color: "#fff", textAlign: "right" }} colSpan={4}>TOTAL</td>
                 <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.totalInvestimentos)}</td>
               </tr>
@@ -368,10 +363,10 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
 
       {/* SEÇÃO E — CLIPE */}
       {clipes.length > 0 && (
-        <Section bg={C.pink} title="🎬 E. Clipe" badge={`${clipes.length} ${clipes.length === 1 ? "lançamento" : "lançamentos"}`} badgeBg="#fbcfe8" badgeFg={C.pink}>
+        <Section bg={C.black} title="🎬 E. Clipe" badge={`${clipes.length} ${clipes.length === 1 ? "lançamento" : "lançamentos"}`} badgeBg="#fff" badgeFg={C.black}>
           <table style={S.table}>
             <thead>
-              <tr style={{ background: C.pink }}>
+              <tr style={{ background: C.totalBg }}>
                 <th style={S.th}>Profissional</th>
                 <th style={S.th}>Função</th>
                 <th style={S.th}>Clipe</th>
@@ -391,7 +386,7 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
                   <td style={{ ...S.td, ...S.num, fontWeight: 700 }}>{fmtBRL(c.total)}</td>
                 </tr>
               ))}
-              <tr style={{ background: C.pink, color: "#fff", fontWeight: 700 }}>
+              <tr style={S.totalRow}>
                 <td style={{ ...S.td, color: "#fff", textAlign: "right" }} colSpan={5}>TOTAL CLIPE</td>
                 <td style={{ ...S.td, ...S.num, color: "#fff" }}>{fmtBRL(totals.totalClipe)}</td>
               </tr>
@@ -399,8 +394,6 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
           </table>
         </Section>
       )}
-
-      {/* SEÇÃO F — CÁLCULO E DISTRIBUIÇÃO */}
       <div style={{ marginTop: "20px", pageBreakBefore: "auto" }}>
         <div style={S.sectionHeader(C.black)}>
           <span>📊 F. Cálculo e Distribuição</span>
