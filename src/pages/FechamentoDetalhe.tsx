@@ -808,9 +808,10 @@ export default function FechamentoDetalhe() {
             </div>
             <div className="flex gap-2 flex-wrap">
               {canExport && (
-                <Button variant="outline" onClick={handleExportPDF}
+                <Button variant="outline" onClick={handleExportPDF} disabled={exporting}
                   className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
-                  <FileDown className="h-4 w-4 mr-2" />Exportar PDF
+                  {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
+                  Exportar PDF
                 </Button>
               )}
               {canEdit && closing.status === "finalizado" && (
