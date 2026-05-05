@@ -1008,79 +1008,90 @@ export default function FechamentoDetalhe() {
       {/* Seção B — Equipe */}
       <Card className="p-4 shadow-soft">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="font-semibold">B. Equipe</h2>
-          <div className="flex gap-2">
-            {!readonly && crew.length > 0 && (
-              <Button size="sm" variant="outline" onClick={distributeCrewToShows} title="Distribui o total de equipe entre os shows incluídos">
-                <Wand2 className="h-3.5 w-3.5 mr-1" />Distribuir nos shows
-              </Button>
-            )}
-            {!readonly && (
-              <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
-            )}
+          <div>
+            <h2 className="font-semibold">B. Equipe</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Marque os shows em que cada membro participou. O custo de equipe de cada show é calculado automaticamente.
+            </p>
           </div>
+          {!readonly && (
+            <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
+          )}
         </div>
         {crew.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum membro cadastrado.</p>
         ) : (
-          <div className="space-y-2">
-            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <div className="col-span-3">Nome</div>
-              <div className="col-span-2">Função</div>
-              <div className="col-span-2 text-right">Cachê por show</div>
-              <div className="col-span-2 text-center">Qtd. shows</div>
-              <div className="col-span-2 text-right">Total</div>
-              <div className="col-span-1" />
-            </div>
-            {crew.map((c) => (
-              <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
-                <Input className="col-span-3" placeholder="Nome" value={c.nome} disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { nome: e.target.value })} />
-                <Input className="col-span-2" placeholder="Função" value={c.funcao ?? ""} disabled={readonly}
-                  onChange={(e) => updateCrew(c.id, { funcao: e.target.value })} />
-                <CurrencyInput className="col-span-2 text-right" value={c.cache_por_show} disabled={readonly}
-                  onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })} />
-                <div className="col-span-2 flex items-center justify-center gap-1">
-                  {!readonly && (
-                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
-                      onClick={() => updateCrew(c.id, { shows_participados: Math.max(0, Number(c.shows_participados || 0) - 1) })}
-                      disabled={Number(c.shows_participados || 0) <= 0}>
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                  )}
-                  <Input className="h-8 text-center w-14" type="number" min={0} max={maxShowsCrew}
-                    placeholder={`Máx. ${maxShowsCrew}`}
-                    value={c.shows_participados} disabled={readonly}
-                    onChange={(e) => {
-                      const v = Math.max(0, Math.min(maxShowsCrew, Number(e.target.value) || 0));
-                      updateCrew(c.id, { shows_participados: v });
-                    }} />
-                  {!readonly && (
-                    <Button size="icon" variant="outline" className="h-7 w-7 shrink-0"
-                      onClick={() => {
-                        const cur = Number(c.shows_participados || 0);
-                        if (cur >= maxShowsCrew) {
-                          toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
-                          return;
-                        }
-                        updateCrew(c.id, { shows_participados: cur + 1 });
-                      }}
-                      disabled={Number(c.shows_participados || 0) >= maxShowsCrew}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-                <div className="col-span-2 text-right text-sm">{fmtBRL(c.cache_por_show * c.shows_participados)}</div>
-                {!readonly && (
-                  <Button size="icon" variant="ghost" className="col-span-1 text-destructive hover:text-destructive"
-                    onClick={() => removeCrewMember(c.id)}><Trash2 className="h-4 w-4" /></Button>
-                )}
-              </div>
-            ))}
-            <div className="flex items-center justify-between pt-2 text-sm">
-              <span className="text-xs text-muted-foreground">Baseado em {maxShowsCrew} show(s) incluído(s) neste fechamento</span>
-              <span className="font-medium">TOTAL EQUIPE: {fmtBRL(totalEquipeBase)}</span>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[800px]">
+              <thead className="bg-muted/40">
+                <tr className="text-left">
+                  <th className="px-2 py-1.5">Nome</th>
+                  <th className="px-2 py-1.5">Função</th>
+                  <th className="px-2 py-1.5 text-right w-[140px]">Cachê/show</th>
+                  <th className="px-2 py-1.5">Shows participados</th>
+                  <th className="px-2 py-1.5 text-right w-[110px]">Total</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {crew.map((c) => {
+                  const incluidos = shows.filter((s) => s.incluido);
+                  return (
+                    <tr key={c.id} className="border-t align-top">
+                      <td className="px-2 py-2">
+                        <Input className="h-8" placeholder="Nome" value={c.nome} disabled={readonly}
+                          onChange={(e) => updateCrew(c.id, { nome: e.target.value })} />
+                      </td>
+                      <td className="px-2 py-2">
+                        <Input className="h-8" placeholder="Função" value={c.funcao ?? ""} disabled={readonly}
+                          onChange={(e) => updateCrew(c.id, { funcao: e.target.value })} />
+                      </td>
+                      <td className="px-2 py-2">
+                        <CurrencyInput className="h-8 text-right" value={c.cache_por_show} disabled={readonly}
+                          onValueChange={(v) => updateCrew(c.id, { cache_por_show: v })} />
+                      </td>
+                      <td className="px-2 py-2">
+                        {incluidos.length === 0 ? (
+                          <span className="text-xs text-muted-foreground italic">Nenhum show incluído</span>
+                        ) : (
+                          <div className="space-y-1">
+                            {incluidos.map((s, idx) => {
+                              const checked = c.shows_ids.includes(s.id);
+                              const label = `Show ${idx + 1} — ${s.show?.local || s.show?.cidade || "Show"} ${s.show?.data_show ? fmtDateBR(s.show.data_show).slice(0, 5) : ""}`.trim();
+                              return (
+                                <label key={s.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                  <Checkbox checked={checked} disabled={readonly}
+                                    onCheckedChange={() => toggleCrewShow(c.id, s.id)} />
+                                  <span>{label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-right text-sm font-medium whitespace-nowrap">
+                        {fmtBRL(Number(c.cache_por_show || 0) * c.shows_ids.length)}
+                      </td>
+                      <td className="px-2 py-2">
+                        {!readonly && (
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => removeCrewMember(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-muted/30 font-medium">
+                <tr>
+                  <td colSpan={4} className="px-2 py-2 text-xs text-muted-foreground">
+                    Baseado em {shows.filter((s) => s.incluido).length} show(s) incluído(s) neste fechamento
+                  </td>
+                  <td className="px-2 py-2 text-right">{fmtBRL(totalEquipeBase)}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
       </Card>
