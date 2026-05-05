@@ -72,7 +72,7 @@ export default function FechamentoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, roles } = useAuth();
-  const canEdit = roles.includes("diretor") || roles.includes("gerente");
+  const canEdit = roles.includes("diretor");
   const canExport = canEdit || roles.includes("financeiro");
   const isFullViewer = canEdit || roles.includes("financeiro");
   const isArtistOnly = roles.includes("artista") && !isFullViewer;
