@@ -116,16 +116,18 @@ export function NewClosingDialog({ open, onOpenChange, artists, onCreated }: Pro
         .eq("ativo", true)
         .order("ordem");
       if (crew && crew.length > 0) {
+        const showIds = shows.map((s) => s.id);
         const rows = crew.map((c, idx) => ({
           closing_id: closing.id,
           nome: c.nome,
           funcao: c.funcao,
           cache_por_show: Number(c.cache_por_show ?? 0),
           shows_participados: shows.length,
+          shows_ids: showIds,
           total_receber: Number(c.cache_por_show ?? 0) * shows.length,
           ordem: idx,
         }));
-        await supabase.from("weekly_closing_crew").insert(rows);
+        await supabase.from("weekly_closing_crew").insert(rows as any);
       }
 
       onCreated(closing.id);
