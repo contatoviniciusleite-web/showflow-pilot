@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { z } from "zod";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { FinancialConfigTab } from "@/components/artists/FinancialConfigTab";
 
 interface Artist {
   id: string;
@@ -53,6 +56,8 @@ function ArtistAvatar({ artist }: { artist: Artist }) {
 }
 
 export default function Artistas() {
+  const { roles } = useAuth();
+  const canFinancialConfig = roles.includes("diretor") || roles.includes("gerente");
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -213,73 +218,121 @@ export default function Artistas() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar artista" : "Novo artista"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={save} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="nome">Nome *</Label>
-              <Input id="nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="foto">Foto</Label>
-              <div className="flex items-center gap-2">
-                <Input id="foto" type="file" accept="image/*" onChange={(e) => setForm({ ...form, fotoFile: e.target.files?.[0] ?? null })} />
-                <Upload className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="cal">ID do Google Calendar</Label>
-              <Input id="cal" placeholder="exemplo@group.calendar.google.com" value={form.google_calendar_id} onChange={(e) => setForm({ ...form, google_calendar_id: e.target.value })} />
-              <p className="text-xs text-muted-foreground">Pegue em Configurações do calendário → Integrar → ID do calendário.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Cor (na agenda)</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setForm({ ...form, cor: c })}
-                    className="h-8 w-8 rounded-full border-2 transition"
-                    style={{ backgroundColor: c, borderColor: form.cor === c ? "hsl(var(--foreground))" : "transparent" }}
-                    aria-label={c}
-                  />
-                ))}
-                <Input type="color" value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} className="h-8 w-16 p-1" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="rider">Rider padrão de hospitalidade</Label>
-              <Textarea id="rider" rows={5} value={form.rider_padrao} onChange={(e) => setForm({ ...form, rider_padrao: e.target.value })} placeholder="Ex: 12 águas sem gás, 6 isotônicos, frutas frescas..." />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="cmin">Cachê mínimo (R$)</Label>
-              <Input id="cmin" type="number" min={0} step={100} value={form.cache_minimo} onChange={(e) => setForm({ ...form, cache_minimo: Number(e.target.value) || 0 })} />
-              <p className="text-xs text-muted-foreground">Vendedores não conseguirão criar minutas abaixo deste valor. Use 0 para desativar.</p>
-            </div>
-
-            <div className="flex items-center justify-between rounded-md border px-3 py-2">
-              <Label htmlFor="ativo" className="cursor-pointer">Artista ativo</Label>
-              <Switch id="ativo" checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Salvar
-              </Button>
-            </DialogFooter>
-          </form>
+          {editing && canFinancialConfig ? (
+            <Tabs defaultValue="dados" className="w-full">
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="dados">Dados gerais</TabsTrigger>
+                <TabsTrigger value="financeiro">Configuração financeira</TabsTrigger>
+              </TabsList>
+              <TabsContent value="dados" className="pt-4">
+                <ArtistForm
+                  form={form}
+                  setForm={setForm}
+                  save={save}
+                  saving={saving}
+                  onCancel={() => setOpen(false)}
+                />
+              </TabsContent>
+              <TabsContent value="financeiro" className="pt-4">
+                <FinancialConfigTab artistId={editing.id} artistName={editing.nome} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <ArtistForm
+              form={form}
+              setForm={setForm}
+              save={save}
+              saving={saving}
+              onCancel={() => setOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+type FormState = {
+  nome: string;
+  google_calendar_id: string;
+  rider_padrao: string;
+  cor: string;
+  ativo: boolean;
+  cache_minimo: number;
+  fotoFile: File | null;
+};
+
+function ArtistForm({
+  form,
+  setForm,
+  save,
+  saving,
+  onCancel,
+}: {
+  form: FormState;
+  setForm: (f: FormState) => void;
+  save: (e: React.FormEvent) => void;
+  saving: boolean;
+  onCancel: () => void;
+}) {
+  return (
+    <form onSubmit={save} className="space-y-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="nome">Nome *</Label>
+        <Input id="nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="foto">Foto</Label>
+        <div className="flex items-center gap-2">
+          <Input id="foto" type="file" accept="image/*" onChange={(e) => setForm({ ...form, fotoFile: e.target.files?.[0] ?? null })} />
+          <Upload className="h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="cal">ID do Google Calendar</Label>
+        <Input id="cal" placeholder="exemplo@group.calendar.google.com" value={form.google_calendar_id} onChange={(e) => setForm({ ...form, google_calendar_id: e.target.value })} />
+        <p className="text-xs text-muted-foreground">Pegue em Configurações do calendário → Integrar → ID do calendário.</p>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Cor (na agenda)</Label>
+        <div className="flex items-center gap-2 flex-wrap">
+          {PRESET_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setForm({ ...form, cor: c })}
+              className="h-8 w-8 rounded-full border-2 transition"
+              style={{ backgroundColor: c, borderColor: form.cor === c ? "hsl(var(--foreground))" : "transparent" }}
+              aria-label={c}
+            />
+          ))}
+          <Input type="color" value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} className="h-8 w-16 p-1" />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="rider">Rider padrão de hospitalidade</Label>
+        <Textarea id="rider" rows={5} value={form.rider_padrao} onChange={(e) => setForm({ ...form, rider_padrao: e.target.value })} placeholder="Ex: 12 águas sem gás, 6 isotônicos, frutas frescas..." />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="cmin">Cachê mínimo (R$)</Label>
+        <Input id="cmin" type="number" min={0} step={100} value={form.cache_minimo} onChange={(e) => setForm({ ...form, cache_minimo: Number(e.target.value) || 0 })} />
+        <p className="text-xs text-muted-foreground">Vendedores não conseguirão criar minutas abaixo deste valor. Use 0 para desativar.</p>
+      </div>
+      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+        <Label htmlFor="ativo" className="cursor-pointer">Artista ativo</Label>
+        <Switch id="ativo" checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" disabled={saving}>
+          {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Salvar
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

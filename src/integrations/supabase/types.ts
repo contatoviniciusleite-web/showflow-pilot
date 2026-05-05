@@ -35,6 +35,123 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_crew: {
+        Row: {
+          artist_id: string
+          ativo: boolean
+          cache_por_show: number
+          created_at: string
+          funcao: string | null
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          artist_id: string
+          ativo?: boolean
+          cache_por_show?: number
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          artist_id?: string
+          ativo?: boolean
+          cache_por_show?: number
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_crew_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_financial_config: {
+        Row: {
+          artist_id: string
+          artista_percentual: number
+          created_at: string
+          id: string
+          imposto_percentual: number
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          artista_percentual?: number
+          created_at?: string
+          id?: string
+          imposto_percentual?: number
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          artista_percentual?: number
+          created_at?: string
+          id?: string
+          imposto_percentual?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_financial_config_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: true
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_partners: {
+        Row: {
+          artist_id: string
+          ativo: boolean
+          created_at: string
+          funcao: string | null
+          id: string
+          nome: string
+          ordem: number
+          percentual: number
+        }
+        Insert: {
+          artist_id: string
+          ativo?: boolean
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          percentual?: number
+        }
+        Update: {
+          artist_id?: string
+          ativo?: boolean
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          percentual?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_partners_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artists: {
         Row: {
           ativo: boolean
@@ -921,6 +1038,246 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "vendedor_artists_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_closing_crew: {
+        Row: {
+          cache_por_show: number
+          closing_id: string
+          funcao: string | null
+          id: string
+          nome: string
+          ordem: number
+          shows_participados: number
+          total_receber: number
+        }
+        Insert: {
+          cache_por_show?: number
+          closing_id: string
+          funcao?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          shows_participados?: number
+          total_receber?: number
+        }
+        Update: {
+          cache_por_show?: number
+          closing_id?: string
+          funcao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          shows_participados?: number
+          total_receber?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_closing_crew_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_closing_distribution: {
+        Row: {
+          beneficiario: string
+          closing_id: string
+          id: string
+          imposto_valor: number
+          ordem: number
+          percentual: number
+          tipo: string
+          valor_bruto: number
+          valor_liquido: number
+        }
+        Insert: {
+          beneficiario: string
+          closing_id: string
+          id?: string
+          imposto_valor?: number
+          ordem?: number
+          percentual?: number
+          tipo: string
+          valor_bruto?: number
+          valor_liquido?: number
+        }
+        Update: {
+          beneficiario?: string
+          closing_id?: string
+          id?: string
+          imposto_valor?: number
+          ordem?: number
+          percentual?: number
+          tipo?: string
+          valor_bruto?: number
+          valor_liquido?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_closing_distribution_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_closing_expenses: {
+        Row: {
+          categoria: string
+          closing_id: string
+          created_at: string
+          descricao: string | null
+          id: string
+          incluir_no_calculo: boolean
+          responsavel: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string
+          closing_id: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          incluir_no_calculo?: boolean
+          responsavel?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          closing_id?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          incluir_no_calculo?: boolean
+          responsavel?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_closing_expenses_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_closing_shows: {
+        Row: {
+          cache_total: number
+          closing_id: string
+          comissao_vendedor: number
+          id: string
+          incluido: boolean
+          show_id: string
+        }
+        Insert: {
+          cache_total?: number
+          closing_id: string
+          comissao_vendedor?: number
+          id?: string
+          incluido?: boolean
+          show_id: string
+        }
+        Update: {
+          cache_total?: number
+          closing_id?: string
+          comissao_vendedor?: number
+          id?: string
+          incluido?: boolean
+          show_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_closing_shows_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_closing_shows_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_closing_shows_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows_public_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_closings: {
+        Row: {
+          artist_id: string
+          created_at: string
+          criado_por: string | null
+          finalizado_em: string | null
+          finalizado_por: string | null
+          id: string
+          observacoes: string | null
+          semana_fim: string
+          semana_inicio: string
+          status: string
+          total_bruto: number
+          total_comissao_vendedores: number
+          total_despesas: number
+          total_equipe: number
+          total_sobra: number
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          created_at?: string
+          criado_por?: string | null
+          finalizado_em?: string | null
+          finalizado_por?: string | null
+          id?: string
+          observacoes?: string | null
+          semana_fim: string
+          semana_inicio: string
+          status?: string
+          total_bruto?: number
+          total_comissao_vendedores?: number
+          total_despesas?: number
+          total_equipe?: number
+          total_sobra?: number
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          created_at?: string
+          criado_por?: string | null
+          finalizado_em?: string | null
+          finalizado_por?: string | null
+          id?: string
+          observacoes?: string | null
+          semana_fim?: string
+          semana_inicio?: string
+          status?: string
+          total_bruto?: number
+          total_comissao_vendedores?: number
+          total_despesas?: number
+          total_equipe?: number
+          total_sobra?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_closings_artist_id_fkey"
             columns: ["artist_id"]
             isOneToOne: false
             referencedRelation: "artists"

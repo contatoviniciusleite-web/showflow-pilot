@@ -1,86 +1,119 @@
-## Objetivo
+# Módulo de Fechamento Semanal
 
-Criar o perfil **Diretor** (único no sistema, autoriza shows e tem relatórios exclusivos), remover do **Gerente** a permissão de aprovar/rejeitar minutas, automatizar o campo "Autorizado por" e atualizar fluxo de notificações.
+Substitui a planilha manual da produtora. Permite criar fechamentos semanais por artista, calcular distribuição automática (artista + sócios + impostos) e exportar PDF.
 
----
+## 1. Banco de dados (migration única)
 
-## 1. Banco de dados (migration)
+Criar 7 tabelas com RLS:
 
-**Enum `app_role`** — adicionar valor `'diretor'`.
+- `artist_financial_config` — `artista_percentual`, `imposto_percentual` (1 linha por artista, unique)
+- `artist_partners` — sócios (`nome`, `funcao`, `percentual`, `ativo`, `ordem`)
+- `artist_crew` — equipe base (`nome`, `funcao`, `cache_por_show`, `ativo`, `ordem`)
+- `weekly_closings` — cabeçalho (`semana_inicio`, `semana_fim`, `status`, totais, auditoria)
+- `weekly_closing_shows` — shows incluídos no fechamento (`cache_total`, `comissao_vendedor`, `incluido`)
+- `weekly_closing_crew` — equipe do fechamento (`shows_participados`, `total_receber`)
+- `weekly_closing_expenses` — despesas variáveis (`categoria`, `responsavel`, `incluir_no_calculo`)
+- `weekly_closing_distribution` — distribuição calculada (`tipo`, `percentual`, `valor_bruto`, `imposto_valor`, `valor_liquido`)
 
-**Tabela `shows`** — manter a coluna `autorizado_por` (texto), mas deixar de coletá-la no formulário. Adicionar:
-- `autorizado_por_user_id uuid` — id do diretor que aprovou
-- `autorizado_por_nome text` — nome do diretor no momento da aprovação
-- `autorizado_em timestamptz` — data/hora da aprovação
+**RLS:**
+- Config por artista (`artist_financial_config`, `artist_partners`, `artist_crew`): SELECT autenticados; ALL para `gerente`/`diretor`.
+- Fechamentos (todas as tabelas `weekly_*`): SELECT para `gerente`/`diretor`/`financeiro`; INSERT/UPDATE/DELETE apenas `gerente`/`diretor`. Bloqueio quando status = `finalizado` via trigger.
+- Trigger `prevent_edit_finalized()` em `weekly_closings` e tabelas filhas: bloqueia UPDATE/DELETE/INSERT em closing finalizado (exceto `gerente`/`diretor` reabrindo).
+- Triggers `set_updated_at` reutilizando função existente.
 
-**Restrição "apenas um Diretor"** — função + trigger em `user_roles` que bloqueia INSERT/UPDATE quando já existe um registro com `role='diretor'` para outro usuário, retornando a mensagem exata pedida.
+## 2. Configuração financeira do artista
 
-**RLS atualizado:**
-- `shows`: política de UPDATE (aprovação/rejeição) e a de criação ganham `diretor` quando faz sentido. Aprovação/rejeição passa a exigir `diretor`.
-- Todas as policies que hoje liberam `gerente` para aprovar/rejeitar continuam liberando `gerente` para o resto, mas no edge function a regra de aprovação será restrita ao Diretor.
-- Demais tabelas (contratantes, anexos, depósitos, despesas, parcelas, pagamentos): adicionar `diretor` aos checks onde `gerente` aparece (acesso total).
+Editar `src/pages/Artistas.tsx`: adicionar aba **"Configuração Financeira"** (visível só para `diretor`/`gerente`) no modal de detalhe do artista, com 3 seções:
 
-**Tela de Usuários** — passa a permitir atribuir o papel `diretor` (com tratamento do erro vindo da trigger).
+- **Geral**: % artista + % imposto (form único)
+- **Sócios e parceiros**: tabela CRUD com validação `soma(% sócios) + % artista ≤ 100%` (aviso visual)
+- **Equipe base**: tabela CRUD (nome, função, cachê)
 
-## 2. Permissões no front (`src/lib/permissions.ts` + AppLayout/ProtectedRoute)
+Componente novo: `src/components/artists/FinancialConfigTab.tsx`.
 
-- Adicionar `AppRole` `"diretor"` em `AuthContext`.
-- Helpers novos: `canApproveShow`, `canRejectShow` → apenas `diretor`.
-- `canViewAutorizadoPor` → diretor, gerente, financeiro.
-- Diretor enxerga toda a navegação que o Gerente enxerga + nova rota `/diretoria`.
-- `ManagerModeContext`: diretor pode alternar para "modo vendedor" igual ao gerente (opcional — manter simples: só gerente alterna).
+## 3. Página de Fechamentos
 
-## 3. Edge functions
+**Rota** `/fechamento` (lazy) registrada em `src/App.tsx`. Adicionar item **"Fechamentos"** no menu (`AppLayout.tsx`) entre Financeiro e Relatórios, ícone `Wallet`/`FileSpreadsheet`, roles `["diretor", "gerente", "financeiro"]`.
 
-**`shows-admin`**:
-- Ações `approve_show` / `reject_show` passam a exigir papel `diretor`. Ao aprovar, gravar `autorizado_por_user_id`, `autorizado_por_nome` (do profile) e `autorizado_em = now()`. Status vai para "Aguardando Dados Completos" (já existe).
-- Ação `create_show`: ignorar/zerar `autorizado_por` enviado pelo cliente.
-- Disparo de notificações:
-  - Criação → notificar **Diretor** (busca user_roles where role='diretor').
-  - Aprovação → notificar **Vendedor (created_by), Gerente(s), Financeiro(s)**.
-  - Rejeição → notificar **Vendedor, Gerente(s)** com motivo.
+### Tela 1 — Lista (`src/pages/Fechamento.tsx`)
 
-**`my-roles`** — nada a mudar, já devolve roles atribuídos.
+- Filtros: artista, período (date range)
+- Tabela: artista, semana (DD/MM–DD/MM), status (badge), total bruto, sobra, criado por, data
+- Botão **"Novo fechamento"** abre dialog passo 1
 
-**`contratante-link`** / outras — sem mudança funcional, mas garantir que não tentem aprovar.
+### Tela 2 — Criar (dialog `NewClosingDialog.tsx`)
 
-## 4. UI
+- Select artista
+- Date picker da semana (auto-snap para segunda → domingo via `date-fns/startOfWeek`/`endOfWeek` com `weekStartsOn: 1`)
+- Preview: lista de shows confirmados encontrados na semana
+- Confirmar → cria `weekly_closings` + popula `weekly_closing_shows` (do shows confirmados, com cache do show e comissão = 10% padrão ou cache do vendedor) + popula `weekly_closing_crew` a partir de `artist_crew` ativos com `shows_participados = total_shows`
+- Redireciona para Tela 3
 
-**`src/pages/Shows.tsx`** (formulário de minuta):
-- Remover input "Autorizado por".
-- Botões "Aprovar" / "Rejeitar" ficam visíveis apenas para `diretor` (hoje aparecem para gerente/equipe).
+### Tela 3 — Editar fechamento (`/fechamento/:id` → `FechamentoDetalhe.tsx`)
 
-**`src/components/shows/ShowDetailsModal.tsx`**:
-- Bloco "Autorizado por [nome] em [data]" visível apenas para diretor/gerente/financeiro, montado a partir de `autorizado_por_nome` + `autorizado_em` (fallback para texto antigo).
+5 seções editáveis com cálculo reativo:
 
-**`src/pages/Usuarios.tsx`**:
-- Adicionar opção "Diretor" no seletor de papel.
-- Tratar erro retornado pela trigger e mostrar toast com a mensagem.
+- **A. Shows**: tabela editável (toggle incluir, valor, comissão)
+- **B. Equipe**: tabela editável + botão adicionar; total = `cache_por_show × shows_participados`
+- **C. Despesas**: tabela CRUD com categorias (Van/Clipe/Equipamento/Figurino/Ensaio/Outros) e flag "Incluir no cálculo"
+- **D. Cálculo automático** (read-only, `useMemo`):
+  ```
+  bruto = Σ shows incluídos
+  comissoes = Σ comissão vendedor (shows incluídos)
+  equipe = Σ total_receber
+  despesas = Σ valor (incluir_no_calculo = true)
+  sobra = bruto - comissoes - equipe - despesas
+  
+  Para cada participante (artista + sócios ativos):
+    bruto_p = sobra × (% / 100)
+    imposto_p = bruto_p × (imposto% / 100)
+    liquido_p = bruto_p - imposto_p
+  
+  Diferença para 100% → linha "Produtora" automática
+  ```
+- **E. Observações**: textarea
 
-**Nova página `src/pages/Diretoria.tsx`** + rota `/diretoria` (protegida por `requireRoles=['diretor']`):
-- Visão financeira consolidada (soma de cachês, pagos, saldo, despesas).
-- Performance por artista (nº shows, faturamento, ticket médio).
-- Performance por vendedor (nº minutas criadas, aprovadas, rejeitadas, faturamento).
-- Histórico de shows aprovados/rejeitados/cancelados com motivo.
+**Ações:**
+- **Salvar rascunho** — upsert em todas as tabelas filhas
+- **Finalizar** — confirm dialog → status `finalizado`, persiste distribuição calculada em `weekly_closing_distribution`, registra `finalizado_por`/`finalizado_em`
+- **Exportar PDF** — sempre disponível
+- Quando status = `finalizado` e usuário não é diretor/gerente → tudo readonly. Botão "Reabrir" para diretor/gerente.
 
-Implementação em uma única página com abas (`Tabs`) consumindo dados via Supabase client (RLS já libera diretor).
+### PDF (`src/lib/closingPdf.ts`)
 
-**`AppLayout.tsx`** — adicionar item "Diretoria" (icon `Crown`) visível só para diretor; incluir `diretor` nos itens que hoje listam `gerente`.
+Reusa `jsPDF + autotable` (igual `exporters.ts`). Layout:
 
-## 5. Notificações
+- Cabeçalho: ARTISTA | MÊS | SEMANA N | ANO
+- Tabela 1 — Shows (colunas conforme planilha original)
+- Tabela 2 — Equipe (nome, função, cachê, shows, total)
+- Despesas (lista)
+- Distribuição: para cada participante `NOME [X%]: BRUTO Rx | IMPOSTO Ry | LÍQUIDO Rz`
+- Rodapé com totais consolidados
 
-Atualizar `supabase/functions/notifications/index.ts` (e/ou helpers em `shows-admin`) para que os disparos de "minuta criada/aprovada/rejeitada" usem as novas regras de destinatários descritas acima.
+## 4. Permissões e detalhes técnicos
 
----
+- `diretor`/`gerente`: full
+- `financeiro`: visualizar + exportar PDF (botões create/edit ocultos)
+- `vendedor`/`artista`: sem rota (proteção via `ProtectedRoute` + check de role na página)
 
-## Detalhes técnicos relevantes
+Hook utilitário `useFinancialConfig(artistId)` para buscar config + sócios + crew.
 
-- A trigger de unicidade do Diretor deve permitir UPDATE no próprio registro (mesmo `user_id`) e bloquear apenas quando outro user já tem o papel.
-- Manter coluna `autorizado_por` antiga por compatibilidade (read-only); novos registros não a preenchem.
-- Toda a verificação de permissão crítica (aprovar/rejeitar) é feita no edge function, não só no front.
-- Sistema continua configurável: papéis e regras vivem em `permissions.ts` + RLS + edge function — fácil de ajustar depois.
+## Arquivos
 
-## Fora do escopo desta entrega
+**Novos:**
+- `supabase/migrations/<ts>_weekly_closings.sql`
+- `src/pages/Fechamento.tsx`
+- `src/pages/FechamentoDetalhe.tsx`
+- `src/components/fechamento/NewClosingDialog.tsx`
+- `src/components/fechamento/ShowsSection.tsx`
+- `src/components/fechamento/CrewSection.tsx`
+- `src/components/fechamento/ExpensesSection.tsx`
+- `src/components/fechamento/CalculationPanel.tsx`
+- `src/components/artists/FinancialConfigTab.tsx`
+- `src/lib/closingCalc.ts` (lógica pura de cálculo, com testes)
+- `src/lib/closingPdf.ts`
 
-- Promover automaticamente algum usuário existente a Diretor (será feito manualmente pela tela de Usuários).
-- Modo Diretor → Vendedor (não pedido).
+**Editados:**
+- `src/App.tsx` (rotas)
+- `src/components/AppLayout.tsx` (menu + prefetch)
+- `src/pages/Artistas.tsx` (nova aba)
