@@ -202,7 +202,19 @@ export default function FechamentoDetalhe() {
       incluir_no_calculo: e.incluir_no_calculo ?? true,
       valor: Number(e.valor ?? 0),
     })));
-    setCrew((cr.data ?? []) as any);
+    setCrew(((cr.data ?? []) as any[]).map((c) => {
+      const ids: string[] = Array.isArray(c.shows_ids) && c.shows_ids.length > 0
+        ? c.shows_ids
+        : (((s.data ?? []) as any[]).filter((x) => x.incluido).map((x) => x.id));
+      return {
+        id: c.id, nome: c.nome, funcao: c.funcao,
+        cache_por_show: Number(c.cache_por_show ?? 0),
+        shows_ids: ids,
+        shows_participados: ids.length,
+        total_receber: Number(c.cache_por_show ?? 0) * ids.length,
+        ordem: c.ordem ?? 0,
+      };
+    }));
     setInvestments(((inv.data as any[]) ?? []) as any);
     if (cfg.data) {
       setConfig({
