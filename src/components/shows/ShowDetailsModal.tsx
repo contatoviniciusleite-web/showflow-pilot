@@ -91,6 +91,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
     roles.includes("gerente") || roles.includes("equipe") || roles.includes("financeiro") || roles.includes("diretor") ||
     (roles.includes("vendedor") && isOwner);
   const canManageActions = isManager || isDiretor; // remarcar/cancelar
+  const canDeleteShow = isFinanceiro; // excluir minuta
   const canApproveOrReject = isDiretor; // só diretor aprova/rejeita
   const canSeeAutorizado = isDiretor || isManager || isFinanceiro;
 
