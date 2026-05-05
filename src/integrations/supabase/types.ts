@@ -1176,25 +1176,34 @@ export type Database = {
           cache_total: number
           closing_id: string
           comissao_vendedor: number
+          custo_equipe: number
           id: string
           incluido: boolean
+          outras_despesas: number
           show_id: string
+          van: number
         }
         Insert: {
           cache_total?: number
           closing_id: string
           comissao_vendedor?: number
+          custo_equipe?: number
           id?: string
           incluido?: boolean
+          outras_despesas?: number
           show_id: string
+          van?: number
         }
         Update: {
           cache_total?: number
           closing_id?: string
           comissao_vendedor?: number
+          custo_equipe?: number
           id?: string
           incluido?: boolean
+          outras_despesas?: number
           show_id?: string
+          van?: number
         }
         Relationships: [
           {
