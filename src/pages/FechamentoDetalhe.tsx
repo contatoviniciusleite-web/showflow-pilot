@@ -749,6 +749,11 @@ export default function FechamentoDetalhe() {
           valor: Number(e.valor || 0),
         };
       }),
+      clipes: clipes.map((c) => ({
+        profissional: c.profissional, funcao: c.funcao, clipe: c.clipe,
+        quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0),
+        total: Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0),
+      })),
       impostoPercentual: Number(config.imposto_percentual || 0),
       totals,
     });
