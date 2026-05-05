@@ -480,12 +480,24 @@ export default function FechamentoDetalhe() {
     [clipes],
   );
 
+  // Custo de equipe por show — derivado da Seção B (membros que marcaram aquele show)
+  const crewCostByShow = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of crew) {
+      const cps = Number(c.cache_por_show || 0);
+      for (const sid of c.shows_ids) {
+        map.set(sid, (map.get(sid) ?? 0) + cps);
+      }
+    }
+    return map;
+  }, [crew]);
+
   const totals = useMemo(
     () => {
       const showInputs = shows.map((s) => ({
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
-        custo_equipe: Number(s.custo_equipe || 0),
+        custo_equipe: crewCostByShow.get(s.id) ?? 0,
         van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         incluido: s.incluido,
@@ -498,10 +510,8 @@ export default function FechamentoDetalhe() {
       }
       return computeClosing(
         showInputs,
-        crew.map((c) => ({
-          cache_por_show: Number(c.cache_por_show || 0),
-          shows_participados: Number(c.shows_participados || 0),
-        })),
+        // Equipe — passamos vazio porque o custo já está embutido nos shows como custo_equipe
+        [],
         investments.map((i) => ({ valor_descontado: Number(i.valor_descontado || 0) })),
         {
           artista_nome: artistName || "Artista",
@@ -512,42 +522,31 @@ export default function FechamentoDetalhe() {
         clipes.map((c) => ({ quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0) })),
       );
     },
-    [shows, showExpensesByShow, vanByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
+    [shows, showExpensesByShow, vanByShow, crewCostByShow, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
   );
 
   const totalEquipeBase = useMemo(
-    () => crew.reduce((a, c) => a + Number(c.cache_por_show || 0) * Number(c.shows_participados || 0), 0),
+    () => crew.reduce((a, c) => a + Number(c.cache_por_show || 0) * c.shows_ids.length, 0),
     [crew],
   );
 
-  const maxShowsCrew = useMemo(() => shows.filter((s) => s.incluido).length, [shows]);
-
-  // Clamp shows_participados ao máximo disponível quando o número de shows incluídos muda
+  // Quando shows são incluídos/excluídos, remove dos shows_ids os ids que não estão mais incluídos
   useEffect(() => {
-    let adjustedAny = false;
+    const validIds = new Set(shows.filter((s) => s.incluido).map((s) => s.id));
     setCrew((arr) =>
       arr.map((c) => {
-        if (Number(c.shows_participados || 0) > maxShowsCrew) {
-          adjustedAny = true;
-          return { ...c, shows_participados: maxShowsCrew, total_receber: Number(c.cache_por_show || 0) * maxShowsCrew, _dirty: true };
-        }
-        return c;
+        const filtered = c.shows_ids.filter((id) => validIds.has(id));
+        if (filtered.length === c.shows_ids.length) return c;
+        return {
+          ...c, shows_ids: filtered,
+          shows_participados: filtered.length,
+          total_receber: Number(c.cache_por_show || 0) * filtered.length,
+          _dirty: true,
+        };
       }),
     );
-    if (adjustedAny) toast.info(`Ajustado para ${maxShowsCrew} show(s) disponível(is)`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maxShowsCrew]);
-
-  const distributeCrewToShows = () => {
-    const incluidos = shows.filter((s) => s.incluido);
-    if (incluidos.length === 0) {
-      toast.error("Nenhum show incluído para distribuir.");
-      return;
-    }
-    const perShow = Math.round((totalEquipeBase / incluidos.length) * 100) / 100;
-    setShows((arr) => arr.map((s) => (s.incluido ? { ...s, custo_equipe: perShow } : s)));
-    toast.success("Custo de equipe distribuído entre os shows.");
-  };
+  }, [shows.map((s) => `${s.id}:${s.incluido ? 1 : 0}`).join("|")]);
 
   // ===== Save =====
   const persist = async (finalize: boolean) => {
