@@ -936,7 +936,7 @@ export default function FechamentoDetalhe() {
         <SummaryCard icon="📉" iconBg="bg-red-100" label="Total Custos"
           value={fmtBRL(totals.totalCustos)} sub="Equipe + Van + Despesas" />
         <SummaryCard icon="✅" iconBg="bg-green-100" label="Sobra para distribuir"
-          value={fmtBRL(totals.sobra)} sub="Após todos os descontos" accent />
+          value={fmtBRL(totals.sobraDistribuir)} sub="Após todos os descontos e impostos" accent />
         <SummaryCard icon="🏛️" iconBg="bg-gray-100" label="Total Impostos"
           value={fmtBRL(totals.totalImpostos)} sub={`${config.imposto_percentual.toFixed(2)}% sobre o bruto`} />
       </div>
