@@ -494,7 +494,25 @@ export default function FechamentoDetalhe() {
         else if (e._dirty) await supabase.from("weekly_closing_show_expenses" as any).update(payload).eq("id", e.id);
       }
 
-      // Crew
+      // Despesas gerais (Seção C)
+      if (removedGeneralExpenses.length > 0) {
+        const real = removedGeneralExpenses.filter((id) => !generalExpenses.find((e) => e.id === id));
+        if (real.length > 0) await supabase.from("weekly_closing_expenses").delete().in("id", real);
+      }
+      for (const e of generalExpenses) {
+        const payload = {
+          closing_id: closing.id,
+          closing_show_id: e.closing_show_id,
+          categoria: e.categoria,
+          descricao: e.descricao,
+          responsavel: e.responsavel,
+          incluir_no_calculo: e.incluir_no_calculo,
+          valor: e.valor,
+        };
+        if (e._new) await supabase.from("weekly_closing_expenses").insert(payload);
+        else if (e._dirty) await supabase.from("weekly_closing_expenses").update(payload).eq("id", e.id);
+      }
+
       if (removedCrew.length > 0) {
         const real = removedCrew.filter((id) => !crew.find((c) => c.id === id));
         if (real.length > 0) await supabase.from("weekly_closing_crew").delete().in("id", real);
