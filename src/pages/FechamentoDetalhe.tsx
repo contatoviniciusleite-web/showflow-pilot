@@ -749,7 +749,7 @@ export default function FechamentoDetalhe() {
         cidade: s.show?.cidade,
         cache_total: Number(s.cache_total || 0),
         comissao_vendedor: Number(s.comissao_vendedor || 0),
-        custo_equipe: Number(s.custo_equipe || 0),
+        custo_equipe: crewCostByShow.get(s.id) ?? 0,
         van: vanByShow.get(s.id) ?? 0,
         despesas_show: showExpensesByShow.get(s.id) ?? 0,
         despesas_detalhe: showExpenses
@@ -757,12 +757,21 @@ export default function FechamentoDetalhe() {
           .map((e) => ({ categoria: e.categoria, descricao: e.descricao, valor: Number(e.valor || 0) })),
         incluido: s.incluido,
       })),
-      crew: crew.map((c) => ({
-        nome: c.nome, funcao: c.funcao,
-        cache_por_show: Number(c.cache_por_show || 0),
-        shows_participados: Number(c.shows_participados || 0),
-        total_receber: Number(c.cache_por_show || 0) * Number(c.shows_participados || 0),
-      })),
+      crew: crew.map((c) => {
+        const indices = c.shows_ids
+          .map((sid) => shows.findIndex((s) => s.id === sid))
+          .filter((i) => i >= 0)
+          .map((i) => i + 1)
+          .sort((a, b) => a - b);
+        const showsLabel = indices.length === 0 ? "—" : indices.length === 1 ? `Show ${indices[0]}` : `Shows ${indices.join(",")}`;
+        return {
+          nome: c.nome, funcao: c.funcao,
+          cache_por_show: Number(c.cache_por_show || 0),
+          shows_participados: c.shows_ids.length,
+          shows_label: showsLabel,
+          total_receber: Number(c.cache_por_show || 0) * c.shows_ids.length,
+        };
+      }),
       investments: investments.map((i) => ({
         descricao: i.descricao, categoria: i.categoria,
         valor_total: Number(i.valor_total || 0),
