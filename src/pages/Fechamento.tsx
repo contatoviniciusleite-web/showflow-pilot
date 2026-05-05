@@ -123,7 +123,7 @@ export default function Fechamento() {
               <thead className="bg-muted/50">
                 <tr className="text-left">
                   <th className="px-3 py-2 font-medium">Artista</th>
-                  <th className="px-3 py-2 font-medium">Semana</th>
+                  <th className="px-3 py-2 font-medium">Período</th>
                   <th className="px-3 py-2 font-medium">Status</th>
                   <th className="px-3 py-2 font-medium text-right">Total bruto</th>
                   <th className="px-3 py-2 font-medium text-right">Sobra</th>

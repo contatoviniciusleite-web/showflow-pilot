@@ -67,13 +67,13 @@ export function exportClosingPDF(input: ClosingPdfInput) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text(
-    `ARTISTA: ${input.artistName.toUpperCase()}   |   MÊS: ${mesNome.toUpperCase()}   |   SEMANA ${semana}   |   ${ano}`,
+    `Fechamento de ${fmtDateBR(input.semanaInicio)} a ${fmtDateBR(input.semanaFim)}`,
     14,
     20,
   );
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(`Período: ${fmtDateBR(input.semanaInicio)} a ${fmtDateBR(input.semanaFim)}`, 14, 25);
+  doc.text(`Artista: ${input.artistName}   |   Mês: ${mesNome}   |   Semana ${semana}/${ano}`, 14, 25);
 
   // Tabela de shows
   const showsRows = input.shows.map((s) => [
