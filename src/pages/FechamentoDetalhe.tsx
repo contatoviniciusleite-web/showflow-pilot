@@ -826,80 +826,120 @@ export default function FechamentoDetalhe() {
   return (
     <TooltipProvider delayDuration={200}>
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/fechamento")} className="mb-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />Voltar
-          </Button>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-semibold">
-              Fechamento de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
-            </h1>
-            <Badge variant={closing.status === "finalizado" ? "default" : "secondary"}>
-              {closing.status === "finalizado" ? "Finalizado" : "Rascunho"}
-            </Badge>
+      {/* HEADER ESCURO */}
+      <div className="rounded-xl overflow-hidden shadow-elevated animate-fade-in">
+        <div className="bg-[#1a1a1a] text-white p-5 md:p-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/fechamento")}
+              className="text-white/80 hover:text-white hover:bg-white/10 -ml-2">
+              <ArrowLeft className="h-4 w-4 mr-2" />Voltar
+            </Button>
+            <span className={cn(
+              "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold",
+              closing.status === "finalizado"
+                ? "bg-[#00C853] text-black"
+                : "bg-[#f59e0b] text-black"
+            )}>
+              {closing.status === "finalizado" ? "✓ Finalizado" : "● Rascunho"}
+            </span>
           </div>
-          <p className="text-muted-foreground mt-1">{artistName} · {nIncluidos} {nIncluidos === 1 ? "show" : "shows"}</p>
+          <div className="flex items-end justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-semibold text-white">
+                Fechamento de {fmtDateBR(closing.semana_inicio)} a {fmtDateBR(closing.semana_fim)}
+              </h1>
+              <p className="text-white/70 mt-1.5 text-sm md:text-base">
+                <span className="font-medium text-white">{artistName}</span>
+                <span className="mx-2 text-white/40">·</span>
+                {nIncluidos} {nIncluidos === 1 ? "show" : "shows"}
+                <span className="mx-2 text-white/40">·</span>
+                <span className="text-[#00C853] font-medium">{fmtBRL(totals.totalBruto)}</span>
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {canExport && (
+                <Button variant="outline" onClick={handleExportPDF}
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+                  <FileDown className="h-4 w-4 mr-2" />Exportar PDF
+                </Button>
+              )}
+              {canEdit && closing.status === "finalizado" && (
+                <Button variant="outline" onClick={reopen} disabled={saving}
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+                  <Unlock className="h-4 w-4 mr-2" />Reabrir
+                </Button>
+              )}
+              {!readonly && (
+                <>
+                  <Button variant="outline" onClick={() => persist(false)} disabled={saving}
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Salvar rascunho
+                  </Button>
+                  <Button
+                    onClick={() => { if (confirm("Ao finalizar, o fechamento será bloqueado para edição. Confirmar?")) persist(true); }}
+                    disabled={saving}
+                    className="bg-[#00C853] hover:bg-[#00a843] text-black font-semibold"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />Finalizar
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {canExport && (
-            <Button variant="outline" onClick={handleExportPDF}><FileDown className="h-4 w-4 mr-2" />Exportar PDF</Button>
-          )}
-          {canEdit && closing.status === "finalizado" && (
-            <Button variant="outline" onClick={reopen} disabled={saving}><Unlock className="h-4 w-4 mr-2" />Reabrir</Button>
-          )}
-          {!readonly && (
-            <>
-              <Button variant="outline" onClick={() => persist(false)} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Salvar rascunho
-              </Button>
-              <Button onClick={() => { if (confirm("Ao finalizar, o fechamento será bloqueado para edição. Confirmar?")) persist(true); }} disabled={saving}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />Finalizar
-              </Button>
-            </>
-          )}
-        </div>
+        <div className="h-0.5 bg-[#00C853]" />
       </div>
 
-      {/* RESUMO */}
-      <Card className="p-4 shadow-soft">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-          <ResumoBox label="Bruto" value={totals.totalBruto} />
-          <ResumoBox label="Custos operacionais" value={totals.totalCustos} />
-          <ResumoBox label="Sobra" value={totals.sobra} accent="primary" />
-          <ResumoBox label={`Imposto (${config.imposto_percentual.toFixed(2)}% do bruto)`} value={totals.totalImpostos} />
-        </div>
-      </Card>
+      {/* CARDS DE RESUMO */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 animate-fade-in">
+        <SummaryCard icon="💰" iconBg="bg-green-100" label="Cachê Bruto"
+          value={fmtBRL(totals.totalBruto)}
+          sub={`${nIncluidos} ${nIncluidos === 1 ? "show confirmado" : "shows confirmados"}`} />
+        <SummaryCard icon="📉" iconBg="bg-red-100" label="Total Custos"
+          value={fmtBRL(totals.totalCustos)} sub="Equipe + Van + Despesas" />
+        <SummaryCard icon="✅" iconBg="bg-green-100" label="Sobra para distribuir"
+          value={fmtBRL(totals.sobra)} sub="Após todos os descontos" accent />
+        <SummaryCard icon="🏛️" iconBg="bg-gray-100" label="Total Impostos"
+          value={fmtBRL(totals.totalImpostos)} sub={`${config.imposto_percentual.toFixed(2)}% sobre o bruto`} />
+      </div>
 
       {/* Seção A — Shows */}
-      <Card className="p-4 shadow-soft">
-        <h2 className="font-semibold mb-3">A. Shows da semana</h2>
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#00C853] animate-fade-in">
+        <div className="px-4 py-3 bg-green-50/70 dark:bg-green-950/20 border-b flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-semibold flex items-center gap-2">
+            <span>🎤</span> A. Shows da semana
+          </h2>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#00C853] text-black">
+            {shows.length} {shows.length === 1 ? "show" : "shows"}
+          </span>
+        </div>
+        <div className="p-4">
         {shows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum show vinculado.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs md:text-sm min-w-[1100px]">
-              <thead className="bg-muted/40">
-                <tr className="text-left">
-                  <th className="px-2 py-1.5">Data</th>
-                  <th className="px-2 py-1.5">Vendedor</th>
-                  <th className="px-2 py-1.5">Local — Cidade</th>
-                  <th className="px-2 py-1.5 text-right w-[120px]">Cachê</th>
-                  <th className="px-2 py-1.5 text-right w-[180px]">Comissão (% / R$)</th>
-                  <th className="px-2 py-1.5 text-right w-[140px]">
+              <thead className="bg-[#1a1a1a] text-white">
+                <tr className="text-left text-white">
+                  <th className="px-2 py-2 font-medium">Data</th>
+                  <th className="px-2 py-2 font-medium">Vendedor</th>
+                  <th className="px-2 py-2 font-medium">Local — Cidade</th>
+                  <th className="px-2 py-2 font-medium text-right w-[120px]">Cachê</th>
+                  <th className="px-2 py-2 font-medium text-right w-[180px]">Comissão (% / R$)</th>
+                  <th className="px-2 py-2 font-medium text-right w-[140px]">
                     <span className="inline-flex items-center gap-1">
                       Custo equipe
                       <Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipTrigger asChild><Info className="h-3 w-3 text-white/60 cursor-help" /></TooltipTrigger>
                         <TooltipContent className="whitespace-pre-wrap max-w-xs text-left">{crewTooltipText}</TooltipContent>
                       </Tooltip>
                     </span>
                   </th>
-                  <th className="px-2 py-1.5 text-right">Van</th>
-                  <th className="px-2 py-1.5 text-right">Despesas</th>
-                  <th className="px-2 py-1.5 text-right">Sobra</th>
-                  <th className="px-2 py-1.5 text-center">Incluir</th>
+                  <th className="px-2 py-2 font-medium text-right">Van</th>
+                  <th className="px-2 py-2 font-medium text-right">Despesas</th>
+                  <th className="px-2 py-2 font-medium text-right">Sobra</th>
+                  <th className="px-2 py-2 font-medium text-center">Incluir</th>
                 </tr>
               </thead>
               <tbody>
@@ -916,7 +956,10 @@ export default function FechamentoDetalhe() {
                     .join("\n") || "Nenhum membro de equipe marcou este show.";
                   return (
                     <>
-                      <tr key={s.id} className={cn("border-t", !s.incluido && "opacity-50")}>
+                      <tr key={s.id} className={cn(
+                        "border-t transition-colors duration-150 odd:bg-white even:bg-gray-50/60 dark:odd:bg-transparent dark:even:bg-muted/20 hover:bg-green-50/60 dark:hover:bg-green-950/20",
+                        !s.incluido && "opacity-50"
+                      )}>
                         <td className="px-2 py-1.5 whitespace-nowrap">{fmtDateBR(s.show?.data_show ?? "")}</td>
                         <td className="px-2 py-1.5">{s.show?.vendedor ?? "—"}</td>
                         <td className="px-2 py-1.5">{[s.show?.local, s.show?.cidade].filter(Boolean).join(" — ") || "—"}</td>
@@ -947,7 +990,7 @@ export default function FechamentoDetalhe() {
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtBRL(despesasShow)}</td>
                         <td className={cn("px-2 py-1.5 text-right whitespace-nowrap font-medium",
                           sobraShow >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>
-                          {fmtBRL(sobraShow)}
+                          {sobraShow >= 0 ? "↑ " : "↓ "}{fmtBRL(sobraShow)}
                         </td>
                         <td className="px-2 py-1.5 text-center">
                           <Switch checked={s.incluido} disabled={readonly}
@@ -958,7 +1001,7 @@ export default function FechamentoDetalhe() {
                   );
                 })}
               </tbody>
-              <tfoot className="bg-muted/30 font-medium">
+              <tfoot className="bg-[#1a1a1a] text-white font-semibold">
                 <tr>
                   <td colSpan={3} className="px-2 py-2">{nIncluidos} shows incluídos</td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totals.totalBruto)}</td>
@@ -973,33 +1016,42 @@ export default function FechamentoDetalhe() {
             </table>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção B — Equipe */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#185FA5] animate-fade-in">
+        <div className="px-4 py-3 bg-blue-50/70 dark:bg-blue-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">B. Equipe</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>👥</span> B. Equipe
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Marque os shows em que cada membro participou. O custo de equipe de cada show é calculado automaticamente.
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#185FA5] text-white">
+              {crew.length} {crew.length === 1 ? "membro" : "membros"}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addCrew}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar membro</Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
         {crew.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum membro cadastrado.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[800px]">
-              <thead className="bg-muted/40">
-                <tr className="text-left">
-                  <th className="px-2 py-1.5">Nome</th>
-                  <th className="px-2 py-1.5">Função</th>
-                  <th className="px-2 py-1.5 text-right w-[140px]">Cachê/show</th>
-                  <th className="px-2 py-1.5">Shows participados</th>
-                  <th className="px-2 py-1.5 text-right w-[110px]">Total</th>
+              <thead className="bg-[#0C447C] text-white">
+                <tr className="text-left text-white">
+                  <th className="px-2 py-2 font-medium">Nome</th>
+                  <th className="px-2 py-2 font-medium">Função</th>
+                  <th className="px-2 py-2 font-medium text-right w-[140px]">Cachê/show</th>
+                  <th className="px-2 py-2 font-medium">Shows participados</th>
+                  <th className="px-2 py-2 font-medium text-right w-[110px]">Total</th>
                   <th className="w-8" />
                 </tr>
               </thead>
@@ -1052,9 +1104,9 @@ export default function FechamentoDetalhe() {
                   );
                 })}
               </tbody>
-              <tfoot className="bg-muted/30 font-medium">
+              <tfoot className="bg-[#0C447C] text-white font-semibold">
                 <tr>
-                  <td colSpan={4} className="px-2 py-2 text-xs text-muted-foreground">
+                  <td colSpan={4} className="px-2 py-2 text-xs text-white/80">
                     Baseado em {shows.filter((s) => s.incluido).length} show(s) incluído(s) neste fechamento
                   </td>
                   <td className="px-2 py-2 text-right">{fmtBRL(totalEquipeBase)}</td>
@@ -1064,23 +1116,32 @@ export default function FechamentoDetalhe() {
             </table>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção C — Despesas gerais */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#EA7517] animate-fade-in">
+        <div className="px-4 py-3 bg-orange-50/70 dark:bg-orange-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">C. Despesas</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>🧾</span> C. Despesas
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Despesas gerais do período. Vincule a um show para somar à coluna "Despesas" daquele show.
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addGeneralExpense}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EA7517] text-white">
+              {generalExpenses.length} {generalExpenses.length === 1 ? "item" : "itens"} · {fmtBRL(totalDespesasGeraisCalcAll)}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addGeneralExpense}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa
+              </Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
         {generalExpenses.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma despesa lançada.</p>
         ) : (
@@ -1143,21 +1204,30 @@ export default function FechamentoDetalhe() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção D — Investimentos */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#534AB7] animate-fade-in">
+        <div className="px-4 py-3 bg-purple-50/70 dark:bg-purple-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">D. Investimentos</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>📦</span> D. Investimentos
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Descontados proporcionalmente apenas dos sócios/empresários — o artista não participa.
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addInvestment}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar investimento</Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#534AB7] text-white">
+              {investments.length} {investments.length === 1 ? "item" : "itens"} · {fmtBRL(totals.totalInvestimentos)}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addInvestment}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar investimento</Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
 
         {pendingInvestments.length > 0 && !readonly && (
           <div className="mb-3 p-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 text-sm">
@@ -1232,23 +1302,32 @@ export default function FechamentoDetalhe() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção E — Clipe */}
-      <Card className="p-4 shadow-soft">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#DB2777] animate-fade-in">
+        <div className="px-4 py-3 bg-pink-50/70 dark:bg-pink-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">E. Clipe</h2>
+            <h2 className="font-semibold flex items-center gap-2">
+              <span>🎬</span> E. Clipe
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Pagamentos por clipe à equipe. Descontado do bruto antes da distribuição (afeta todos os participantes proporcionalmente).
             </p>
           </div>
-          {!readonly && (
-            <Button size="sm" variant="outline" onClick={addClipe}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#DB2777] text-white">
+              {clipes.length} {clipes.length === 1 ? "profissional" : "profissionais"} · {fmtBRL(totals.totalClipe)}
+            </span>
+            {!readonly && (
+              <Button size="sm" variant="outline" onClick={addClipe}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
+              </Button>
+            )}
+          </div>
         </div>
+        <div className="p-4">
         {clipes.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum lançamento de clipe nesta semana.</p>
         ) : (
@@ -1290,6 +1369,7 @@ export default function FechamentoDetalhe() {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Seção F — Cálculo */}
@@ -1390,6 +1470,25 @@ function ResumoBox({ label, value, accent }: { label: string; value: number; acc
     <div className={cn("rounded-lg border p-3", accent === "primary" && "bg-primary/5 border-primary/30")}>
       <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
       <div className={cn("text-lg font-semibold mt-1", accent === "primary" && (value >= 0 ? "text-primary" : "text-destructive"))}>{fmtBRL(value)}</div>
+    </div>
+  );
+}
+
+function SummaryCard({
+  icon, iconBg, label, value, sub, accent,
+}: { icon: string; iconBg: string; label: string; value: string; sub: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl border bg-card shadow-soft p-4 transition-all hover:shadow-elevated">
+      <div className="flex items-start gap-3">
+        <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center text-lg shrink-0", iconBg)}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
+          <div className={cn("text-xl font-bold mt-0.5 truncate", accent && "text-[#00C853]")}>{value}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>
+        </div>
+      </div>
     </div>
   );
 }
