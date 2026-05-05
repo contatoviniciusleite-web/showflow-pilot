@@ -90,16 +90,17 @@ export function exportClosingPDF(input: ClosingPdfInput) {
   doc.text(`Artista: ${input.artistName}`, marginX, 25);
 
   // ===== Tabela A — SHOWS =====
-  // Larguras fixas (8 colunas) somando usableW (≈269mm)
+  // Larguras fixas (9 colunas) somando usableW (≈269mm)
   const showsCols = {
-    0: { cellWidth: 22, halign: "left" as const },    // Data
-    1: { cellWidth: 35, halign: "left" as const },    // Vendedor
-    2: { cellWidth: 70, halign: "left" as const },    // Local
-    3: { cellWidth: 30, halign: "right" as const },   // Cachê
-    4: { cellWidth: 28, halign: "right" as const },   // Comissão
-    5: { cellWidth: 28, halign: "right" as const },   // Equipe
-    6: { cellWidth: 28, halign: "right" as const },   // Despesas
-    7: { cellWidth: 18, halign: "center" as const },  // Incl.
+    0: { cellWidth: 20, halign: "left" as const },    // Data
+    1: { cellWidth: 32, halign: "left" as const },    // Vendedor
+    2: { cellWidth: 60, halign: "left" as const },    // Local
+    3: { cellWidth: 28, halign: "right" as const },   // Cachê
+    4: { cellWidth: 26, halign: "right" as const },   // Comissão
+    5: { cellWidth: 26, halign: "right" as const },   // Equipe
+    6: { cellWidth: 22, halign: "right" as const },   // Van
+    7: { cellWidth: 22, halign: "right" as const },   // Despesas
+    8: { cellWidth: 16, halign: "center" as const },  // Incl.
   };
 
   const showsBody: any[] = [];
@@ -111,13 +112,14 @@ export function exportClosingPDF(input: ClosingPdfInput) {
       fmtBRL(s.cache_total),
       fmtBRL(s.comissao_vendedor),
       fmtBRL(s.custo_equipe),
+      fmtBRL(s.van),
       fmtBRL(s.despesas_show),
       s.incluido ? "Sim" : "Não",
     ]);
     for (const d of s.despesas_detalhe) {
       showsBody.push([
         "",
-        { content: `↳ ${d.categoria}: ${d.descricao || "—"}`, colSpan: 5, styles: { fontStyle: "italic" as const, textColor: 110, halign: "left" as const } },
+        { content: `↳ ${d.categoria}: ${d.descricao || "—"}`, colSpan: 6, styles: { fontStyle: "italic" as const, textColor: 110, halign: "left" as const } },
         { content: fmtBRL(d.valor), styles: { halign: "right" as const, textColor: 110 } },
         "",
       ]);
@@ -128,12 +130,13 @@ export function exportClosingPDF(input: ClosingPdfInput) {
     { content: fmtBRL(input.totals.totalBruto), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     { content: fmtBRL(input.totals.totalComissoes), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     { content: fmtBRL(input.totals.totalCustoEquipeShows), styles: { halign: "right" as const, fontStyle: "bold" as const } },
+    { content: fmtBRL(input.totals.totalVan), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     { content: fmtBRL(input.totals.totalDespesasShows), styles: { halign: "right" as const, fontStyle: "bold" as const } },
     "",
   ]);
 
   autoTable(doc, {
-    head: [["Data", "Vendedor", "Local", "Cachê", "Comissão", "Equipe", "Despesas", "Incl."]],
+    head: [["Data", "Vendedor", "Local", "Cachê", "Comissão", "Equipe", "Van", "Despesas", "Incl."]],
     body: showsBody,
     startY: 30,
     margin: { left: marginX, right: marginX },
@@ -143,12 +146,10 @@ export function exportClosingPDF(input: ClosingPdfInput) {
     columnStyles: showsCols,
     alternateRowStyles: { fillColor: ALT_FILL },
     didParseCell: (data) => {
-      // Header alignment per column
       if (data.section === "head") {
         const col = (showsCols as any)[data.column.index];
         if (col?.halign) data.cell.styles.halign = col.halign;
       }
-      // Linha de totais
       if (data.section === "body" && data.row.index === showsBody.length - 1) {
         data.cell.styles.fillColor = TOTAL_FILL;
         data.cell.styles.fontStyle = "bold";
