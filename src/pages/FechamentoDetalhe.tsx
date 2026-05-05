@@ -369,8 +369,28 @@ export default function FechamentoDetalhe() {
     for (const e of showExpenses) {
       map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
     }
+    // Despesas gerais vinculadas a um show (e que entram no cálculo) também somam
+    for (const e of generalExpenses) {
+      if (e.closing_show_id && e.incluir_no_calculo && e.responsavel === "produtora") {
+        map.set(e.closing_show_id, (map.get(e.closing_show_id) ?? 0) + Number(e.valor || 0));
+      }
+    }
     return map;
-  }, [showExpenses]);
+  }, [showExpenses, generalExpenses]);
+
+  const totalDespesasGeraisCalc = useMemo(
+    () => generalExpenses
+      .filter((e) => e.incluir_no_calculo && e.responsavel === "produtora" && !e.closing_show_id)
+      .reduce((a, e) => a + Number(e.valor || 0), 0),
+    [generalExpenses],
+  );
+
+  const totalDespesasGeraisCalcAll = useMemo(
+    () => generalExpenses
+      .filter((e) => e.incluir_no_calculo && e.responsavel === "produtora")
+      .reduce((a, e) => a + Number(e.valor || 0), 0),
+    [generalExpenses],
+  );
 
   const totals = useMemo(
     () =>
