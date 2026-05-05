@@ -162,6 +162,7 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/perfil" element={<ErrorBoundary label="Perfil"><Perfil /></ErrorBoundary>} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
