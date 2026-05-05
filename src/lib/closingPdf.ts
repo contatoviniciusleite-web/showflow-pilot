@@ -29,6 +29,7 @@ export type ClosingPdfInput = {
     funcao?: string | null;
     cache_por_show: number;
     shows_participados: number;
+    shows_label?: string;
     total_receber: number;
   }[];
   expenses: {
