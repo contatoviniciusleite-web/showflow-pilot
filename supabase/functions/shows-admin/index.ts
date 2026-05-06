@@ -1446,11 +1446,11 @@ Deno.serve(async (req) => {
 
     if (action === "cancel_contratante_link") {
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
-      const found = await sql`select created_by, status::text as status from public.shows where id = ${body.id}`;
+      const found = await sql`select created_by, status::text as status, contratante_link_token from public.shows where id = ${body.id}`;
       if (!found.length) return json({ error: "Show não encontrado" }, 404);
       const sh: any = found[0];
       if (!isManager && !isStaff && sh.created_by !== userId) return json({ error: "Acesso negado" }, 403);
-      if (!sh.contratante_link_token && !["aprovada", "aguardando_contratante", "aguardando_dados"].includes(sh.status)) {
+      if (!sh.contratante_link_token) {
         return json({ error: "Esta minuta não tem link ativo." }, 400);
       }
       await sql`
