@@ -1426,14 +1426,13 @@ Deno.serve(async (req) => {
       const sh0: any = found[0];
       const isOwner = sh0.created_by === userId;
       if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
-      if (!["aguardando_dados", "aguardando_contratante"].includes(sh0.status)) {
-        return json({ error: "A minuta precisa estar aprovada (Aguardando Dados) para gerar um link." }, 400);
+      if (!["aprovada", "aguardando_dados", "aguardando_contratante"].includes(sh0.status)) {
+        return json({ error: "A minuta precisa estar aprovada para gerar um link." }, 400);
       }
 
       const validadeHoras = await getSetting(sql, "contratante_link_validade_horas", 24);
       const upd = await sql`
         update public.shows set
-          status = 'aguardando_contratante'::show_status,
           contratante_link_token = gen_random_uuid(),
           contratante_link_expires_at = now() + (${validadeHoras} || ' hours')::interval,
           contratante_link_preenchido = false,
