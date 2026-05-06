@@ -82,7 +82,7 @@ export function isApprovedStatus(s: string) {
   return APPROVED_STATUSES.has(s);
 }
 
-export function sumCache<T extends { cache_total: number | string | null }>(rows: T[]) {
+export function sumCache<T extends { cache_total?: number | string | null }>(rows: T[]) {
   return rows.reduce((acc, r) => acc + Number(r.cache_total ?? 0), 0);
 }
 
