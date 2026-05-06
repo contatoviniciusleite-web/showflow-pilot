@@ -722,9 +722,26 @@ export default function FechamentoDetalhe() {
           const { recalcProducerCommissionBalance } = await import("@/lib/producerCommission");
           await recalcProducerCommissionBalance(closing.id);
         } catch (e) { console.error("recalcProducerCommissionBalance", e); }
+
+        // Gerar ordens de pagamento automaticamente
+        let ordersOk = true;
+        try {
+          const { generatePaymentOrdersForClosing } = await import("@/lib/paymentOrders");
+          await generatePaymentOrdersForClosing(closing.id);
+        } catch (e) {
+          ordersOk = false;
+          console.error("generatePaymentOrdersForClosing", e);
+        }
+
+        if (ordersOk) {
+          toast.success("Fechamento finalizado! Ordens de pagamento geradas automaticamente.");
+        } else {
+          toast.warning("Fechamento finalizado, mas houve um erro ao gerar as ordens de pagamento. Acesse Pagamentos para verificar.");
+        }
+      } else {
+        toast.success("Rascunho salvo");
       }
 
-      toast.success(finalize ? "Fechamento finalizado" : "Rascunho salvo");
       setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]); setRemovedClipes([]);
       await load();
     } catch (e: any) {
