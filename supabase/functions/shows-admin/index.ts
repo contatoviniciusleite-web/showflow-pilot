@@ -191,6 +191,56 @@ async function autoLinkContratante(
   return (inserted[0] as any).id as string;
 }
 
+function fmtData(raw: any): string {
+  try {
+    const iso = raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).slice(0, 10);
+    const [y, m, d] = iso.split("-");
+    if (y && m && d) return `${d}/${m}/${y}`;
+    return String(raw);
+  } catch { return String(raw); }
+}
+
+function fmtHora(h: any): string {
+  if (!h) return "—";
+  if (h instanceof Date) return h.toISOString().slice(11, 16);
+  return String(h).slice(0, 5);
+}
+
+async function sendVendedorWhatsApp(
+  sql: postgres.Sql,
+  supabaseUrl: string,
+  show: any,
+  tipo: "aprovada" | "rejeitada",
+  motivo?: string,
+) {
+  if (!show?.created_by) return;
+  const rows = await sql`select telefone, nome from public.profiles where id = ${show.created_by}`;
+  const vendedor: any = rows[0];
+  if (!vendedor?.telefone) {
+    console.log(`[vendedor whatsapp] sem telefone — vendedor ${show.created_by}`);
+    return;
+  }
+  const digits = String(vendedor.telefone).replace(/\D/g, "");
+  if (!digits) return;
+  const to = digits.startsWith("55") ? `+${digits}` : `+55${digits}`;
+  const dataFmt = fmtData(show.data_show);
+  const horaFmt = fmtHora(show.horario);
+  const cacheFmt = Number(show.cache_total ?? 0).toLocaleString("pt-BR", {
+    style: "currency", currency: "BRL",
+  });
+  const localLinha = `${show.local ?? "—"}${show.cidade ? " — " + show.cidade : ""}`;
+  const message = tipo === "aprovada"
+    ? `✅ *ShowFlow — Stage*\n\nSua minuta foi APROVADA!\n\n🎤 ${show.artist_nome ?? "—"} em ${localLinha}\n📅 ${dataFmt} às ${horaFmt}\n💰 Cachê: ${cacheFmt}\n\nComplete os dados do contratante para prosseguir.`
+    : `❌ *ShowFlow — Stage*\n\nSua minuta foi REJEITADA.\n\n🎤 ${show.artist_nome ?? "—"} em ${localLinha}\n📅 ${dataFmt}\n\nMotivo: ${motivo ?? "—"}\n\nCorrija e reenvie se necessário.`;
+
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  await fetch(`${supabaseUrl}/functions/v1/twilio-whatsapp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+    body: JSON.stringify({ to, message }),
+  });
+}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
