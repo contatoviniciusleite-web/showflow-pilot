@@ -578,7 +578,7 @@ Deno.serve(async (req) => {
 
       const rows = await sql`
         update public.shows
-          set status = 'aguardando_dados'::show_status,
+          set status = 'aprovada'::show_status,
               aprovado_por = ${userId},
               aprovado_em = now(),
               autorizado_por_user_id = ${userId},
