@@ -33,6 +33,8 @@ const ContratanteMinuta = lazy(() => import("./pages/ContratanteMinuta"));
 const Perfil = lazy(() => import("./pages/Perfil"));
 const Fechamento = lazy(() => import("./pages/Fechamento"));
 const FechamentoDetalhe = lazy(() => import("./pages/FechamentoDetalhe"));
+const Pagamentos = lazy(() => import("./pages/Pagamentos"));
+const Fornecedores = lazy(() => import("./pages/Fornecedores"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -133,7 +135,22 @@ const App = () => (
                     }
                   />
                   <Route
-                    path="/contratantes"
+                    path="/pagamentos"
+                    element={
+                      <ProtectedRoute requireRoles={["diretor", "financeiro"]}>
+                        <ErrorBoundary label="Pagamentos"><Pagamentos /></ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/fornecedores"
+                    element={
+                      <ProtectedRoute requireRoles={["diretor", "financeiro"]}>
+                        <ErrorBoundary label="Fornecedores"><Fornecedores /></ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     element={
                       <ProtectedRoute requireRoles={["gerente", "equipe", "vendedor", "financeiro", "diretor"]}>
                         <ErrorBoundary label="Contratantes"><Contratantes /></ErrorBoundary>

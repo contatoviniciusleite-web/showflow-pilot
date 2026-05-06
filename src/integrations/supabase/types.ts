@@ -412,6 +412,51 @@ export type Database = {
         }
         Relationships: []
       }
+      fornecedores: {
+        Row: {
+          agencia: string | null
+          ativo: boolean
+          banco: string | null
+          chave_pix: string | null
+          conta: string | null
+          created_at: string
+          id: string
+          nome: string
+          observacoes: string | null
+          telefone: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          agencia?: string | null
+          ativo?: boolean
+          banco?: string | null
+          chave_pix?: string | null
+          conta?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          telefone?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          agencia?: string | null
+          ativo?: boolean
+          banco?: string | null
+          chave_pix?: string | null
+          conta?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          telefone?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -444,6 +489,90 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      payment_orders: {
+        Row: {
+          artist_id: string
+          beneficiario_id: string | null
+          beneficiario_nome: string
+          closing_id: string
+          comprovante_path: string | null
+          created_at: string
+          data_pagamento: string | null
+          data_sugerida: string
+          descricao: string
+          forma_pagamento: string | null
+          id: string
+          motivo_cancelamento: string | null
+          observacoes: string | null
+          pago_em: string | null
+          pago_por: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          valor: number
+          valor_pago: number | null
+        }
+        Insert: {
+          artist_id: string
+          beneficiario_id?: string | null
+          beneficiario_nome: string
+          closing_id: string
+          comprovante_path?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_sugerida: string
+          descricao: string
+          forma_pagamento?: string | null
+          id?: string
+          motivo_cancelamento?: string | null
+          observacoes?: string | null
+          pago_em?: string | null
+          pago_por?: string | null
+          status?: string
+          tipo: string
+          updated_at?: string
+          valor?: number
+          valor_pago?: number | null
+        }
+        Update: {
+          artist_id?: string
+          beneficiario_id?: string | null
+          beneficiario_nome?: string
+          closing_id?: string
+          comprovante_path?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_sugerida?: string
+          descricao?: string
+          forma_pagamento?: string | null
+          id?: string
+          motivo_cancelamento?: string | null
+          observacoes?: string | null
+          pago_em?: string | null
+          pago_por?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          valor?: number
+          valor_pago?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_orders_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_orders_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1238,6 +1367,7 @@ export type Database = {
           closing_show_id: string | null
           created_at: string
           descricao: string | null
+          fornecedor_id: string | null
           id: string
           incluir_no_calculo: boolean
           responsavel: string
@@ -1249,6 +1379,7 @@ export type Database = {
           closing_show_id?: string | null
           created_at?: string
           descricao?: string | null
+          fornecedor_id?: string | null
           id?: string
           incluir_no_calculo?: boolean
           responsavel?: string
@@ -1260,6 +1391,7 @@ export type Database = {
           closing_show_id?: string | null
           created_at?: string
           descricao?: string | null
+          fornecedor_id?: string | null
           id?: string
           incluir_no_calculo?: boolean
           responsavel?: string
@@ -1271,6 +1403,13 @@ export type Database = {
             columns: ["closing_id"]
             isOneToOne: false
             referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_closing_expenses_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
             referencedColumns: ["id"]
           },
         ]
