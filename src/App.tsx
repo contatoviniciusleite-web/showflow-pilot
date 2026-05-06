@@ -208,6 +208,14 @@ const App = () => (
                     }
                   />
                   <Route path="/perfil" element={<ErrorBoundary label="Perfil"><Perfil /></ErrorBoundary>} />
+                  <Route
+                    path="/admin/whatsapp-test"
+                    element={
+                      <ProtectedRoute requireRoles={["diretor"]}>
+                        <ErrorBoundary label="WhatsappTest"><WhatsappTest /></ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
