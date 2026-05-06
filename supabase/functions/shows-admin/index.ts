@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
               from public.shows_public_view
               where created_by is distinct from ${userId}
                 and artist_id = any(${allowed}::uuid[])
-                and status::text in ('aguardando_dados','aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
+                and status::text in ('aprovada','aguardando_pagamento','confirmado')
               order by data_show desc nulls last
             `
           : [];
@@ -379,7 +379,7 @@ Deno.serve(async (req) => {
                 from public.shows_public_view s
                 where s.created_by is distinct from ${userId}
                   and s.artist_id = any(${allowed}::uuid[])
-                  and s.status::text in ('aguardando_dados','aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
+                  and s.status::text in ('aprovada','aguardando_pagamento','confirmado')
                 order by s.data_show desc nulls last
               `
             : Promise.resolve([] as any[]),
