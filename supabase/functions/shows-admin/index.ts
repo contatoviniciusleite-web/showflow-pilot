@@ -989,8 +989,8 @@ Deno.serve(async (req) => {
     // ============================================================
     if (action === "finance_summary") {
       // Visão financeira consolidada (shows + total pago + total despesas).
-      if (!isManager && !isStaff && !isFinanceiro && !isVendedor) return json({ error: "Acesso negado" }, 403);
-      const restrictToOwn = !isManager && !isStaff && !isFinanceiro; // vendedor vê só os próprios
+      if (!isManager && !isStaff && !isFinanceiro && !isVendedor && !isDiretor) return json({ error: "Acesso negado" }, 403);
+      const restrictToOwn = !isManager && !isStaff && !isFinanceiro && !isDiretor; // vendedor vê só os próprios
       const rows = await sql`
         select s.id, s.artist_id, s.data_show::text as data_show, s.local, s.cidade,
                s.cache_total, s.status::text as status, s.vendedor, s.created_by,
