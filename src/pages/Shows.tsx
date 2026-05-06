@@ -872,7 +872,7 @@ export default function Shows() {
                   <Button size="sm" variant="outline" onClick={() => openDetails(s)} title="Anexos / Financeiro">
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  {s.status === "aguardando_contratante" && s.contratante_link_token && (s.created_by === user?.id || isEditor) && (
+                  {s.contratante_link_token && (s.created_by === user?.id || isEditor) && (
                     <>
                       <Button
                         size="sm"
@@ -895,17 +895,17 @@ export default function Shows() {
                       </Button>
                     </>
                   )}
-                  {(s.status === "comprovante_enviado" || s.status === "aguardando_pagamento") && canConfirm && (
+                  {s.status === "aguardando_pagamento" && canConfirm && (
                     <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openDetails(s)} title="Confirmar pagamento">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {(s.status === "aguardando_dados") && (s.created_by === user?.id || isEditor) && (
+                  {(s.status === "aprovada" || s.status === "aguardando_dados") && (s.created_by === user?.id || isEditor) && (
                     <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => openEdit(s)} title="Completar dados">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isEditor && s.status !== "cancelada" && s.status !== "aguardando_dados" && (
+                  {isEditor && s.status !== "cancelada" && s.status !== "aprovada" && s.status !== "aguardando_dados" && (
                     <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                   )}
                   {isManager && s.status !== "cancelada" && (
