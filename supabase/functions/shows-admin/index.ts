@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
               from public.shows_public_view
               where created_by is distinct from ${userId}
                 and artist_id = any(${allowed}::uuid[])
-                and status::text in ('aguardando_dados','aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
+                and status::text in ('aprovada','aguardando_pagamento','confirmado')
               order by data_show desc nulls last
             `
           : [];
@@ -379,7 +379,7 @@ Deno.serve(async (req) => {
                 from public.shows_public_view s
                 where s.created_by is distinct from ${userId}
                   and s.artist_id = any(${allowed}::uuid[])
-                  and s.status::text in ('aguardando_dados','aguardando_contratante','aguardando_pagamento','comprovante_enviado','confirmado','aprovada')
+                  and s.status::text in ('aprovada','aguardando_pagamento','confirmado')
                 order by s.data_show desc nulls last
               `
             : Promise.resolve([] as any[]),
@@ -578,7 +578,7 @@ Deno.serve(async (req) => {
 
       const rows = await sql`
         update public.shows
-          set status = 'aguardando_dados'::show_status,
+          set status = 'aprovada'::show_status,
               aprovado_por = ${userId},
               aprovado_em = now(),
               autorizado_por_user_id = ${userId},
@@ -661,7 +661,7 @@ Deno.serve(async (req) => {
       const sh0: any = owner[0];
       const isOwner = sh0.created_by === userId;
       if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
-      if (!["aguardando_dados", "aguardando_contratante", "pendente"].includes(sh0.status) && !isEditor) {
+      if (!["aprovada", "aguardando_dados", "aguardando_contratante", "pendente"].includes(sh0.status) && !isEditor) {
         return json({ error: "Esta minuta não está aguardando dados completos." }, 400);
       }
 
@@ -725,7 +725,7 @@ Deno.serve(async (req) => {
       const show: any = found[0];
       const isOwner = show.created_by === userId;
       if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
-      if (!["aguardando_pagamento", "comprovante_enviado"].includes(show.status)) {
+      if (!["aguardando_pagamento"].includes(show.status)) {
         return json({ error: "Show não está aguardando comprovante" }, 400);
       }
 
@@ -734,7 +734,6 @@ Deno.serve(async (req) => {
           comprovante_url = ${body.path},
           comprovante_enviado_em = now(),
           comprovante_enviado_por = ${userId},
-          status = 'comprovante_enviado'::show_status,
           updated_at = now()
         where id = ${body.id}
         returning *
@@ -816,7 +815,6 @@ Deno.serve(async (req) => {
             comprovante_url = coalesce(comprovante_url, ${body.path}),
             comprovante_enviado_em = coalesce(comprovante_enviado_em, now()),
             comprovante_enviado_por = coalesce(comprovante_enviado_por, ${userId}),
-            status = case when status = 'aguardando_pagamento'::show_status then 'comprovante_enviado'::show_status else status end,
             updated_at = now()
           where id = ${body.show_id}
         `;
@@ -1428,14 +1426,13 @@ Deno.serve(async (req) => {
       const sh0: any = found[0];
       const isOwner = sh0.created_by === userId;
       if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
-      if (!["aguardando_dados", "aguardando_contratante"].includes(sh0.status)) {
-        return json({ error: "A minuta precisa estar aprovada (Aguardando Dados) para gerar um link." }, 400);
+      if (!["aprovada", "aguardando_dados", "aguardando_contratante"].includes(sh0.status)) {
+        return json({ error: "A minuta precisa estar aprovada para gerar um link." }, 400);
       }
 
       const validadeHoras = await getSetting(sql, "contratante_link_validade_horas", 24);
       const upd = await sql`
         update public.shows set
-          status = 'aguardando_contratante'::show_status,
           contratante_link_token = gen_random_uuid(),
           contratante_link_expires_at = now() + (${validadeHoras} || ' hours')::interval,
           contratante_link_preenchido = false,
@@ -1449,16 +1446,17 @@ Deno.serve(async (req) => {
 
     if (action === "cancel_contratante_link") {
       if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
-      const found = await sql`select created_by, status::text as status from public.shows where id = ${body.id}`;
+      const found = await sql`select created_by, status::text as status, contratante_link_token from public.shows where id = ${body.id}`;
       if (!found.length) return json({ error: "Show não encontrado" }, 404);
       const sh: any = found[0];
       if (!isManager && !isStaff && sh.created_by !== userId) return json({ error: "Acesso negado" }, 403);
-      if (sh.status !== "aguardando_contratante") return json({ error: "Esta minuta não está aguardando contratante." }, 400);
+      if (!sh.contratante_link_token) {
+        return json({ error: "Esta minuta não tem link ativo." }, 400);
+      }
       await sql`
         update public.shows set
           contratante_link_token = null,
           contratante_link_expires_at = null,
-          status = 'aguardando_dados'::show_status,
           updated_at = now()
         where id = ${body.id}
       `;

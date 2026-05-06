@@ -88,6 +88,8 @@ interface Show {
   contratante_link_token?: string | null;
   contratante_link_expires_at?: string | null;
   contratante_link_preenchido?: boolean | null;
+  comprovante_url?: string | null;
+  prazo_comprovante_em?: string | null;
 }
 interface ShowPublic {
   id: string;
@@ -499,7 +501,7 @@ export default function Shows() {
   const cacheBelowMin = cacheMin > 0 && Number(form.cache_total) > 0 && Number(form.cache_total) < cacheMin;
 
   // Modo do formulário: básico (criação ou edição em pendente/rejeitada) ou completo (etapa 3+).
-  const isCompleteMode = !!editing && ["aguardando_dados", "aguardando_contratante", "aguardando_pagamento", "comprovante_enviado", "confirmado", "aprovada"].includes(editing.status);
+  const isCompleteMode = !!editing && ["aprovada", "aguardando_dados", "aguardando_contratante", "aguardando_pagamento", "comprovante_enviado", "confirmado"].includes(editing.status);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -535,7 +537,7 @@ export default function Shows() {
       //  - nova minuta: create
       let action: "create" | "update" | "complete_data";
       if (!editing) action = "create";
-      else if (editing.status === "aguardando_dados" || editing.status === "aguardando_contratante") action = "complete_data";
+      else if (["aprovada", "aguardando_dados", "aguardando_contratante"].includes(editing.status)) action = "complete_data";
       else action = "update";
 
       const { data: saveData, error } = await supabase.functions.invoke("shows-admin", {
@@ -812,6 +814,23 @@ export default function Shows() {
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
                     <h3 className="font-semibold truncate">{s.artist_nome ?? "—"}</h3>
                     <StatusBadge status={s.status} />
+                    {s.status === "aprovada" && !s.contratante_nome && !s.contratante_link_token && (
+                      <Badge variant="outline" className="text-xs">⏳ Aguardando dados</Badge>
+                    )}
+                    {s.status === "aprovada" && s.contratante_link_token && !s.contratante_link_preenchido && (
+                      <Badge variant="outline" className="text-xs">📩 Link enviado</Badge>
+                    )}
+                    {s.status === "aprovada" && s.contratante_nome && s.condicao_pagamento && (
+                      <Badge variant="outline" className="text-xs">✅ Dados completos</Badge>
+                    )}
+                    {s.status === "aguardando_pagamento" && s.comprovante_url && (
+                      <Badge variant="outline" className="text-xs">📎 Comprovante enviado</Badge>
+                    )}
+                    {s.status === "aguardando_pagamento" && s.prazo_comprovante_em &&
+                      new Date(s.prazo_comprovante_em).getTime() - Date.now() < 12 * 3600 * 1000 &&
+                      new Date(s.prazo_comprovante_em).getTime() > Date.now() && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500">⚠️ Vence em breve</Badge>
+                      )}
                     {(s.remarcado_count ?? 0) > 0 && (
                       <Badge className="bg-amber-500 hover:bg-amber-500 text-white">REMARCADO</Badge>
                     )}
@@ -872,7 +891,7 @@ export default function Shows() {
                   <Button size="sm" variant="outline" onClick={() => openDetails(s)} title="Anexos / Financeiro">
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  {s.status === "aguardando_contratante" && s.contratante_link_token && (s.created_by === user?.id || isEditor) && (
+                  {s.contratante_link_token && (s.created_by === user?.id || isEditor) && (
                     <>
                       <Button
                         size="sm"
@@ -895,17 +914,17 @@ export default function Shows() {
                       </Button>
                     </>
                   )}
-                  {(s.status === "comprovante_enviado" || s.status === "aguardando_pagamento") && canConfirm && (
+                  {s.status === "aguardando_pagamento" && canConfirm && (
                     <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openDetails(s)} title="Confirmar pagamento">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {(s.status === "aguardando_dados") && (s.created_by === user?.id || isEditor) && (
+                  {(s.status === "aprovada" || s.status === "aguardando_dados") && (s.created_by === user?.id || isEditor) && (
                     <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => openEdit(s)} title="Completar dados">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isEditor && s.status !== "cancelada" && s.status !== "aguardando_dados" && (
+                  {isEditor && s.status !== "cancelada" && s.status !== "aprovada" && s.status !== "aguardando_dados" && (
                     <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                   )}
                   {isManager && s.status !== "cancelada" && (

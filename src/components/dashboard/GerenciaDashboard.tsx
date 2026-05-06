@@ -160,7 +160,7 @@ export function GerenciaDashboard() {
     (filterArtist === "all" || s.artist_id === filterArtist) &&
     (filterStatus === "all" || s.status === filterStatus),
   );
-  const totalAReceber = sumCache(filtrados.filter((s) => s.status === "aguardando_pagamento" || s.status === "comprovante_enviado"));
+  const totalAReceber = sumCache(filtrados.filter((s) => s.status === "aguardando_pagamento"));
   const totalRecebido = sumCache(filtrados.filter((s) => s.status === "confirmado"));
   const totalEmAberto = sumCache(filtrados.filter((s) => s.status === "pendente" || s.status === "aprovada"));
 

@@ -52,14 +52,10 @@ export const defaultFilters: FiltersState = {
 
 const STATUS_OPTIONS = [
   "pendente",
-  "aguardando_dados",
-  "aguardando_contratante",
+  "aprovada",
   "aguardando_pagamento",
-  "comprovante_enviado",
   "confirmado",
   "cancelada",
-  "rejeitada",
-  "aprovada",
 ];
 
 const PERIODO_LABEL: Record<PeriodoKey, string> = {
@@ -124,9 +120,15 @@ export function applyFilters<T extends { artist_id: string; data_show: string; s
   f: FiltersState,
 ): T[] {
   const range = getPeriodRange(f.periodo, f.customStart, f.customEnd);
+  const norm = (s: string) =>
+    s === "aguardando_dados" || s === "aguardando_contratante"
+      ? "aprovada"
+      : s === "comprovante_enviado"
+        ? "aguardando_pagamento"
+        : s;
   return rows.filter((r) => {
     if (f.artista && r.artist_id !== f.artista) return false;
-    if (f.status.length > 0 && !f.status.includes(r.status)) return false;
+    if (f.status.length > 0 && !f.status.includes(norm(r.status))) return false;
     if (range) {
       if (r.data_show < range.start || r.data_show > range.end) return false;
     }
