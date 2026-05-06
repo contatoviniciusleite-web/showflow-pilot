@@ -13,7 +13,8 @@ import { format } from "date-fns";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
-import { MonthCalendar, STATUS_COLORS, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { MonthCalendar, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { StatusFilter } from "@/components/agenda/StatusFilter";
 
 const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 
@@ -51,7 +52,7 @@ export function FinanceiroAgenda() {
   const [active, setActive] = useState<FShow | null>(null);
   const [openDay, setOpenDay] = useState<Date | null>(null);
   const [filterArtist, setFilterArtist] = useState<string>("all");
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   const load = async () => {
     setLoading(true);
@@ -78,10 +79,10 @@ export function FinanceiroAgenda() {
   const filtered = useMemo(() => {
     return shows.filter((s) => {
       if (filterArtist !== "all" && s.artist_id !== filterArtist) return false;
-      if (filterStatuses.length > 0 && !filterStatuses.includes(effectiveStatus(s))) return false;
+      if (filterStatus !== "all" && effectiveStatus(s) !== filterStatus) return false;
       return true;
     });
-  }, [shows, filterArtist, filterStatuses]);
+  }, [shows, filterArtist, filterStatus]);
 
   const monthShows = useMemo(() => {
     const ym = format(month, "yyyy-MM");
@@ -154,33 +155,11 @@ export function FinanceiroAgenda() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex flex-wrap gap-1">
-          {Object.entries(STATUS_COLORS)
-            .filter(([k]) => !["rejeitada", "outro"].includes(k))
-            .map(([k, v]) => {
-              const active = filterStatuses.includes(k);
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() =>
-                    setFilterStatuses((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
-                  }
-                  className="text-xs rounded-full px-2 py-1 border transition"
-                  style={{
-                    background: active ? v.bg : "transparent",
-                    color: active ? "white" : undefined,
-                    borderColor: v.bg,
-                  }}
-                >
-                  {v.label}
-                </button>
-              );
-            })}
-          {filterStatuses.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setFilterStatuses([])}>Limpar</Button>
-          )}
-        </div>
+        <StatusFilter
+          value={filterStatus}
+          onChange={setFilterStatus}
+          exclude={["rejeitada", "outro"]}
+        />
         <div className="ml-auto">
           <ExportMenu
             label={`Exportar ${format(month, "MMM/yy", { locale: ptBR })}`}

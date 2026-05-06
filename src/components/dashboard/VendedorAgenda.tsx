@@ -13,7 +13,8 @@ import { Plus, MapPin, Clock, Users } from "lucide-react";
 import { ptBR } from "date-fns/locale";
 import { format } from "date-fns";
 import { STATUS_CLASS, STATUS_LABEL, ShowStatus } from "@/lib/showStatus";
-import { MonthCalendar, STATUS_COLORS, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { MonthCalendar, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { StatusFilter } from "@/components/agenda/StatusFilter";
 
 interface Artist {
   id: string;
@@ -58,7 +59,7 @@ export function VendedorAgenda() {
   const [own, setOwn] = useState<OwnShow[]>([]);
   const [outras, setOutras] = useState<PublicShow[]>([]);
   const [filterArtist, setFilterArtist] = useState<string>("all");
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [month, setMonth] = useState<Date>(new Date());
   const [openDay, setOpenDay] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,16 +91,16 @@ export function VendedorAgenda() {
     for (const s of own) {
       if (s.status === "cancelada") continue;
       if (!pass(s.artist_id)) continue;
-      if (filterStatuses.length && !filterStatuses.includes(s.status)) continue;
+      if (filterStatus !== "all" && filterStatus !== s.status) continue;
       items.push({ kind: "own", data: s });
     }
     for (const s of outras) {
       if (!pass(s.artist_id)) continue;
-      if (filterStatuses.length && !filterStatuses.includes("outro")) continue;
+      if (filterStatus !== "all" && filterStatus !== "outro") continue;
       items.push({ kind: "other", data: s });
     }
     return items;
-  }, [own, outras, filterArtist, filterStatuses]);
+  }, [own, outras, filterArtist, filterStatus]);
 
   const events: AgendaEvent[] = useMemo(
     () =>
@@ -177,33 +178,11 @@ export function VendedorAgenda() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex flex-wrap gap-1">
-          {Object.entries(STATUS_COLORS)
-            .filter(([k]) => !["rejeitada", "atrasado"].includes(k))
-            .map(([k, v]) => {
-              const active = filterStatuses.includes(k);
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() =>
-                    setFilterStatuses((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
-                  }
-                  className="text-xs rounded-full px-2 py-1 border transition"
-                  style={{
-                    background: active ? v.bg : "transparent",
-                    color: active ? "white" : undefined,
-                    borderColor: v.bg,
-                  }}
-                >
-                  {v.label}
-                </button>
-              );
-            })}
-          {filterStatuses.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setFilterStatuses([])}>Limpar</Button>
-          )}
-        </div>
+        <StatusFilter
+          value={filterStatus}
+          onChange={setFilterStatus}
+          exclude={["rejeitada", "atrasado"]}
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-4">
