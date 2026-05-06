@@ -63,6 +63,7 @@ export default function FinanceiroProdutora() {
   // Filtros aba receitas
   const [filterArtist, setFilterArtist] = useState("all");
   const [filterRevType, setFilterRevType] = useState("all");
+  const [filterRevStatus, setFilterRevStatus] = useState("all");
   // Filtros comissão
   const [commArtist, setCommArtist] = useState("all");
 
