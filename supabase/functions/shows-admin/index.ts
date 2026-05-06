@@ -725,7 +725,7 @@ Deno.serve(async (req) => {
       const show: any = found[0];
       const isOwner = show.created_by === userId;
       if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
-      if (!["aguardando_pagamento", "comprovante_enviado"].includes(show.status)) {
+      if (!["aguardando_pagamento"].includes(show.status)) {
         return json({ error: "Show não está aguardando comprovante" }, 400);
       }
 
