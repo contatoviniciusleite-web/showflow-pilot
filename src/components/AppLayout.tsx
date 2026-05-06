@@ -36,7 +36,7 @@ function prefetchRoute(path: string) {
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
-  { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["diretor", "gerente", "equipe", "artista", "vendedor"] },
+  { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/shows", label: "Shows", icon: ListMusic, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["diretor", "gerente", "equipe", "artista", "financeiro"] },
   { to: "/fechamento", label: "Fechamentos", icon: FileSpreadsheet, roles: ["diretor", "financeiro", "artista"] },
