@@ -42,7 +42,7 @@ export function RecurringExpenseDialog({
 
   useEffect(() => {
     if (open) {
-      setCategoria(recurring?.categoria ?? "aluguel");
+      setCategoria(recurring?.categoria ?? "funcionamento");
       setDescricao(recurring?.descricao ?? "");
       setBeneficiario(recurring?.beneficiario ?? "");
       setValor(recurring?.valor ?? 0);
