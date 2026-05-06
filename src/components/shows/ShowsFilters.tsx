@@ -52,14 +52,10 @@ export const defaultFilters: FiltersState = {
 
 const STATUS_OPTIONS = [
   "pendente",
-  "aguardando_dados",
-  "aguardando_contratante",
+  "aprovada",
   "aguardando_pagamento",
-  "comprovante_enviado",
   "confirmado",
   "cancelada",
-  "rejeitada",
-  "aprovada",
 ];
 
 const PERIODO_LABEL: Record<PeriodoKey, string> = {
