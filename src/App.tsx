@@ -152,6 +152,14 @@ const App = () => (
                     }
                   />
                   <Route
+                    path="/financeiro-produtora"
+                    element={
+                      <ProtectedRoute requireRoles={["diretor", "financeiro"]}>
+                        <ErrorBoundary label="FinanceiroProdutora"><FinanceiroProdutora /></ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     element={
                       <ProtectedRoute requireRoles={["gerente", "equipe", "vendedor", "financeiro", "diretor"]}>
                         <ErrorBoundary label="Contratantes"><Contratantes /></ErrorBoundary>
