@@ -32,14 +32,24 @@ export type ExportFilters = {
 };
 
 const STATUS_COLOR: Record<string, [number, number, number]> = {
-  pendente: [234, 88, 12],   // laranja
-  agendado: [37, 99, 235],   // azul
-  pago: [22, 163, 74],       // verde
-  cancelado: [220, 38, 38],  // vermelho
+  pendente: [217, 119, 6],   // #d97706
+  agendado: [37, 99, 235],   // #2563eb
+  pago: [22, 163, 74],       // #16a34a
+  cancelado: [220, 38, 38],  // #dc2626
 };
 
 const STATUS_SUFFIX: Record<string, string> = {
-  pago: " ✅",
+  pago: " ✓",
+};
+
+const TIPO_BADGE: Record<string, { bg: [number, number, number]; fg: [number, number, number] }> = {
+  artista:       { bg: [220, 252, 231], fg: [22, 101, 52] },
+  socio:         { bg: [237, 233, 254], fg: [76, 29, 149] },
+  equipe:        { bg: [219, 234, 254], fg: [30, 64, 175] },
+  vendedor:      { bg: [255, 237, 213], fg: [154, 52, 18] },
+  despesa:       { bg: [243, 244, 246], fg: [55, 65, 81] },
+  clipe:         { bg: [252, 231, 243], fg: [131, 24, 67] },
+  investimento:  { bg: [254, 243, 199], fg: [146, 64, 14] },
 };
 
 function brDateTime(d = new Date()) {
