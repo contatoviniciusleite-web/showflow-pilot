@@ -57,6 +57,10 @@ async function getSetting(sql: postgres.Sql, key: string, fallback: number): Pro
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  if (req.method === "GET") {
+    return json({ ok: true, timestamp: new Date().toISOString(), message: "check-deadlines ativo" });
+  }
+
   let sql: postgres.Sql | null = null;
   try {
     const databaseUrl = Deno.env.get("SUPABASE_DB_URL");
