@@ -149,6 +149,7 @@ async function approveShow(showId: string, diretorUserId: string | null) {
     `Minuta de ${artistNome} em ${show.local ?? "local"} dia ${show.data_show} foi aprovada por ${diretorNome} (via WhatsApp).`,
     showId,
   );
+  await notifyVendedorWhatsApp(show, "aprovada");
 }
 
 async function rejectShow(showId: string, diretorUserId: string | null, motivo: string) {
