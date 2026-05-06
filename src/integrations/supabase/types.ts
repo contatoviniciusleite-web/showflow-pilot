@@ -771,45 +771,98 @@ export type Database = {
       }
       producer_recurring_expenses: {
         Row: {
+          agencia: string | null
+          artist_id: string | null
           ativo: boolean
+          banco: string | null
           beneficiario: string | null
           categoria: string
+          centro_custo: string | null
+          chave_pix: string | null
+          conta: string | null
+          cpf_cnpj: string | null
           created_at: string
+          departamento: string | null
           descricao: string
           dia_vencimento: number
           forma_pagamento_padrao: string | null
           id: string
           observacoes: string | null
+          projeto: string | null
+          subcategoria: string | null
+          tags: string | null
+          tipo_chave_pix: string | null
+          tipo_conta: string | null
+          tipo_contrato: string | null
+          tipo_despesa: string | null
           updated_at: string
           valor: number
         }
         Insert: {
+          agencia?: string | null
+          artist_id?: string | null
           ativo?: boolean
+          banco?: string | null
           beneficiario?: string | null
           categoria: string
+          centro_custo?: string | null
+          chave_pix?: string | null
+          conta?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
+          departamento?: string | null
           descricao: string
           dia_vencimento: number
           forma_pagamento_padrao?: string | null
           id?: string
           observacoes?: string | null
+          projeto?: string | null
+          subcategoria?: string | null
+          tags?: string | null
+          tipo_chave_pix?: string | null
+          tipo_conta?: string | null
+          tipo_contrato?: string | null
+          tipo_despesa?: string | null
           updated_at?: string
           valor?: number
         }
         Update: {
+          agencia?: string | null
+          artist_id?: string | null
           ativo?: boolean
+          banco?: string | null
           beneficiario?: string | null
           categoria?: string
+          centro_custo?: string | null
+          chave_pix?: string | null
+          conta?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
+          departamento?: string | null
           descricao?: string
           dia_vencimento?: number
           forma_pagamento_padrao?: string | null
           id?: string
           observacoes?: string | null
+          projeto?: string | null
+          subcategoria?: string | null
+          tags?: string | null
+          tipo_chave_pix?: string | null
+          tipo_conta?: string | null
+          tipo_contrato?: string | null
+          tipo_despesa?: string | null
           updated_at?: string
           valor?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "producer_recurring_expenses_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       producer_recurring_revenues: {
         Row: {
