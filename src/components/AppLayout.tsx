@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2, Crown, FileSpreadsheet, Wallet, Truck, Briefcase } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2, Crown, FileSpreadsheet, Wallet, Truck, Briefcase, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
@@ -49,6 +49,7 @@ const nav = [
   { to: "/artistas", label: "Artistas", icon: Music2, roles: ["diretor", "gerente"] },
   { to: "/bloqueios", label: "Bloqueios", icon: Ban, roles: ["diretor", "gerente"] },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["diretor", "gerente"] },
+  { to: "/admin/whatsapp-test", label: "WhatsApp (teste)", icon: MessageCircle, roles: ["diretor"] },
 ] as const;
 
 export function AppLayout() {
