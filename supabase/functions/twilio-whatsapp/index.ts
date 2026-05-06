@@ -62,17 +62,20 @@ Deno.serve(async (req) => {
 
       if (pending) {
         if (["1", "SIM", "APROVAR"].includes(body)) {
-          await supabase.functions.invoke("shows-admin", {
-            body: { action: "approve", show_id: pending.show_id, user_id: pending.user_id },
-          });
-          await supabase
-            .from("whatsapp_pending_actions")
-            .update({ status: "resolvido", resposta: "aprovado" })
-            .eq("id", pending.id);
-          await sendWhatsApp(
-            from,
-            `✅ Minuta APROVADA com sucesso!\n\n${pending.descricao ?? ""}\n\nO vendedor foi notificado.`,
-          );
+          try {
+            await approveShow(pending.show_id, pending.user_id);
+            await supabase
+              .from("whatsapp_pending_actions")
+              .update({ status: "resolvido", resposta: "aprovado" })
+              .eq("id", pending.id);
+            await sendWhatsApp(
+              from,
+              `✅ Minuta APROVADA com sucesso!\n\n${pending.descricao ?? ""}\n\nO vendedor foi notificado.`,
+            );
+          } catch (e) {
+            console.error("approve error", e);
+            await sendWhatsApp(from, `❌ Erro ao aprovar minuta: ${e instanceof Error ? e.message : "erro"}`);
+          }
         } else if (["2", "NAO", "NÃO", "REJEITAR", "RECUSAR"].includes(body)) {
           await supabase
             .from("whatsapp_pending_actions")
