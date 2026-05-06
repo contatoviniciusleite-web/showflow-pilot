@@ -734,7 +734,6 @@ Deno.serve(async (req) => {
           comprovante_url = ${body.path},
           comprovante_enviado_em = now(),
           comprovante_enviado_por = ${userId},
-          status = 'comprovante_enviado'::show_status,
           updated_at = now()
         where id = ${body.id}
         returning *
