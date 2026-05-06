@@ -501,7 +501,7 @@ export default function Shows() {
   const cacheBelowMin = cacheMin > 0 && Number(form.cache_total) > 0 && Number(form.cache_total) < cacheMin;
 
   // Modo do formulário: básico (criação ou edição em pendente/rejeitada) ou completo (etapa 3+).
-  const isCompleteMode = !!editing && ["aprovada", "aguardando_dados", "aguardando_contratante", "aguardando_pagamento", "comprovante_enviado", "confirmado"].includes(editing.status);
+  const isCompleteMode = !!editing && ["aprovada", "aguardando_pagamento", "confirmado"].includes(editing.status);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
