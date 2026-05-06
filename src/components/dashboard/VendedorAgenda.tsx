@@ -178,34 +178,11 @@ export function VendedorAgenda() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex flex-wrap gap-1">
-          {Object.entries(STATUS_COLORS)
-            .filter(([k]) => !["rejeitada", "atrasado"].includes(k))
-            .map(([k, v]) => {
-              const active = filterStatuses.includes(k);
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() =>
-                    setFilterStatuses((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
-                  }
-                  className="text-xs rounded-full px-2 py-1 border transition"
-                  style={{
-                    background: active ? v.bg : "transparent",
-                    color: active ? "white" : undefined,
-                    borderColor: v.bg,
-                  }}
-                >
-                  {v.label}
-                </button>
-              );
-            })}
-          {filterStatuses.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setFilterStatuses([])}>Limpar</Button>
-          )}
-        </div>
-      </div>
+        <StatusFilter
+          value={filterStatus}
+          onChange={setFilterStatus}
+          exclude={["rejeitada", "atrasado"]}
+        />
 
       <div className="grid grid-cols-3 gap-3 mb-4">
         <Card className="p-3">
