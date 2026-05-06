@@ -183,6 +183,7 @@ export function VendedorAgenda() {
           onChange={setFilterStatus}
           exclude={["rejeitada", "atrasado"]}
         />
+      </div>
 
       <div className="grid grid-cols-3 gap-3 mb-4">
         <Card className="p-3">
