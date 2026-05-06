@@ -36,6 +36,107 @@ async function sendWhatsApp(to: string, body: string) {
   return data;
 }
 
+async function loadShow(showId: string) {
+  const { data, error } = await supabase
+    .from("shows")
+    .select("id, created_by, artist_id, local, data_show, status, artists(nome)")
+    .eq("id", showId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Show não encontrado");
+  return data as any;
+}
+
+async function notifyByRoles(roles: string[], tipo: string, titulo: string, mensagem: string, showId: string | null) {
+  const { data: rows } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .in("role", roles);
+  if (!rows?.length) return;
+  const seen = new Set<string>();
+  const inserts = rows
+    .filter((r: any) => r.user_id && !seen.has(r.user_id) && (seen.add(r.user_id), true))
+    .map((r: any) => ({ user_id: r.user_id, tipo, titulo, mensagem, show_id: showId }));
+  if (inserts.length) await supabase.from("notifications").insert(inserts);
+}
+
+async function approveShow(showId: string, diretorUserId: string | null) {
+  const show = await loadShow(showId);
+  let diretorNome = "Diretor";
+  if (diretorUserId) {
+    const { data: prof } = await supabase.from("profiles").select("nome").eq("id", diretorUserId).maybeSingle();
+    if (prof?.nome) diretorNome = prof.nome;
+  }
+  const isAuto = show.created_by === diretorUserId;
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("shows")
+    .update({
+      status: "aprovada",
+      aprovado_por: diretorUserId,
+      aprovado_em: nowIso,
+      autorizado_por_user_id: diretorUserId,
+      autorizado_por_nome: diretorNome,
+      autorizado_em: nowIso,
+      autorizado_por: diretorNome,
+      auto_aprovado: isAuto,
+      auto_aprovado_em: isAuto ? nowIso : null,
+      rejeitada_motivo: null,
+      rejeitada_em: null,
+      rejeitada_por: null,
+    })
+    .eq("id", showId);
+  if (error) throw error;
+  const artistNome = show.artists?.nome ?? "show";
+  if (show.created_by) {
+    await supabase.from("notifications").insert({
+      user_id: show.created_by,
+      tipo: "minuta_aprovada",
+      titulo: "Minuta aprovada — complete os dados",
+      mensagem: `Sua minuta de ${artistNome} em ${show.local ?? "local"} dia ${show.data_show} foi aprovada via WhatsApp! Complete os dados para prosseguir.`,
+      show_id: showId,
+    });
+  }
+  await notifyByRoles(
+    ["gerente", "financeiro"],
+    "minuta_aprovada",
+    "Minuta aprovada",
+    `Minuta de ${artistNome} em ${show.local ?? "local"} dia ${show.data_show} foi aprovada por ${diretorNome} (via WhatsApp).`,
+    showId,
+  );
+}
+
+async function rejectShow(showId: string, diretorUserId: string | null, motivo: string) {
+  const show = await loadShow(showId);
+  const { error } = await supabase
+    .from("shows")
+    .update({
+      status: "rejeitada",
+      rejeitada_motivo: motivo,
+      rejeitada_em: new Date().toISOString(),
+      rejeitada_por: diretorUserId,
+    })
+    .eq("id", showId);
+  if (error) throw error;
+  const artistNome = show.artists?.nome ?? "show";
+  if (show.created_by) {
+    await supabase.from("notifications").insert({
+      user_id: show.created_by,
+      tipo: "minuta_rejeitada",
+      titulo: "Minuta rejeitada",
+      mensagem: `Sua minuta de ${artistNome} em ${show.data_show} foi rejeitada via WhatsApp. Motivo: ${motivo}`,
+      show_id: showId,
+    });
+  }
+  await notifyByRoles(
+    ["gerente"],
+    "minuta_rejeitada",
+    "Minuta rejeitada",
+    `Minuta de ${artistNome} em ${show.data_show} foi rejeitada (via WhatsApp). Motivo: ${motivo}`,
+    showId,
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
