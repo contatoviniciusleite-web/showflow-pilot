@@ -99,22 +99,20 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (waitingMotivo) {
-          await supabase.functions.invoke("shows-admin", {
-            body: {
-              action: "reject",
-              show_id: waitingMotivo.show_id,
-              user_id: waitingMotivo.user_id,
-              motivo: body,
-            },
-          });
-          await supabase
-            .from("whatsapp_pending_actions")
-            .update({ status: "resolvido", resposta: "rejeitado", motivo: body })
-            .eq("id", waitingMotivo.id);
-          await sendWhatsApp(
-            from,
-            `❌ Minuta REJEITADA.\n\nMotivo: ${body}\n\nO vendedor foi notificado.`,
-          );
+          try {
+            await rejectShow(waitingMotivo.show_id, waitingMotivo.user_id, body);
+            await supabase
+              .from("whatsapp_pending_actions")
+              .update({ status: "resolvido", resposta: "rejeitado", motivo: body })
+              .eq("id", waitingMotivo.id);
+            await sendWhatsApp(
+              from,
+              `❌ Minuta REJEITADA.\n\nMotivo: ${body}\n\nO vendedor foi notificado.`,
+            );
+          } catch (e) {
+            console.error("reject error", e);
+            await sendWhatsApp(from, `❌ Erro ao rejeitar minuta: ${e instanceof Error ? e.message : "erro"}`);
+          }
         }
       }
 
