@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CalendarClock, CheckCircle2, Ban, Wallet, Download, Clock } from "lucide-react";
 import { fmtBRL, fmtDateBR } from "@/lib/exporters";
 import { useAuth } from "@/contexts/AuthContext";
-import { canManagePaymentOrders } from "@/lib/permissions";
+import { canManagePaymentOrders, canViewPaymentOrders } from "@/lib/permissions";
+import { ExportPaymentOrdersDialog } from "@/components/pagamentos/ExportPaymentOrdersDialog";
 import { TIPO_LABEL, STATUS_LABEL } from "@/lib/paymentOrders";
 import { SchedulePaymentDialog } from "@/components/pagamentos/SchedulePaymentDialog";
 import { MarkAsPaidDialog } from "@/components/pagamentos/MarkAsPaidDialog";
@@ -61,6 +62,8 @@ const STATUS_BADGE: Record<string, string> = {
 export default function Pagamentos() {
   const { roles } = useAuth();
   const canManage = canManagePaymentOrders(roles);
+  const canExport = canViewPaymentOrders(roles);
+  const [openExport, setOpenExport] = useState(false);
 
   const [rows, setRows] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,9 +143,16 @@ export default function Pagamentos() {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold">Pagamentos</h1>
-        <p className="text-muted-foreground mt-1">Ordens de pagamento geradas a partir dos fechamentos finalizados.</p>
+      <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold">Pagamentos</h1>
+          <p className="text-muted-foreground mt-1">Ordens de pagamento geradas a partir dos fechamentos finalizados.</p>
+        </div>
+        {canExport && (
+          <Button variant="outline" onClick={() => setOpenExport(true)} className="gap-2">
+            <Download className="h-4 w-4" /> Exportar lista
+          </Button>
+        )}
       </div>
 
       {/* Filtros */}
@@ -348,6 +358,16 @@ export default function Pagamentos() {
         open={openBulk} onOpenChange={setOpenBulk}
         orderIds={Array.from(selected)}
         onDone={load}
+      />
+      <ExportPaymentOrdersDialog
+        open={openExport}
+        onOpenChange={setOpenExport}
+        groups={grouped.map(([closingId, g]) => ({ closingId, closing: g.closing, orders: g.orders as any }))}
+        filters={{
+          periodo: from || to ? `${from ? fmtDateBR(from) : "..."} a ${to ? fmtDateBR(to) : "..."}` : "Todos",
+          artista: filterArtist === "__all" ? "Todos" : (artists.find((a) => a.id === filterArtist)?.nome ?? "—"),
+          status: filterStatus === "__all" ? "Todos" : (filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)),
+        }}
       />
     </div>
   );
