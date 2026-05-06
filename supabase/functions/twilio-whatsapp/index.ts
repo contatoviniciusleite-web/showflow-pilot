@@ -36,10 +36,55 @@ async function sendWhatsApp(to: string, body: string) {
   return data;
 }
 
+function fmtData(raw: any): string {
+  try {
+    const iso = raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).slice(0, 10);
+    const [y, m, d] = iso.split("-");
+    if (y && m && d) return `${d}/${m}/${y}`;
+    return String(raw);
+  } catch { return String(raw); }
+}
+function fmtHora(h: any): string {
+  if (!h) return "—";
+  if (h instanceof Date) return h.toISOString().slice(11, 16);
+  return String(h).slice(0, 5);
+}
+
+async function notifyVendedorWhatsApp(show: any, tipo: "aprovada" | "rejeitada", motivo?: string) {
+  try {
+    if (!show?.created_by) return;
+    const { data: vendedor } = await supabase
+      .from("profiles")
+      .select("telefone, nome")
+      .eq("id", show.created_by)
+      .maybeSingle();
+    if (!vendedor?.telefone) {
+      console.log(`[vendedor whatsapp] sem telefone — vendedor ${show.created_by}`);
+      return;
+    }
+    const digits = String(vendedor.telefone).replace(/\D/g, "");
+    if (!digits) return;
+    const to = digits.startsWith("55") ? `+${digits}` : `+55${digits}`;
+    const artistNome = show.artists?.nome ?? show.artist_nome ?? "—";
+    const localLinha = `${show.local ?? "—"}${show.cidade ? " — " + show.cidade : ""}`;
+    const dataFmt = fmtData(show.data_show);
+    const horaFmt = fmtHora(show.horario);
+    const cacheFmt = Number(show.cache_total ?? 0).toLocaleString("pt-BR", {
+      style: "currency", currency: "BRL",
+    });
+    const message = tipo === "aprovada"
+      ? `✅ *ShowFlow — Stage*\n\nSua minuta foi APROVADA!\n\n🎤 ${artistNome} em ${localLinha}\n📅 ${dataFmt} às ${horaFmt}\n💰 Cachê: ${cacheFmt}\n\nComplete os dados do contratante para prosseguir.`
+      : `❌ *ShowFlow — Stage*\n\nSua minuta foi REJEITADA.\n\n🎤 ${artistNome} em ${localLinha}\n📅 ${dataFmt}\n\nMotivo: ${motivo ?? "—"}\n\nCorrija e reenvie se necessário.`;
+    await sendWhatsApp(to, message);
+  } catch (e) {
+    console.error("notifyVendedorWhatsApp error", e);
+  }
+}
+
 async function loadShow(showId: string) {
   const { data, error } = await supabase
     .from("shows")
-    .select("id, created_by, artist_id, local, data_show, status, artists(nome)")
+    .select("id, created_by, artist_id, local, cidade, data_show, horario, cache_total, status, artists(nome)")
     .eq("id", showId)
     .maybeSingle();
   if (error) throw error;
