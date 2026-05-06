@@ -2,9 +2,36 @@
 export const REVENUE_TYPES = [
   { value: "streaming", label: "Streaming", icon: "🎵", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { value: "patrocinio", label: "Patrocínio", icon: "🤝", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { value: "merch", label: "Merchandising", icon: "👕", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  { value: "licenciamento", label: "Licenciamento", icon: "🎼", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  { value: "evento", label: "Evento próprio", icon: "🎪", color: "bg-red-100 text-red-700 border-red-200" },
+  { value: "comissao_shows", label: "Comissão shows", icon: "💼", color: "bg-gray-100 text-gray-700 border-gray-200" },
   { value: "clipe", label: "Clipe", icon: "🎬", color: "bg-pink-100 text-pink-700 border-pink-200" },
-  { value: "merch", label: "Merch", icon: "👕", color: "bg-orange-100 text-orange-700 border-orange-200" },
   { value: "outro", label: "Outro", icon: "💰", color: "bg-gray-100 text-gray-700 border-gray-200" },
+] as const;
+
+export const STREAMING_PLATFORMS = [
+  "Spotify", "YouTube", "Deezer", "TikTok", "Apple Music", "Amazon Music", "Outros",
+] as const;
+
+export const SPONSORSHIP_TYPES = [
+  "Contrato de imagem", "Post patrocinado", "Evento", "Campanha", "Outro",
+] as const;
+
+export const MERCH_PRODUCT_TYPES = [
+  "Camiseta", "Boné", "Acessório", "Kit", "Outros",
+] as const;
+
+export const MERCH_CHANNELS = [
+  "Show", "Loja online", "Distribuidora", "Outros",
+] as const;
+
+export const LICENSE_TYPES = [
+  "Novela", "Filme", "Série", "Publicidade", "Jogo", "Outros",
+] as const;
+
+export const EVENT_REVENUE_TYPES = [
+  "Bilheteria", "Patrocínio do evento", "Bar", "Outros",
 ] as const;
 
 export const EXPENSE_CATEGORIES = [

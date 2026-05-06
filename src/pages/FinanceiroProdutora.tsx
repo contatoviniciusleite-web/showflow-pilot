@@ -63,6 +63,7 @@ export default function FinanceiroProdutora() {
   // Filtros aba receitas
   const [filterArtist, setFilterArtist] = useState("all");
   const [filterRevType, setFilterRevType] = useState("all");
+  const [filterRevStatus, setFilterRevStatus] = useState("all");
   // Filtros comissão
   const [commArtist, setCommArtist] = useState("all");
 
@@ -180,8 +181,26 @@ export default function FinanceiroProdutora() {
   const filteredRevenues = revenues.filter((r) => {
     if (filterArtist !== "all" && r.artist_id !== (filterArtist === "none" ? null : filterArtist)) return false;
     if (filterRevType !== "all" && r.tipo !== filterRevType) return false;
+    if (filterRevStatus !== "all" && (r.status ?? "recebido") !== filterRevStatus) return false;
     return true;
   });
+
+  // Cards aba receitas
+  const monthRef = monthRefOf(new Date());
+  const revsThisMonth = revenues.filter((r) => (r.data_recebimento ?? "").startsWith(monthRef));
+  const totalMonth = revsThisMonth.reduce((a, r) => a + Number(r.valor || 0), 0);
+  const streamingMonth = revsThisMonth.filter((r) => r.tipo === "streaming");
+  const totalStreaming = streamingMonth.reduce((a, r) => a + Number(r.valor || 0), 0);
+  const streamingArtists = new Set(streamingMonth.map((r) => r.artist_id).filter(Boolean)).size;
+  const sponsorshipsActive = revenues.filter((r) => r.tipo === "patrocinio");
+  const totalSponsorships = sponsorshipsActive.reduce((a, r) => a + Number(r.valor || 0), 0);
+  const otherTypes = ["licenciamento", "merch", "evento"];
+  const othersThisMonth = revsThisMonth.filter((r) => otherTypes.includes(r.tipo));
+  const totalOthers = othersThisMonth.reduce((a, r) => a + Number(r.valor || 0), 0);
+
+  const totalRecebido = filteredRevenues.filter((r) => (r.status ?? "recebido") === "recebido").reduce((a, r) => a + Number(r.valor || 0), 0);
+  const totalAReceber = filteredRevenues.filter((r) => r.status === "a_receber").reduce((a, r) => a + Number(r.valor || 0), 0);
+  const totalGeral = totalRecebido + totalAReceber;
 
   // Filtragem comissão
   const filteredCommissions = commissionsInPeriod.filter((c) =>
@@ -412,12 +431,44 @@ export default function FinanceiroProdutora() {
 
         {/* ===== Aba 2 — Receitas ===== */}
         <TabsContent value="revenues" className="space-y-4">
+          {/* Cards de resumo */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Total recebido este mês</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">{fmtBRL(totalMonth)}</div>
+                <p className="text-xs text-muted-foreground">{revsThisMonth.length} lançamento(s)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Streaming este mês</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">{fmtBRL(totalStreaming)}</div>
+                <p className="text-xs text-muted-foreground">{streamingArtists} artista(s)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Patrocínios</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{fmtBRL(totalSponsorships)}</div>
+                <p className="text-xs text-muted-foreground">{sponsorshipsActive.length} contrato(s)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Outras receitas (mês)</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{fmtBRL(totalOthers)}</div>
+                <p className="text-xs text-muted-foreground">Licenc. + Merch + Eventos</p>
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="flex flex-col md:flex-row md:items-end gap-3 justify-between">
             <div className="flex flex-wrap gap-3">
               <div>
                 <Label className="text-xs">Tipo</Label>
                 <Select value={filterRevType} onValueChange={setFilterRevType}>
-                  <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {REVENUE_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}
@@ -432,6 +483,17 @@ export default function FinanceiroProdutora() {
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="none">— Sem artista —</SelectItem>
                     {artists.map((a) => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={filterRevStatus} onValueChange={setFilterRevStatus}>
+                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="recebido">Recebido</SelectItem>
+                    <SelectItem value="a_receber">A receber</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -453,36 +515,50 @@ export default function FinanceiroProdutora() {
                       <th className="text-left py-2 px-3">Tipo</th>
                       <th className="text-left py-2 px-3">Descrição</th>
                       <th className="text-left py-2 px-3">Artista</th>
-                      <th className="text-left py-2 px-3">Distribuidora</th>
+                      <th className="text-left py-2 px-3">Distrib./Marca</th>
                       <th className="text-left py-2 px-3">Período</th>
                       <th className="text-right py-2 px-3">Valor</th>
+                      <th className="text-center py-2 px-3">Status</th>
                       {canManage && <th className="py-2 px-3"></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRevenues.length === 0 && (
-                      <tr><td colSpan={8} className="py-6 text-center text-muted-foreground">Sem receitas no período</td></tr>
+                      <tr><td colSpan={9} className="py-6 text-center text-muted-foreground">Sem receitas no período</td></tr>
                     )}
                     {filteredRevenues.map((r) => {
                       const m = revenueMeta(r.tipo);
+                      const isAuto = r.tipo === "comissao_shows";
+                      const distMarca = r.distribuidora ?? r.nome_marca ?? r.empresa_contratante ?? "—";
+                      const st = r.status ?? "recebido";
                       return (
                         <tr key={r.id} className="border-b hover:bg-muted/40">
                           <td className="py-1.5 px-3">{fmtDate(r.data_recebimento)}</td>
-                          <td className="py-1.5 px-3"><Badge variant="outline" className="text-xs">{m.icon} {m.label}</Badge></td>
+                          <td className="py-1.5 px-3">
+                            <Badge variant="outline" className={`text-xs ${m.color}`}>{m.icon} {m.label}</Badge>
+                            {isAuto && <span className="ml-1 text-[10px] text-muted-foreground">auto</span>}
+                          </td>
                           <td className="py-1.5 px-3">{r.descricao}</td>
                           <td className="py-1.5 px-3 text-muted-foreground">{artistName(r.artist_id)}</td>
-                          <td className="py-1.5 px-3">{r.distribuidora ?? "—"}</td>
+                          <td className="py-1.5 px-3">{distMarca}</td>
                           <td className="py-1.5 px-3">{r.periodo_referencia ?? "—"}</td>
                           <td className="py-1.5 px-3 text-right text-emerald-600 font-medium">{fmtBRL(r.valor)}</td>
+                          <td className="py-1.5 px-3 text-center">
+                            {st === "recebido"
+                              ? <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Recebido</Badge>
+                              : <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">A receber</Badge>}
+                          </td>
                           {canManage && (
                             <td className="py-1.5 px-3 text-right">
                               <div className="flex gap-1 justify-end">
-                                <Button size="icon" variant="ghost" onClick={() => { setEditRev(r); setRevOpen(true); }}>
+                                <Button size="icon" variant="ghost" onClick={() => { setEditRev(r); setRevOpen(true); }} title={isAuto ? "Visualizar" : "Editar"}>
                                   <Pencil className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button size="icon" variant="ghost" onClick={() => deleteRevenue(r.id)}>
-                                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                                </Button>
+                                {!isAuto && (
+                                  <Button size="icon" variant="ghost" onClick={() => deleteRevenue(r.id)}>
+                                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           )}
@@ -490,6 +566,25 @@ export default function FinanceiroProdutora() {
                       );
                     })}
                   </tbody>
+                  {filteredRevenues.length > 0 && (
+                    <tfoot className="border-t bg-muted/30 text-xs">
+                      <tr>
+                        <td colSpan={6} className="py-2 px-3 text-right font-medium">Total recebido:</td>
+                        <td className="py-2 px-3 text-right font-semibold text-emerald-600">{fmtBRL(totalRecebido)}</td>
+                        <td colSpan={canManage ? 2 : 1}></td>
+                      </tr>
+                      <tr>
+                        <td colSpan={6} className="py-2 px-3 text-right font-medium">Total a receber:</td>
+                        <td className="py-2 px-3 text-right font-semibold text-amber-600">{fmtBRL(totalAReceber)}</td>
+                        <td colSpan={canManage ? 2 : 1}></td>
+                      </tr>
+                      <tr>
+                        <td colSpan={6} className="py-2 px-3 text-right font-medium">Total geral:</td>
+                        <td className="py-2 px-3 text-right font-bold">{fmtBRL(totalGeral)}</td>
+                        <td colSpan={canManage ? 2 : 1}></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </CardContent>
