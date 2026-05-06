@@ -574,6 +574,288 @@ export type Database = {
           },
         ]
       }
+      producer_commission_balance: {
+        Row: {
+          artist_id: string
+          closing_id: string
+          comissao_descontada: number
+          comissao_vendedor: number
+          created_at: string
+          id: string
+          saldo_produtora: number
+          vendedor_id: string | null
+          vendedor_nome: string | null
+        }
+        Insert: {
+          artist_id: string
+          closing_id: string
+          comissao_descontada?: number
+          comissao_vendedor?: number
+          created_at?: string
+          id?: string
+          saldo_produtora?: number
+          vendedor_id?: string | null
+          vendedor_nome?: string | null
+        }
+        Update: {
+          artist_id?: string
+          closing_id?: string
+          comissao_descontada?: number
+          comissao_vendedor?: number
+          created_at?: string
+          id?: string
+          saldo_produtora?: number
+          vendedor_id?: string | null
+          vendedor_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_commission_balance_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_commission_balance_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_expenses: {
+        Row: {
+          beneficiario: string | null
+          cancelado_motivo: string | null
+          categoria: string
+          comprovante_path: string | null
+          created_at: string
+          created_by: string | null
+          data_vencimento: string | null
+          descricao: string
+          dia_vencimento: number | null
+          forma_pagamento: string | null
+          id: string
+          mes_referencia: string
+          observacoes: string | null
+          pago_em: string | null
+          pago_por: string | null
+          recorrente: boolean
+          recurring_id: string | null
+          status: string
+          updated_at: string
+          valor: number
+          valor_pago: number | null
+        }
+        Insert: {
+          beneficiario?: string | null
+          cancelado_motivo?: string | null
+          categoria: string
+          comprovante_path?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_vencimento?: string | null
+          descricao: string
+          dia_vencimento?: number | null
+          forma_pagamento?: string | null
+          id?: string
+          mes_referencia: string
+          observacoes?: string | null
+          pago_em?: string | null
+          pago_por?: string | null
+          recorrente?: boolean
+          recurring_id?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+          valor_pago?: number | null
+        }
+        Update: {
+          beneficiario?: string | null
+          cancelado_motivo?: string | null
+          categoria?: string
+          comprovante_path?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_vencimento?: string | null
+          descricao?: string
+          dia_vencimento?: number | null
+          forma_pagamento?: string | null
+          id?: string
+          mes_referencia?: string
+          observacoes?: string | null
+          pago_em?: string | null
+          pago_por?: string | null
+          recorrente?: boolean
+          recurring_id?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+          valor_pago?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_expenses_recurring_fk"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "producer_recurring_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_recurring_expenses: {
+        Row: {
+          ativo: boolean
+          beneficiario: string | null
+          categoria: string
+          created_at: string
+          descricao: string
+          dia_vencimento: number
+          forma_pagamento_padrao: string | null
+          id: string
+          observacoes: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          ativo?: boolean
+          beneficiario?: string | null
+          categoria: string
+          created_at?: string
+          descricao: string
+          dia_vencimento: number
+          forma_pagamento_padrao?: string | null
+          id?: string
+          observacoes?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          ativo?: boolean
+          beneficiario?: string | null
+          categoria?: string
+          created_at?: string
+          descricao?: string
+          dia_vencimento?: number
+          forma_pagamento_padrao?: string | null
+          id?: string
+          observacoes?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      producer_recurring_revenues: {
+        Row: {
+          artist_id: string | null
+          ativo: boolean
+          created_at: string
+          descricao: string
+          dia_recebimento: number | null
+          distribuidora: string | null
+          id: string
+          observacoes: string | null
+          tipo: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          artist_id?: string | null
+          ativo?: boolean
+          created_at?: string
+          descricao: string
+          dia_recebimento?: number | null
+          distribuidora?: string | null
+          id?: string
+          observacoes?: string | null
+          tipo: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          artist_id?: string | null
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          dia_recebimento?: number | null
+          distribuidora?: string | null
+          id?: string
+          observacoes?: string | null
+          tipo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_recurring_revenues_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_revenues: {
+        Row: {
+          artist_id: string | null
+          comprovante_path: string | null
+          created_at: string
+          created_by: string | null
+          data_recebimento: string
+          descricao: string
+          distribuidora: string | null
+          id: string
+          observacoes: string | null
+          periodo_referencia: string | null
+          recorrente: boolean
+          tipo: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          artist_id?: string | null
+          comprovante_path?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_recebimento: string
+          descricao: string
+          distribuidora?: string | null
+          id?: string
+          observacoes?: string | null
+          periodo_referencia?: string | null
+          recorrente?: boolean
+          tipo: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          artist_id?: string | null
+          comprovante_path?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_recebimento?: string
+          descricao?: string
+          distribuidora?: string | null
+          id?: string
+          observacoes?: string | null
+          periodo_referencia?: string | null
+          recorrente?: boolean
+          tipo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_revenues_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
