@@ -181,6 +181,7 @@ async function rejectShow(showId: string, diretorUserId: string | null, motivo: 
     `Minuta de ${artistNome} em ${show.data_show} foi rejeitada (via WhatsApp). Motivo: ${motivo}`,
     showId,
   );
+  await notifyVendedorWhatsApp(show, "rejeitada", motivo);
 }
 
 Deno.serve(async (req) => {
