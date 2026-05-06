@@ -62,6 +62,8 @@ const STATUS_BADGE: Record<string, string> = {
 export default function Pagamentos() {
   const { roles } = useAuth();
   const canManage = canManagePaymentOrders(roles);
+  const canExport = canViewPaymentOrders(roles);
+  const [openExport, setOpenExport] = useState(false);
 
   const [rows, setRows] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
