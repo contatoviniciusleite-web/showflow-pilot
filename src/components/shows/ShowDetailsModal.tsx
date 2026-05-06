@@ -364,9 +364,11 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </ErrorBoundary>
             </TabsContent>
           )}
-          <TabsContent value="historico">
-            <StatusHistoryTab showId={show.id} />
-          </TabsContent>
+          {(isManager || isDiretor || isFinanceiro) && (
+            <TabsContent value="historico">
+              <StatusHistoryTab showId={show.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>
