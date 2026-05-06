@@ -15,6 +15,7 @@ import {
   REVENUE_TYPES, EXPENSE_CATEGORIES, revenueMeta, expenseMeta, fmtBRL,
   monthRefOf, rangeForPreset, type PeriodPreset,
 } from "@/lib/producerFinance";
+import { getCategoria, getTipoDespesa } from "@/lib/expenseCategories";
 import { RevenueDialog } from "@/components/financeiro-produtora/RevenueDialog";
 import { ExpenseDialog } from "@/components/financeiro-produtora/ExpenseDialog";
 import { RecurringExpenseDialog } from "@/components/financeiro-produtora/RecurringExpenseDialog";
