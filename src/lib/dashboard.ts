@@ -72,7 +72,9 @@ export function inRange(dateIso: string, start: string, end: string) {
 const APPROVED_STATUSES = new Set([
   "aprovada",
   "aguardando_pagamento",
-  "comprovante_enviado",
+  "comprovante_enviado", // legado
+  "aguardando_dados",     // legado
+  "aguardando_contratante", // legado
   "confirmado",
 ]);
 
