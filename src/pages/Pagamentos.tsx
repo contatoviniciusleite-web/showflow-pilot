@@ -359,6 +359,16 @@ export default function Pagamentos() {
         orderIds={Array.from(selected)}
         onDone={load}
       />
+      <ExportPaymentOrdersDialog
+        open={openExport}
+        onOpenChange={setOpenExport}
+        groups={grouped.map(([closingId, g]) => ({ closingId, closing: g.closing, orders: g.orders as any }))}
+        filters={{
+          periodo: from || to ? `${from ? fmtDateBR(from) : "..."} a ${to ? fmtDateBR(to) : "..."}` : "Todos",
+          artista: filterArtist === "__all" ? "Todos" : (artists.find((a) => a.id === filterArtist)?.nome ?? "—"),
+          status: filterStatus === "__all" ? "Todos" : (filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)),
+        }}
+      />
     </div>
   );
 }
