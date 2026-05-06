@@ -668,6 +668,10 @@ Deno.serve(async (req) => {
       try {
         await notifyByRoles(sql, ["gerente", "financeiro"], "minuta_aprovada", "Minuta aprovada", msg, show.id);
       } catch (e) { console.error("notify gerente/financeiro (approve)", e); }
+      // WhatsApp para o Vendedor
+      try {
+        await sendVendedorWhatsApp(sql, supabaseUrl!, show, "aprovada");
+      } catch (e) { console.error("whatsapp vendedor (approve)", e); }
       return json({ show });
     }
 
