@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { AttachmentsTab } from "./AttachmentsTab";
+import { StatusHistoryTab } from "./StatusHistoryTab";
 import { PaymentsTab } from "./PaymentsTab";
 import { PaymentScheduleEditor } from "./PaymentScheduleEditor";
 import { useAuth } from "@/contexts/AuthContext";
@@ -231,6 +232,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
             {!isArtista && <TabsTrigger value="cronograma">Cronograma</TabsTrigger>}
             {!isArtista && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}
             {!isArtista && <TabsTrigger value="anexos">Anexos</TabsTrigger>}
+            <TabsTrigger value="historico">Histórico</TabsTrigger>
           </TabsList>
 
           <TabsContent value="geral" className="space-y-3 text-sm">
@@ -362,6 +364,9 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </ErrorBoundary>
             </TabsContent>
           )}
+          <TabsContent value="historico">
+            <StatusHistoryTab showId={show.id} />
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
