@@ -35,3 +35,8 @@ export const canViewPaymentOrders = (roles: AppRole[]) =>
   roles.includes("financeiro") || roles.includes("diretor");
 export const canManageFornecedores = (roles: AppRole[]) =>
   roles.includes("financeiro") || roles.includes("diretor");
+
+// Financeiro da Produtora
+export const canViewProducerFinance = (roles: AppRole[]) =>
+  roles.includes("financeiro") || roles.includes("diretor");
+export const canManageProducerFinance = (roles: AppRole[]) => roles.includes("financeiro");

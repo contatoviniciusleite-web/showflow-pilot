@@ -716,6 +716,12 @@ export default function FechamentoDetalhe() {
               .eq("id", inv.investment_id);
           }
         }
+
+        // Saldo de comissão da produtora
+        try {
+          const { recalcProducerCommissionBalance } = await import("@/lib/producerCommission");
+          await recalcProducerCommissionBalance(closing.id);
+        } catch (e) { console.error("recalcProducerCommissionBalance", e); }
       }
 
       toast.success(finalize ? "Fechamento finalizado" : "Rascunho salvo");

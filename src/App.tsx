@@ -35,6 +35,7 @@ const Fechamento = lazy(() => import("./pages/Fechamento"));
 const FechamentoDetalhe = lazy(() => import("./pages/FechamentoDetalhe"));
 const Pagamentos = lazy(() => import("./pages/Pagamentos"));
 const Fornecedores = lazy(() => import("./pages/Fornecedores"));
+const FinanceiroProdutora = lazy(() => import("./pages/FinanceiroProdutora"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -147,6 +148,14 @@ const App = () => (
                     element={
                       <ProtectedRoute requireRoles={["diretor", "financeiro"]}>
                         <ErrorBoundary label="Fornecedores"><Fornecedores /></ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/financeiro-produtora"
+                    element={
+                      <ProtectedRoute requireRoles={["diretor", "financeiro"]}>
+                        <ErrorBoundary label="FinanceiroProdutora"><FinanceiroProdutora /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
