@@ -1450,12 +1450,13 @@ Deno.serve(async (req) => {
       if (!found.length) return json({ error: "Show não encontrado" }, 404);
       const sh: any = found[0];
       if (!isManager && !isStaff && sh.created_by !== userId) return json({ error: "Acesso negado" }, 403);
-      if (sh.status !== "aguardando_contratante") return json({ error: "Esta minuta não está aguardando contratante." }, 400);
+      if (!sh.contratante_link_token && !["aprovada", "aguardando_contratante", "aguardando_dados"].includes(sh.status)) {
+        return json({ error: "Esta minuta não tem link ativo." }, 400);
+      }
       await sql`
         update public.shows set
           contratante_link_token = null,
           contratante_link_expires_at = null,
-          status = 'aguardando_dados'::show_status,
           updated_at = now()
         where id = ${body.id}
       `;
