@@ -4,7 +4,7 @@ import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { CompleteProfileBanner } from "@/components/CompleteProfileBanner";
-import { CheckCircle2, FileText, Wallet, TrendingUp } from "lucide-react";
+import { CheckCircle2, Clock, Wallet, TrendingUp } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { DashboardHeader } from "./DashboardHeader";
 import { WeekTimeline, type TimelineShow } from "./WeekTimeline";
@@ -19,6 +19,9 @@ interface ShowFull extends TimelineShow {
   contratante_link_expires_at?: string | null;
   contratante_link_preenchido?: boolean | null;
   dados_completos_em?: string | null;
+  prazo_comprovante_em?: string | null;
+  total_equipe?: number | null;
+  total_van?: number | null;
 }
 
 export function VendedorDashboard() {
@@ -39,29 +42,33 @@ export function VendedorDashboard() {
 
   const week = useMemo(() => getWeekRange(), []);
   const month = useMemo(() => getMonthRange(), []);
-  const today = new Date().toISOString().slice(0, 10);
+  const now = Date.now();
 
   const ownMes = own.filter(s => inRange(s.data_show, month.start, month.end));
   const confirmadosMes = ownMes.filter(s => s.status === "confirmado").length;
   const pendentesMinhas = own.filter(s => s.status === "pendente").length;
   const volumeMes = sumCache(ownMes.filter(s => isApprovedStatus(s.status)));
-  const comissao = volumeMes * 0.10;
+  const liquidoMes = ownMes
+    .filter(s => s.status === "confirmado")
+    .reduce((acc, s) => acc + (Number(s.cache_total ?? 0) - Number(s.total_equipe ?? 0) - Number(s.total_van ?? 0)), 0);
+  const comissao = liquidoMes * 0.10;
 
   const rejeitadas = own.filter(s => s.status === "rejeitada");
-  const aguardComp = own.filter(s => s.status === "aguardando_pagamento");
+  const compVencido = own.filter(s => s.status === "aguardando_pagamento" && s.prazo_comprovante_em && new Date(s.prazo_comprovante_em).getTime() < now);
   const linksExpirados = own.filter(s =>
     s.contratante_link_expires_at && !s.contratante_link_preenchido
-    && new Date(s.contratante_link_expires_at).getTime() < Date.now()
+    && new Date(s.contratante_link_expires_at).getTime() < now
   );
   const semDados = own.filter(s => s.status === "aprovada" && !s.dados_completos_em);
+  const confirmadosSemana = own.filter(s => inRange(s.data_show, week.start, week.end) && s.status === "confirmado");
 
   const pending: PendingItem[] = [];
   if (rejeitadas.length > 0) pending.push({ id: "rej", tone: "red", label: `${rejeitadas.length} minuta(s) rejeitada(s) aguardando correção`, href: "/shows" });
-  if (aguardComp.length > 0) pending.push({ id: "comp", tone: "amber", label: `${aguardComp.length} show(s) aguardando comprovante`, href: "/shows" });
+  if (compVencido.length > 0) pending.push({ id: "comp", tone: "red", label: `${compVencido.length} show(s) com prazo de comprovante vencido`, href: "/shows" });
   if (linksExpirados.length > 0) pending.push({ id: "lnk", tone: "amber", label: `${linksExpirados.length} link(s) do contratante expirado(s)`, href: "/shows" });
-  if (semDados.length > 0) pending.push({ id: "dad", tone: "blue", label: `${semDados.length} minuta(s) aprovada(s) sem dados completos`, href: "/shows" });
+  if (semDados.length > 0) pending.push({ id: "dad", tone: "amber", label: `${semDados.length} minuta(s) aprovada(s) sem dados completos`, href: "/shows" });
+  if (confirmadosSemana.length > 0) pending.push({ id: "conf", tone: "blue", label: `${confirmadosSemana.length} show(s) confirmado(s) esta semana`, href: "/shows" });
 
-  // Timeline: own + outros vendedores (mesmos artistas) — passamos todos os shows da semana
   const showsSemana = allShows.filter(s => inRange(s.data_show, week.start, week.end));
   const proximos = own.filter(s => s.data_show > week.end && s.status !== "cancelada")
     .sort((a, b) => a.data_show.localeCompare(b.data_show));
@@ -73,7 +80,13 @@ export function VendedorDashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Confirmados no mês" value={String(confirmadosMes)} icon={CheckCircle2} tone="green" />
-        <StatCard label="Minhas minutas pendentes" value={String(pendentesMinhas)} icon={FileText} tone="amber" />
+        <StatCard
+          label="Minutas pendentes"
+          value={String(pendentesMinhas)}
+          icon={Clock}
+          tone={pendentesMinhas > 0 ? "red" : "amber"}
+          highlight={pendentesMinhas > 0}
+        />
         <StatCard label="Volume de vendas (mês)" value={fmtBRL(volumeMes)} icon={Wallet} tone="blue" />
         <StatCard label="Comissão estimada" value={fmtBRL(comissao)} icon={TrendingUp} tone="green" hint="10% do líquido" />
       </div>
