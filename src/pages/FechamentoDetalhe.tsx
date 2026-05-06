@@ -722,9 +722,26 @@ export default function FechamentoDetalhe() {
           const { recalcProducerCommissionBalance } = await import("@/lib/producerCommission");
           await recalcProducerCommissionBalance(closing.id);
         } catch (e) { console.error("recalcProducerCommissionBalance", e); }
+
+        // Gerar ordens de pagamento automaticamente
+        let ordersOk = true;
+        try {
+          const { generatePaymentOrdersForClosing } = await import("@/lib/paymentOrders");
+          await generatePaymentOrdersForClosing(closing.id);
+        } catch (e) {
+          ordersOk = false;
+          console.error("generatePaymentOrdersForClosing", e);
+        }
+
+        if (ordersOk) {
+          toast.success("Fechamento finalizado! Ordens de pagamento geradas automaticamente.");
+        } else {
+          toast.warning("Fechamento finalizado, mas houve um erro ao gerar as ordens de pagamento. Acesse Pagamentos para verificar.");
+        }
+      } else {
+        toast.success("Rascunho salvo");
       }
 
-      toast.success(finalize ? "Fechamento finalizado" : "Rascunho salvo");
       setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]); setRemovedClipes([]);
       await load();
     } catch (e: any) {
@@ -743,6 +760,18 @@ export default function FechamentoDetalhe() {
       .eq("id", closing.id);
     setSaving(false);
     if (error) return toast.error(error.message);
+
+    // Cancelar ordens pendentes ao reabrir
+    try {
+      await supabase
+        .from("payment_orders")
+        .update({ status: "cancelado", motivo_cancelamento: "Fechamento reaberto para edição" })
+        .eq("closing_id", closing.id)
+        .in("status", ["pendente", "agendado"]);
+    } catch (e) {
+      console.error("cancelar ordens", e);
+    }
+
     toast.success("Fechamento reaberto");
     load();
   };
