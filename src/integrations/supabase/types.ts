@@ -917,51 +917,126 @@ export type Database = {
       producer_revenues: {
         Row: {
           artist_id: string | null
+          artista_vinculo: string | null
+          artistas_evento: Json | null
+          canal_venda: string | null
+          closing_id: string | null
           comprovante_path: string | null
           created_at: string
           created_by: string | null
+          custos_evento: number | null
           data_recebimento: string
           descricao: string
           distribuidora: string | null
+          empresa_contratante: string | null
           id: string
+          nome_evento: string | null
+          nome_marca: string | null
+          obra_licenciada: string | null
           observacoes: string | null
+          parcela_numero: number | null
+          parcela_total: number | null
+          periodo_licenca_fim: string | null
+          periodo_licenca_inicio: string | null
           periodo_referencia: string | null
+          plataformas: Json | null
+          projeto: string | null
+          quantidade: number | null
           recorrente: boolean
+          status: string | null
+          subcategoria: string | null
+          tags: string | null
           tipo: string
+          tipo_contrato: string | null
           updated_at: string
           valor: number
+          valor_bruto: number | null
+          valor_total_contrato: number | null
+          valor_unitario: number | null
+          vigencia_fim: string | null
+          vigencia_inicio: string | null
         }
         Insert: {
           artist_id?: string | null
+          artista_vinculo?: string | null
+          artistas_evento?: Json | null
+          canal_venda?: string | null
+          closing_id?: string | null
           comprovante_path?: string | null
           created_at?: string
           created_by?: string | null
+          custos_evento?: number | null
           data_recebimento: string
           descricao: string
           distribuidora?: string | null
+          empresa_contratante?: string | null
           id?: string
+          nome_evento?: string | null
+          nome_marca?: string | null
+          obra_licenciada?: string | null
           observacoes?: string | null
+          parcela_numero?: number | null
+          parcela_total?: number | null
+          periodo_licenca_fim?: string | null
+          periodo_licenca_inicio?: string | null
           periodo_referencia?: string | null
+          plataformas?: Json | null
+          projeto?: string | null
+          quantidade?: number | null
           recorrente?: boolean
+          status?: string | null
+          subcategoria?: string | null
+          tags?: string | null
           tipo: string
+          tipo_contrato?: string | null
           updated_at?: string
           valor?: number
+          valor_bruto?: number | null
+          valor_total_contrato?: number | null
+          valor_unitario?: number | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
         }
         Update: {
           artist_id?: string | null
+          artista_vinculo?: string | null
+          artistas_evento?: Json | null
+          canal_venda?: string | null
+          closing_id?: string | null
           comprovante_path?: string | null
           created_at?: string
           created_by?: string | null
+          custos_evento?: number | null
           data_recebimento?: string
           descricao?: string
           distribuidora?: string | null
+          empresa_contratante?: string | null
           id?: string
+          nome_evento?: string | null
+          nome_marca?: string | null
+          obra_licenciada?: string | null
           observacoes?: string | null
+          parcela_numero?: number | null
+          parcela_total?: number | null
+          periodo_licenca_fim?: string | null
+          periodo_licenca_inicio?: string | null
           periodo_referencia?: string | null
+          plataformas?: Json | null
+          projeto?: string | null
+          quantidade?: number | null
           recorrente?: boolean
+          status?: string | null
+          subcategoria?: string | null
+          tags?: string | null
           tipo?: string
+          tipo_contrato?: string | null
           updated_at?: string
           valor?: number
+          valor_bruto?: number | null
+          valor_total_contrato?: number | null
+          valor_unitario?: number | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
         }
         Relationships: [
           {
@@ -969,6 +1044,13 @@ export type Database = {
             columns: ["artist_id"]
             isOneToOne: false
             referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_revenues_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_closings"
             referencedColumns: ["id"]
           },
         ]
