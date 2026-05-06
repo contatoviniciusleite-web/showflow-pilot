@@ -143,9 +143,16 @@ export default function Pagamentos() {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold">Pagamentos</h1>
-        <p className="text-muted-foreground mt-1">Ordens de pagamento geradas a partir dos fechamentos finalizados.</p>
+      <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold">Pagamentos</h1>
+          <p className="text-muted-foreground mt-1">Ordens de pagamento geradas a partir dos fechamentos finalizados.</p>
+        </div>
+        {canExport && (
+          <Button variant="outline" onClick={() => setOpenExport(true)} className="gap-2">
+            <Download className="h-4 w-4" /> Exportar lista
+          </Button>
+        )}
       </div>
 
       {/* Filtros */}
