@@ -725,16 +725,21 @@ export default function FechamentoDetalhe() {
 
         // Gerar ordens de pagamento automaticamente
         let ordersOk = true;
+        let ordersResult: { created: number; keptPaid: number; keptCanceled: number } | null = null;
         try {
+          console.log("Iniciando geração de ordens para fechamento:", closing.id);
           const { generatePaymentOrdersForClosing } = await import("@/lib/paymentOrders");
-          await generatePaymentOrdersForClosing(closing.id);
+          ordersResult = await generatePaymentOrdersForClosing(closing.id);
+          console.log("Ordens geradas:", ordersResult);
         } catch (e) {
           ordersOk = false;
-          console.error("generatePaymentOrdersForClosing", e);
+          console.error("Erro detalhado ao gerar ordens de pagamento:", e);
         }
 
         if (ordersOk) {
-          toast.success("Fechamento finalizado! Ordens de pagamento geradas automaticamente.");
+          toast.success(
+            `Fechamento finalizado! ${ordersResult?.created ?? 0} ordem(ns) de pagamento gerada(s).`,
+          );
         } else {
           toast.warning("Fechamento finalizado, mas houve um erro ao gerar as ordens de pagamento. Acesse Pagamentos para verificar.");
         }
