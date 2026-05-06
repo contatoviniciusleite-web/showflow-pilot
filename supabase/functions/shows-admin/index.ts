@@ -505,11 +505,21 @@ Deno.serve(async (req) => {
           });
           const dataFmt = (() => {
             try {
-              const [y, m, d] = String(newShow.data_show).split("-");
-              return `${d}/${m}/${y}`;
+              const raw = newShow.data_show;
+              const iso = raw instanceof Date
+                ? raw.toISOString().slice(0, 10)
+                : String(raw).slice(0, 10);
+              const [y, m, d] = iso.split("-");
+              if (y && m && d) return `${d}/${m}/${y}`;
+              return String(raw);
             } catch { return String(newShow.data_show); }
           })();
-          const horaFmt = newShow.horario ? String(newShow.horario).slice(0, 5) : "—";
+          const horaFmt = (() => {
+            const h = newShow.horario;
+            if (!h) return "—";
+            if (h instanceof Date) return h.toISOString().slice(11, 16);
+            return String(h).slice(0, 5);
+          })();
           const descricao = `🎵 *ShowFlow — Stage*\n\nNova minuta aguardando sua aprovação!\n\n🎤 Artista: ${newShow.artist_nome ?? "—"}\n📍 Local: ${newShow.local ?? "—"}${newShow.cidade ? " — " + newShow.cidade : ""}\n📅 Data: ${dataFmt} às ${horaFmt}\n💰 Cachê: ${cacheFmt}\n👤 Vendedor: ${newShow.vendedor ?? "—"}\n\nResponda:\n*1* para APROVAR ✅\n*2* para REJEITAR ❌`;
 
           const wppUrl = `${supabaseUrl}/functions/v1/twilio-whatsapp`;
