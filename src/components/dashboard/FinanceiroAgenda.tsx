@@ -79,10 +79,10 @@ export function FinanceiroAgenda() {
   const filtered = useMemo(() => {
     return shows.filter((s) => {
       if (filterArtist !== "all" && s.artist_id !== filterArtist) return false;
-      if (filterStatuses.length > 0 && !filterStatuses.includes(effectiveStatus(s))) return false;
+      if (filterStatus !== "all" && effectiveStatus(s) !== filterStatus) return false;
       return true;
     });
-  }, [shows, filterArtist, filterStatuses]);
+  }, [shows, filterArtist, filterStatus]);
 
   const monthShows = useMemo(() => {
     const ym = format(month, "yyyy-MM");
