@@ -152,7 +152,7 @@ export function FinanceiroDashboard() {
       </div>
 
       <Suspense fallback={null}>
-        {active && <ShowDetailsModal show={active} open={!!active} onClose={() => setActive(null)} onChanged={() => showsQuery.refetch()} />}
+        {active && <ShowDetailsModal show={active} open={!!active} onClose={() => setActive(null)} onChanged={() => dataQuery.refetch()} />}
       </Suspense>
     </div>
   );
