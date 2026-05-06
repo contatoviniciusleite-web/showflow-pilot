@@ -709,6 +709,10 @@ Deno.serve(async (req) => {
         const msg = `Minuta de ${show.artist_nome ?? "show"} em ${show.data_show} foi rejeitada. Motivo: ${motivo}`;
         await notifyByRoles(sql, ["gerente"], "minuta_rejeitada", "Minuta rejeitada", msg, show.id);
       } catch (e) { console.error("notify gerente (reject)", e); }
+      // WhatsApp para o Vendedor
+      try {
+        await sendVendedorWhatsApp(sql, supabaseUrl!, show, "rejeitada", motivo);
+      } catch (e) { console.error("whatsapp vendedor (reject)", e); }
       return json({ ok: true, show });
     }
 
