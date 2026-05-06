@@ -36,7 +36,7 @@ import {
 } from "@/components/shows/ShowsFilters";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
-type ShowStatus = "pendente" | "rejeitada" | "aguardando_dados" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
+type ShowStatus = "pendente" | "rejeitada" | "aprovada" | "aguardando_pagamento" | "confirmado" | "cancelada";
 interface Show {
   id: string;
   artist_id: string;
@@ -374,7 +374,7 @@ export default function Shows() {
       setLinkData({
         token: sh.contratante_link_token,
         expiresAt: sh.contratante_link_expires_at,
-        show: { ...editing, status: "aguardando_contratante" } as Show,
+        show: { ...editing, status: "aprovada" } as Show,
       });
       setLinkOpen(true);
       load();
@@ -501,7 +501,7 @@ export default function Shows() {
   const cacheBelowMin = cacheMin > 0 && Number(form.cache_total) > 0 && Number(form.cache_total) < cacheMin;
 
   // Modo do formulário: básico (criação ou edição em pendente/rejeitada) ou completo (etapa 3+).
-  const isCompleteMode = !!editing && ["aprovada", "aguardando_dados", "aguardando_contratante", "aguardando_pagamento", "comprovante_enviado", "confirmado"].includes(editing.status);
+  const isCompleteMode = !!editing && ["aprovada", "aguardando_pagamento", "confirmado"].includes(editing.status);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -537,7 +537,7 @@ export default function Shows() {
       //  - nova minuta: create
       let action: "create" | "update" | "complete_data";
       if (!editing) action = "create";
-      else if (["aprovada", "aguardando_dados", "aguardando_contratante"].includes(editing.status)) action = "complete_data";
+      else if (editing.status === "aprovada") action = "complete_data";
       else action = "update";
 
       const { data: saveData, error } = await supabase.functions.invoke("shows-admin", {
@@ -919,12 +919,12 @@ export default function Shows() {
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {(s.status === "aprovada" || s.status === "aguardando_dados") && (s.created_by === user?.id || isEditor) && (
+                  {s.status === "aprovada" && (s.created_by === user?.id || isEditor) && (
                     <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => openEdit(s)} title="Completar dados">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  {isEditor && s.status !== "cancelada" && s.status !== "aprovada" && s.status !== "aguardando_dados" && (
+                  {isEditor && s.status !== "cancelada" && s.status !== "aprovada" && (
                     <Button size="sm" variant="outline" onClick={() => openEdit(s)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                   )}
                   {isManager && s.status !== "cancelada" && (
@@ -1319,7 +1319,7 @@ export default function Shows() {
 
             <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              {(!editing || editing.status === "pendente" || editing.status === "aguardando_contratante") && (
+              {(!editing || editing.status === "pendente" || editing.status === "aprovada") && (
                 <Button
                   type="button"
                   variant="secondary"

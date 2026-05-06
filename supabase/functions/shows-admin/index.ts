@@ -661,7 +661,7 @@ Deno.serve(async (req) => {
       const sh0: any = owner[0];
       const isOwner = sh0.created_by === userId;
       if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
-      if (!["aprovada", "aguardando_dados", "aguardando_contratante", "pendente"].includes(sh0.status) && !isEditor) {
+      if (!["aprovada", "pendente"].includes(sh0.status) && !isEditor) {
         return json({ error: "Esta minuta não está aguardando dados completos." }, 400);
       }
 
@@ -1426,7 +1426,7 @@ Deno.serve(async (req) => {
       const sh0: any = found[0];
       const isOwner = sh0.created_by === userId;
       if (!isOwner && !isEditor) return json({ error: "Acesso negado" }, 403);
-      if (!["aprovada", "aguardando_dados", "aguardando_contratante"].includes(sh0.status)) {
+      if (!["aprovada"].includes(sh0.status)) {
         return json({ error: "A minuta precisa estar aprovada para gerar um link." }, 400);
       }
 
