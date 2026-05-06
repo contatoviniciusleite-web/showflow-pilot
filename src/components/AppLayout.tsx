@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2, Crown, FileSpreadsheet, Wallet, Truck, Briefcase, MessageCircle, Sparkles } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2, Crown, FileSpreadsheet, Wallet, Truck, Briefcase, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
@@ -26,7 +26,6 @@ const prefetchers: Record<string, () => Promise<unknown>> = {
   "/bloqueios": () => import("@/pages/Bloqueios"),
   "/usuarios": () => import("@/pages/Usuarios"),
   "/fechamento": () => import("@/pages/Fechamento"),
-  "/assistente": () => import("@/pages/Assistente"),
 };
 const prefetched = new Set<string>();
 function prefetchRoute(path: string) {
@@ -37,7 +36,6 @@ function prefetchRoute(path: string) {
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
-  { to: "/assistente", label: "Assistente IA", icon: Sparkles, roles: ["diretor", "gerente", "financeiro", "vendedor", "artista", "equipe"] },
   { to: "/agenda", label: "Agenda", icon: Calendar, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/shows", label: "Shows", icon: ListMusic, roles: ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["diretor", "gerente", "equipe", "artista", "financeiro"] },
