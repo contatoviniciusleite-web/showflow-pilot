@@ -22,10 +22,10 @@ export default function AgendaPage() {
         : "Calendário unificado dos artistas.";
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto">
-      <div className="mb-6">
+    <div className="p-4 md:p-6 max-w-[1400px] mx-auto">
+      <div className="mb-4">
         <h1 className="text-2xl md:text-3xl font-semibold">Agenda</h1>
-        <p className="text-muted-foreground mt-1">{subtitle}</p>
+        <p className="text-muted-foreground mt-1 text-sm">{subtitle}</p>
       </div>
       {fullView ? <FinanceiroAgenda /> : <VendedorAgenda />}
     </div>
