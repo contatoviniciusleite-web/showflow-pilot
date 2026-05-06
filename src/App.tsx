@@ -37,6 +37,7 @@ const Pagamentos = lazy(() => import("./pages/Pagamentos"));
 const Fornecedores = lazy(() => import("./pages/Fornecedores"));
 const FinanceiroProdutora = lazy(() => import("./pages/FinanceiroProdutora"));
 const WhatsappTest = lazy(() => import("./pages/admin/WhatsappTest"));
+const Assistente = lazy(() => import("./pages/Assistente"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -208,6 +209,14 @@ const App = () => (
                     }
                   />
                   <Route path="/perfil" element={<ErrorBoundary label="Perfil"><Perfil /></ErrorBoundary>} />
+                  <Route
+                    path="/assistente"
+                    element={
+                      <ProtectedRoute requireRoles={["diretor", "gerente", "financeiro", "vendedor", "artista", "equipe"]}>
+                        <ErrorBoundary label="Assistente"><Assistente /></ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/admin/whatsapp-test"
                     element={
