@@ -96,7 +96,7 @@ export function RecurringExpenseDialog({
               <Select value={categoria} onValueChange={setCategoria}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {EXPENSE_CATEGORIES.map((c) => (
+                  {EXPENSE_CATEGORIES_V2.map((c) => (
                     <SelectItem key={c.value} value={c.value}>{c.icon} {c.label}</SelectItem>
                   ))}
                 </SelectContent>
