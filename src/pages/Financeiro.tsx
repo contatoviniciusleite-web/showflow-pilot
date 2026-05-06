@@ -179,21 +179,20 @@ export default function Financeiro() {
       const eff = effectiveStatus(s);
       if (eff === "cancelada") continue;
       const restante = Math.max(0, Number(s.cache_total) - Number(s.total_pago));
-      if (eff === "confirmado" || eff === "aguardando_pagamento" || eff === "comprovante_enviado" || eff === "atrasado") {
+      if (eff === "confirmado" || eff === "aguardando_pagamento" || eff === "atrasado") {
         aReceber += restante;
       }
       if (s.data_show && s.data_show.startsWith(monthIso)) {
         recebidoMes += Number(s.total_pago);
       }
       if (eff === "aguardando_pagamento") aguardandoPag += 1;
-      if (eff === "comprovante_enviado") aguardandoConfirmacao += 1;
       if (eff === "atrasado") atrasados += 1;
     }
     return { aReceber, recebidoMes, aguardandoPag, aguardandoConfirmacao, atrasados };
   }, [shows, monthIso]);
 
   // Previsão sobre o período filtrado
-  const previsaoStatuses = new Set(["confirmado", "aguardando_pagamento", "comprovante_enviado", "atrasado"]);
+  const previsaoStatuses = new Set(["confirmado", "aguardando_pagamento", "atrasado"]);
   const periodStats = useMemo(() => {
     let totalShows = 0;
     let cacheTotal = 0;
