@@ -232,7 +232,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
             {!isArtista && <TabsTrigger value="cronograma">Cronograma</TabsTrigger>}
             {!isArtista && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}
             {!isArtista && <TabsTrigger value="anexos">Anexos</TabsTrigger>}
-            <TabsTrigger value="historico">Histórico</TabsTrigger>
+            {(isManager || isDiretor || isFinanceiro) && <TabsTrigger value="historico">Histórico</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="geral" className="space-y-3 text-sm">
@@ -364,9 +364,11 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </ErrorBoundary>
             </TabsContent>
           )}
-          <TabsContent value="historico">
-            <StatusHistoryTab showId={show.id} />
-          </TabsContent>
+          {(isManager || isDiretor || isFinanceiro) && (
+            <TabsContent value="historico">
+              <StatusHistoryTab showId={show.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>
