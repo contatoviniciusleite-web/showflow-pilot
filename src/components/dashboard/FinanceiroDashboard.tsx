@@ -25,80 +25,100 @@ export function FinanceiroDashboard() {
   const { displayName } = useProfile();
   const [active, setActive] = useState<any>(null);
 
-  const showsQuery = useQuery({
-    queryKey: ["dash-fin-shows"],
-    queryFn: async () => {
-      const r = await supabase.functions.invoke("shows-admin", { body: { action: "list" } });
-      return (r.data?.shows ?? []) as ShowFull[];
-    },
-  });
-  const ordersQuery = useQuery({
-    queryKey: ["dash-fin-orders"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("payment_orders")
-        .select("id, valor, valor_pago, status, data_sugerida, data_pagamento");
-      return data ?? [];
-    },
-  });
-  const expensesQuery = useQuery({
-    queryKey: ["dash-fin-expenses"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("producer_expenses")
-        .select("id, valor, status, data_vencimento");
-      return data ?? [];
-    },
-  });
-  const closingsQuery = useQuery({
-    queryKey: ["dash-fin-closings"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("weekly_closings")
-        .select("id, status")
-        .neq("status", "finalizado");
-      return data ?? [];
-    },
-  });
-
-  const shows = showsQuery.data ?? [];
-  const orders = ordersQuery.data ?? [];
-  const expenses = expensesQuery.data ?? [];
-
-  useRealtimeInvalidate({ channel: "dash-fin", tables: ["shows", "payment_orders"], queryKeys: [["dash-fin-shows"], ["dash-fin-orders"]], debounceMs: 400 });
-
   const week = useMemo(() => getWeekRange(), []);
   const month = useMemo(() => getMonthRange(), []);
   const today = new Date().toISOString().slice(0, 10);
+  const in3 = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 10);
   const in7 = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+  const dataQuery = useQuery({
+    queryKey: ["dash-fin-all"],
+    queryFn: async () => {
+      const [showsRes, ordersRes, expensesRes, closingsRes] = await Promise.all([
+        supabase.functions.invoke("shows-admin", { body: { action: "list" } }),
+        supabase
+          .from("payment_orders")
+          .select("id, valor, valor_pago, status, data_sugerida, data_pagamento, pago_em"),
+        supabase
+          .from("producer_expenses")
+          .select("id, valor, status, data_vencimento"),
+        supabase
+          .from("weekly_closings")
+          .select("id, status")
+          .neq("status", "finalizado"),
+      ]);
+      return {
+        shows: (showsRes.data?.shows ?? []) as ShowFull[],
+        orders: ordersRes.data ?? [],
+        expenses: expensesRes.data ?? [],
+        closings: closingsRes.data ?? [],
+      };
+    },
+  });
+
+  const shows = dataQuery.data?.shows ?? [];
+  const orders = dataQuery.data?.orders ?? [];
+  const expenses = dataQuery.data?.expenses ?? [];
+  const closings = dataQuery.data?.closings ?? [];
+
+  useRealtimeInvalidate({
+    channel: "dash-fin",
+    tables: ["shows", "payment_orders", "producer_expenses", "weekly_closings"],
+    queryKeys: [["dash-fin-all"]],
+    debounceMs: 400,
+  });
 
   const showsSemana = shows.filter((s) => inRange(s.data_show, week.start, week.end));
-  const aReceberSemana = sumCache(showsSemana.filter((s) => s.status === "aguardando_pagamento" || s.status === "confirmado"));
+  // Card 1: A receber esta semana = SUM(cache_total - total_pago) WHERE status='confirmado'
+  const aReceberSemana = showsSemana
+    .filter((s) => s.status === "confirmado")
+    .reduce((acc, s) => acc + (Number(s.cache_total ?? 0) - Number((s as any).total_pago ?? 0)), 0);
 
+  // Card 2: ordens pendentes/agendadas
   const ordensPendentes = orders.filter((o: any) => o.status === "pendente" || o.status === "agendado");
-  const ordensVencidasHoje = ordensPendentes.filter((o: any) => o.data_sugerida && o.data_sugerida <= today);
+  // Vencidas hoje (data_pagamento < hoje OU data_sugerida <= hoje, sem pagamento)
+  const ordensVencidasHoje = ordensPendentes.filter(
+    (o: any) => (o.data_pagamento && o.data_pagamento < today) || (o.data_sugerida && o.data_sugerida < today),
+  );
+
+  // Card 4: Total pago no mês — SUM(valor_pago) WHERE status='pago' AND pago_em no mês
   const totalPagoMes = orders
-    .filter((o: any) => o.status === "pago" && o.data_pagamento && inRange(o.data_pagamento, month.start, month.end))
+    .filter((o: any) => {
+      if (o.status !== "pago") return false;
+      const ref = (o.pago_em ? String(o.pago_em).slice(0, 10) : null) || o.data_pagamento;
+      return ref && inRange(ref, month.start, month.end);
+    })
     .reduce((acc: number, o: any) => acc + Number(o.valor_pago ?? o.valor ?? 0), 0);
 
+  // Card 3: Despesas a vencer em 7 dias (pendente)
   const despesasProx7 = expenses.filter(
     (e: any) => e.status === "pendente" && e.data_vencimento && e.data_vencimento >= today && e.data_vencimento <= in7,
   );
   const despesasProx7Total = despesasProx7.reduce((a: number, e: any) => a + Number(e.valor ?? 0), 0);
+
+  // Pending actions reais
+  const despesasProx3 = expenses.filter(
+    (e: any) => e.status === "pendente" && e.data_vencimento && e.data_vencimento >= today && e.data_vencimento <= in3,
+  );
   const despesasVencidas = expenses.filter(
     (e: any) => e.status === "pendente" && e.data_vencimento && e.data_vencimento < today,
   );
 
   const comprovantesAguard = shows.filter((s) => s.status === "aguardando_pagamento" && (s as any).comprovante_enviado_em);
-  const fechamentosAbertos = (closingsQuery.data ?? []).length;
+  const fechamentosAbertos = closings.length;
+  const contratosPendAntigos = shows.filter(
+    (s) => s.status === "pendente" && s.created_at && s.created_at.slice(0, 10) <= sevenDaysAgo,
+  );
 
   const pending: PendingItem[] = [];
   if (ordensVencidasHoje.length > 0) pending.push({ id: "o-venc", tone: "red", label: `${ordensVencidasHoje.length} ordem(ns) de pagamento vencida(s)`, href: "/pagamentos" });
-  if (comprovantesAguard.length > 0) pending.push({ id: "comp", tone: "amber", label: `${comprovantesAguard.length} comprovante(s) aguardando confirmação`, href: "/financeiro" });
-  if (despesasVencidas.length > 0) pending.push({ id: "desp", tone: "red", label: `${despesasVencidas.length} despesa(s) da produtora vencida(s)`, href: "/financeiro-produtora" });
-  if (fechamentosAbertos > 0) pending.push({ id: "fec", tone: "blue", label: `${fechamentosAbertos} fechamento(s) para finalizar`, href: "/fechamento" });
-  const contratosPend = shows.filter((s) => s.status === "pendente").length;
-  if (contratosPend > 0) pending.push({ id: "ctr", tone: "blue", label: `${contratosPend} contrato(s) pendente(s)`, href: "/shows" });
+  if (comprovantesAguard.length > 0) pending.push({ id: "comp", tone: "red", label: `${comprovantesAguard.length} comprovante(s) aguardando confirmação`, href: "/financeiro" });
+  if (despesasVencidas.length > 0) pending.push({ id: "desp-venc", tone: "red", label: `${despesasVencidas.length} despesa(s) da produtora vencida(s)`, href: "/financeiro-produtora" });
+  if (despesasProx3.length > 0) pending.push({ id: "desp-3d", tone: "amber", label: `${despesasProx3.length} despesa(s) vencendo em 3 dias`, href: "/financeiro-produtora" });
+  if (fechamentosAbertos > 0) pending.push({ id: "fec", tone: "amber", label: `${fechamentosAbertos} fechamento(s) não finalizado(s)`, href: "/fechamento" });
+  if (contratosPendAntigos.length > 0) pending.push({ id: "ctr", tone: "blue", label: `${contratosPendAntigos.length} contrato(s) pendente(s) há +7 dias`, href: "/shows" });
+
 
   const artists = useMemo(() => {
     const m = new Map<string, string>();
