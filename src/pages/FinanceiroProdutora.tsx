@@ -15,6 +15,7 @@ import {
   REVENUE_TYPES, EXPENSE_CATEGORIES, revenueMeta, expenseMeta, fmtBRL,
   monthRefOf, rangeForPreset, type PeriodPreset,
 } from "@/lib/producerFinance";
+import { getCategoria, getTipoDespesa } from "@/lib/expenseCategories";
 import { RevenueDialog } from "@/components/financeiro-produtora/RevenueDialog";
 import { ExpenseDialog } from "@/components/financeiro-produtora/ExpenseDialog";
 import { RecurringExpenseDialog } from "@/components/financeiro-produtora/RecurringExpenseDialog";
@@ -222,6 +223,27 @@ export default function FinanceiroProdutora() {
       .update({ status: "cancelado", cancelado_motivo: motivo }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Despesa cancelada");
+    load();
+  };
+
+  const deleteExpense = async (x: any) => {
+    if (x.parcela_grupo_id) {
+      const total = expenses.filter((e) => e.parcela_grupo_id === x.parcela_grupo_id).length;
+      const all = confirm(
+        `Esta despesa faz parte de um parcelamento (${total} parcelas).\n\n` +
+        `OK = excluir TODAS as ${total} parcelas\nCancelar = manter`
+      );
+      if (!all) return;
+      const { error } = await supabase.from("producer_expenses" as any)
+        .delete().eq("parcela_grupo_id", x.parcela_grupo_id);
+      if (error) return toast.error(error.message);
+      toast.success(`${total} parcelas excluídas`);
+    } else {
+      if (!confirm("Excluir esta despesa?")) return;
+      const { error } = await supabase.from("producer_expenses" as any).delete().eq("id", x.id);
+      if (error) return toast.error(error.message);
+      toast.success("Despesa excluída");
+    }
     load();
   };
 
@@ -581,7 +603,9 @@ export default function FinanceiroProdutora() {
                     <tr>
                       <th className="text-left py-2 px-3">Vencimento</th>
                       <th className="text-left py-2 px-3">Categoria</th>
+                      <th className="text-left py-2 px-3">Tipo</th>
                       <th className="text-left py-2 px-3">Descrição</th>
+                      <th className="text-center py-2 px-3">Parcela</th>
                       <th className="text-right py-2 px-3">Valor</th>
                       <th className="text-center py-2 px-3">Status</th>
                       {canManage && <th className="py-2 px-3"></th>}
@@ -589,18 +613,34 @@ export default function FinanceiroProdutora() {
                   </thead>
                   <tbody>
                     {monthExpenses.length === 0 && (
-                      <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">Sem despesas neste mês</td></tr>
+                      <tr><td colSpan={8} className="py-6 text-center text-muted-foreground">Sem despesas neste mês</td></tr>
                     )}
                     {monthExpenses.map((x) => {
-                      const m = expenseMeta(x.categoria);
+                      const catNew = getCategoria(x.categoria);
+                      const catLegacy = expenseMeta(x.categoria);
+                      const tipo = getTipoDespesa(x.tipo_despesa);
                       return (
                         <tr key={x.id} className="border-b hover:bg-muted/40">
                           <td className="py-1.5 px-3">{fmtDate(x.data_vencimento)}</td>
-                          <td className="py-1.5 px-3">{m.icon} {m.label}</td>
+                          <td className="py-1.5 px-3">
+                            {catNew ? (
+                              <Badge variant="outline" className={`text-xs ${catNew.badgeClass}`}>
+                                {catNew.icon} {catNew.label}
+                              </Badge>
+                            ) : (
+                              <span>{catLegacy.icon} {catLegacy.label}</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-3">
+                            <Badge variant="outline" className={`text-[10px] ${tipo.badgeClass}`}>{tipo.label}</Badge>
+                          </td>
                           <td className="py-1.5 px-3">
                             {x.descricao}
                             {x.beneficiario && <span className="text-muted-foreground"> — {x.beneficiario}</span>}
                             {x.recorrente && <Badge variant="outline" className="ml-2 text-[10px]">recorrente</Badge>}
+                          </td>
+                          <td className="py-1.5 px-3 text-center text-xs text-muted-foreground">
+                            {x.parcelado && x.numero_parcela ? `${x.numero_parcela}/${x.total_parcelas}` : "—"}
                           </td>
                           <td className="py-1.5 px-3 text-right">{fmtBRL(x.valor_pago ?? x.valor)}</td>
                           <td className="py-1.5 px-3 text-center">{statusBadge(x.status)}</td>
@@ -620,6 +660,9 @@ export default function FinanceiroProdutora() {
                                     </Button>
                                   </>
                                 )}
+                                <Button size="icon" variant="ghost" onClick={() => deleteExpense(x)}>
+                                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                                </Button>
                               </div>
                             </td>
                           )}
