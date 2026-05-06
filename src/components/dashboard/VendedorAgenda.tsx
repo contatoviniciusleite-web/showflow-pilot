@@ -59,7 +59,7 @@ export function VendedorAgenda() {
   const [own, setOwn] = useState<OwnShow[]>([]);
   const [outras, setOutras] = useState<PublicShow[]>([]);
   const [filterArtist, setFilterArtist] = useState<string>("all");
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [month, setMonth] = useState<Date>(new Date());
   const [openDay, setOpenDay] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
