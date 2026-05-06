@@ -13,7 +13,8 @@ import { Plus, MapPin, Clock, Users } from "lucide-react";
 import { ptBR } from "date-fns/locale";
 import { format } from "date-fns";
 import { STATUS_CLASS, STATUS_LABEL, ShowStatus } from "@/lib/showStatus";
-import { MonthCalendar, STATUS_COLORS, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { MonthCalendar, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { StatusFilter } from "@/components/agenda/StatusFilter";
 
 interface Artist {
   id: string;
