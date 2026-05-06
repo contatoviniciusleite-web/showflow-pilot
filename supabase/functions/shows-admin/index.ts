@@ -485,6 +485,53 @@ Deno.serve(async (req) => {
         const msg = `Nova minuta de ${newShow.artist_nome ?? "—"} em ${newShow.local ?? "local"} dia ${newShow.data_show} aguardando sua aprovação.`;
         await notifyByRoles(sql, ["diretor"], "minuta_pendente", titulo, msg, newShow.id);
       } catch (e) { console.error("notify diretor (create)", e); }
+
+      // WhatsApp para o Diretor (aprovação via 1/2)
+      try {
+        const diretorRows = await sql`
+          select p.id, p.nome, p.telefone
+          from public.user_roles ur
+          join public.profiles p on p.id = ur.user_id
+          where ur.role = 'diretor'::app_role
+            and p.telefone is not null
+          limit 1
+        `;
+        const diretor: any = diretorRows[0];
+        if (diretor?.telefone) {
+          const digits = String(diretor.telefone).replace(/\D/g, "");
+          const to = digits.startsWith("55") ? `+${digits}` : `+55${digits}`;
+          const cacheFmt = Number(newShow.cache_total ?? 0).toLocaleString("pt-BR", {
+            style: "currency", currency: "BRL",
+          });
+          const dataFmt = (() => {
+            try {
+              const [y, m, d] = String(newShow.data_show).split("-");
+              return `${d}/${m}/${y}`;
+            } catch { return String(newShow.data_show); }
+          })();
+          const horaFmt = newShow.horario ? String(newShow.horario).slice(0, 5) : "—";
+          const descricao = `🎵 *ShowFlow — Stage*\n\nNova minuta aguardando sua aprovação!\n\n🎤 Artista: ${newShow.artist_nome ?? "—"}\n📍 Local: ${newShow.local ?? "—"}${newShow.cidade ? " — " + newShow.cidade : ""}\n📅 Data: ${dataFmt} às ${horaFmt}\n💰 Cachê: ${cacheFmt}\n👤 Vendedor: ${newShow.vendedor ?? "—"}\n\nResponda:\n*1* para APROVAR ✅\n*2* para REJEITAR ❌`;
+
+          const wppUrl = `${supabaseUrl}/functions/v1/twilio-whatsapp`;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          await fetch(wppUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({
+              to,
+              message: descricao,
+              action_type: "aprovacao_minuta",
+              show_id: newShow.id,
+              user_id: diretor.id,
+              descricao: `Minuta ${newShow.artist_nome ?? ""} — ${dataFmt}`,
+            }),
+          });
+        }
+      } catch (e) { console.error("whatsapp diretor (create)", e); }
+
       return json({ show: newShow });
     }
 
