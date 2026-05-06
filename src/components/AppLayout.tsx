@@ -49,6 +49,7 @@ const nav = [
   { to: "/artistas", label: "Artistas", icon: Music2, roles: ["diretor", "gerente"] },
   { to: "/bloqueios", label: "Bloqueios", icon: Ban, roles: ["diretor", "gerente"] },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["diretor", "gerente"] },
+  { to: "/admin/whatsapp-test", label: "WhatsApp (teste)", icon: MessageCircle, roles: ["diretor"] },
 ] as const;
 
 export function AppLayout() {
