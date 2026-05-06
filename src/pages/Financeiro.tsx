@@ -254,7 +254,7 @@ export default function Financeiro() {
     return d >= today && d <= in7 && eff !== "cancelada" && eff !== "confirmado";
   });
   const atrasados = shows.filter((s) => effectiveStatus(s) === "atrasado");
-  const aguardandoConfirm = shows.filter((s) => effectiveStatus(s) === "comprovante_enviado");
+  const aguardandoConfirm = shows.filter((s) => effectiveStatus(s) === "aguardando_pagamento" && Number(s.total_pago) > 0);
 
   // Agrupar por mês para a tabela quando o período cobre múltiplos meses
   const grouped = useMemo(() => {
