@@ -13,7 +13,8 @@ import { format } from "date-fns";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
-import { MonthCalendar, STATUS_COLORS, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { MonthCalendar, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+import { StatusFilter } from "@/components/agenda/StatusFilter";
 
 const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 
