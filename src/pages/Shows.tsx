@@ -374,7 +374,7 @@ export default function Shows() {
       setLinkData({
         token: sh.contratante_link_token,
         expiresAt: sh.contratante_link_expires_at,
-        show: { ...editing, status: "aguardando_contratante" } as Show,
+        show: { ...editing, status: "aprovada" } as Show,
       });
       setLinkOpen(true);
       load();
