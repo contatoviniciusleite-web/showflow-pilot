@@ -1,0 +1,22 @@
+
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS subcategoria text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS tipo_despesa text DEFAULT 'custo_operacional';
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS artist_id uuid REFERENCES public.artists(id);
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS projeto text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS centro_custo text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS parcelado boolean DEFAULT false;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS total_parcelas integer;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS numero_parcela integer;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS parcela_grupo_id uuid;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS banco text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS agencia text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS conta text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS tipo_conta text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS chave_pix text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS tipo_chave_pix text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS departamento text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS tipo_contrato text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS cpf_cnpj text;
+ALTER TABLE public.producer_expenses ADD COLUMN IF NOT EXISTS tags text;
+CREATE INDEX IF NOT EXISTS idx_producer_expenses_parcela_grupo ON public.producer_expenses(parcela_grupo_id);
+CREATE INDEX IF NOT EXISTS idx_producer_expenses_artist ON public.producer_expenses(artist_id);

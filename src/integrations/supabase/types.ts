@@ -627,75 +627,139 @@ export type Database = {
       }
       producer_expenses: {
         Row: {
+          agencia: string | null
+          artist_id: string | null
+          banco: string | null
           beneficiario: string | null
           cancelado_motivo: string | null
           categoria: string
+          centro_custo: string | null
+          chave_pix: string | null
           comprovante_path: string | null
+          conta: string | null
+          cpf_cnpj: string | null
           created_at: string
           created_by: string | null
           data_vencimento: string | null
+          departamento: string | null
           descricao: string
           dia_vencimento: number | null
           forma_pagamento: string | null
           id: string
           mes_referencia: string
+          numero_parcela: number | null
           observacoes: string | null
           pago_em: string | null
           pago_por: string | null
+          parcela_grupo_id: string | null
+          parcelado: boolean | null
+          projeto: string | null
           recorrente: boolean
           recurring_id: string | null
           status: string
+          subcategoria: string | null
+          tags: string | null
+          tipo_chave_pix: string | null
+          tipo_conta: string | null
+          tipo_contrato: string | null
+          tipo_despesa: string | null
+          total_parcelas: number | null
           updated_at: string
           valor: number
           valor_pago: number | null
         }
         Insert: {
+          agencia?: string | null
+          artist_id?: string | null
+          banco?: string | null
           beneficiario?: string | null
           cancelado_motivo?: string | null
           categoria: string
+          centro_custo?: string | null
+          chave_pix?: string | null
           comprovante_path?: string | null
+          conta?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
           created_by?: string | null
           data_vencimento?: string | null
+          departamento?: string | null
           descricao: string
           dia_vencimento?: number | null
           forma_pagamento?: string | null
           id?: string
           mes_referencia: string
+          numero_parcela?: number | null
           observacoes?: string | null
           pago_em?: string | null
           pago_por?: string | null
+          parcela_grupo_id?: string | null
+          parcelado?: boolean | null
+          projeto?: string | null
           recorrente?: boolean
           recurring_id?: string | null
           status?: string
+          subcategoria?: string | null
+          tags?: string | null
+          tipo_chave_pix?: string | null
+          tipo_conta?: string | null
+          tipo_contrato?: string | null
+          tipo_despesa?: string | null
+          total_parcelas?: number | null
           updated_at?: string
           valor?: number
           valor_pago?: number | null
         }
         Update: {
+          agencia?: string | null
+          artist_id?: string | null
+          banco?: string | null
           beneficiario?: string | null
           cancelado_motivo?: string | null
           categoria?: string
+          centro_custo?: string | null
+          chave_pix?: string | null
           comprovante_path?: string | null
+          conta?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
           created_by?: string | null
           data_vencimento?: string | null
+          departamento?: string | null
           descricao?: string
           dia_vencimento?: number | null
           forma_pagamento?: string | null
           id?: string
           mes_referencia?: string
+          numero_parcela?: number | null
           observacoes?: string | null
           pago_em?: string | null
           pago_por?: string | null
+          parcela_grupo_id?: string | null
+          parcelado?: boolean | null
+          projeto?: string | null
           recorrente?: boolean
           recurring_id?: string | null
           status?: string
+          subcategoria?: string | null
+          tags?: string | null
+          tipo_chave_pix?: string | null
+          tipo_conta?: string | null
+          tipo_contrato?: string | null
+          tipo_despesa?: string | null
+          total_parcelas?: number | null
           updated_at?: string
           valor?: number
           valor_pago?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "producer_expenses_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "producer_expenses_recurring_fk"
             columns: ["recurring_id"]
