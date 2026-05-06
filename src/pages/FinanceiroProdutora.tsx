@@ -181,8 +181,26 @@ export default function FinanceiroProdutora() {
   const filteredRevenues = revenues.filter((r) => {
     if (filterArtist !== "all" && r.artist_id !== (filterArtist === "none" ? null : filterArtist)) return false;
     if (filterRevType !== "all" && r.tipo !== filterRevType) return false;
+    if (filterRevStatus !== "all" && (r.status ?? "recebido") !== filterRevStatus) return false;
     return true;
   });
+
+  // Cards aba receitas
+  const monthRef = monthRefOf(new Date());
+  const revsThisMonth = revenues.filter((r) => (r.data_recebimento ?? "").startsWith(monthRef));
+  const totalMonth = revsThisMonth.reduce((a, r) => a + Number(r.valor || 0), 0);
+  const streamingMonth = revsThisMonth.filter((r) => r.tipo === "streaming");
+  const totalStreaming = streamingMonth.reduce((a, r) => a + Number(r.valor || 0), 0);
+  const streamingArtists = new Set(streamingMonth.map((r) => r.artist_id).filter(Boolean)).size;
+  const sponsorshipsActive = revenues.filter((r) => r.tipo === "patrocinio");
+  const totalSponsorships = sponsorshipsActive.reduce((a, r) => a + Number(r.valor || 0), 0);
+  const otherTypes = ["licenciamento", "merch", "evento"];
+  const othersThisMonth = revsThisMonth.filter((r) => otherTypes.includes(r.tipo));
+  const totalOthers = othersThisMonth.reduce((a, r) => a + Number(r.valor || 0), 0);
+
+  const totalRecebido = filteredRevenues.filter((r) => (r.status ?? "recebido") === "recebido").reduce((a, r) => a + Number(r.valor || 0), 0);
+  const totalAReceber = filteredRevenues.filter((r) => r.status === "a_receber").reduce((a, r) => a + Number(r.valor || 0), 0);
+  const totalGeral = totalRecebido + totalAReceber;
 
   // Filtragem comissão
   const filteredCommissions = commissionsInPeriod.filter((c) =>
