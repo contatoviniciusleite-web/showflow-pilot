@@ -529,7 +529,7 @@ export default function Financeiro() {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="aguardando_pagamento">Aguardando pagamento</SelectItem>
-                <SelectItem value="comprovante_enviado">Comprovante enviado</SelectItem>
+                <SelectItem value="aprovada">Aprovada</SelectItem>
                 <SelectItem value="confirmado">Confirmado</SelectItem>
                 <SelectItem value="atrasado">Atrasado</SelectItem>
                 <SelectItem value="pendente">Pendente</SelectItem>
