@@ -36,7 +36,7 @@ import {
 } from "@/components/shows/ShowsFilters";
 
 interface ArtistLite { id: string; nome: string; cor: string; cache_minimo?: number; }
-type ShowStatus = "pendente" | "rejeitada" | "aguardando_dados" | "aguardando_contratante" | "aguardando_pagamento" | "comprovante_enviado" | "confirmado" | "cancelada" | "aprovada";
+type ShowStatus = "pendente" | "rejeitada" | "aprovada" | "aguardando_pagamento" | "confirmado" | "cancelada";
 interface Show {
   id: string;
   artist_id: string;
