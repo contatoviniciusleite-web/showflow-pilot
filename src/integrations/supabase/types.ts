@@ -1945,6 +1945,63 @@ export type Database = {
           },
         ]
       }
+      whatsapp_pending_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          descricao: string | null
+          id: string
+          motivo: string | null
+          phone: string
+          resposta: string | null
+          show_id: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          motivo?: string | null
+          phone: string
+          resposta?: string | null
+          show_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          motivo?: string | null
+          phone?: string
+          resposta?: string | null
+          show_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_pending_actions_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_pending_actions_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows_public_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       shows_public_view: {
