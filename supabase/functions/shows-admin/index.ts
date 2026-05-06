@@ -513,6 +513,7 @@ Deno.serve(async (req) => {
           const descricao = `🎵 *ShowFlow — Stage*\n\nNova minuta aguardando sua aprovação!\n\n🎤 Artista: ${newShow.artist_nome ?? "—"}\n📍 Local: ${newShow.local ?? "—"}${newShow.cidade ? " — " + newShow.cidade : ""}\n📅 Data: ${dataFmt} às ${horaFmt}\n💰 Cachê: ${cacheFmt}\n👤 Vendedor: ${newShow.vendedor ?? "—"}\n\nResponda:\n*1* para APROVAR ✅\n*2* para REJEITAR ❌`;
 
           const wppUrl = `${supabaseUrl}/functions/v1/twilio-whatsapp`;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
           await fetch(wppUrl, {
             method: "POST",
             headers: {
