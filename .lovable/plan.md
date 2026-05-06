@@ -1,119 +1,158 @@
-# Módulo de Fechamento Semanal
+# Módulo de Ordens de Pagamento
 
-Substitui a planilha manual da produtora. Permite criar fechamentos semanais por artista, calcular distribuição automática (artista + sócios + impostos) e exportar PDF.
+Cria um sistema completo de Ordens de Pagamento vinculado ao Fechamento Semanal, incluindo cadastro de fornecedores, geração automática ao finalizar fechamento, página de gestão para o Financeiro e alertas no dashboard.
 
 ## 1. Banco de dados (migration única)
 
-Criar 7 tabelas com RLS:
+### Tabela `fornecedores`
+- `nome` (text, obrigatório)
+- `tipo` (text: Van / Equipamento / Efeitos / Outros)
+- `telefone`, `chave_pix`, `banco`, `agencia`, `conta`, `observacoes` (nullable)
+- `ativo` (boolean default true)
+- Padrão: id, created_at, updated_at
 
-- `artist_financial_config` — `artista_percentual`, `imposto_percentual` (1 linha por artista, unique)
-- `artist_partners` — sócios (`nome`, `funcao`, `percentual`, `ativo`, `ordem`)
-- `artist_crew` — equipe base (`nome`, `funcao`, `cache_por_show`, `ativo`, `ordem`)
-- `weekly_closings` — cabeçalho (`semana_inicio`, `semana_fim`, `status`, totais, auditoria)
-- `weekly_closing_shows` — shows incluídos no fechamento (`cache_total`, `comissao_vendedor`, `incluido`)
-- `weekly_closing_crew` — equipe do fechamento (`shows_participados`, `total_receber`)
-- `weekly_closing_expenses` — despesas variáveis (`categoria`, `responsavel`, `incluir_no_calculo`)
-- `weekly_closing_distribution` — distribuição calculada (`tipo`, `percentual`, `valor_bruto`, `imposto_valor`, `valor_liquido`)
+**RLS:** SELECT autenticados; ALL para Diretor/Financeiro.
 
-**RLS:**
-- Config por artista (`artist_financial_config`, `artist_partners`, `artist_crew`): SELECT autenticados; ALL para `gerente`/`diretor`.
-- Fechamentos (todas as tabelas `weekly_*`): SELECT para `gerente`/`diretor`/`financeiro`; INSERT/UPDATE/DELETE apenas `gerente`/`diretor`. Bloqueio quando status = `finalizado` via trigger.
-- Trigger `prevent_edit_finalized()` em `weekly_closings` e tabelas filhas: bloqueia UPDATE/DELETE/INSERT em closing finalizado (exceto `gerente`/`diretor` reabrindo).
-- Triggers `set_updated_at` reutilizando função existente.
+### Tabela `payment_orders`
+- `closing_id` FK → `weekly_closings` (ON DELETE CASCADE)
+- `artist_id` FK → `artists`
+- `tipo` (text: artista / socio / equipe / vendedor / despesa / clipe / investimento)
+- `beneficiario_nome` (text)
+- `beneficiario_id` (uuid nullable — referência a `profiles.id` quando aplicável)
+- `descricao` (text)
+- `valor` (numeric 15,2)
+- `data_sugerida` (date — quarta-feira da semana seguinte ao fechamento)
+- `data_pagamento` (date nullable)
+- `status` (text default 'pendente': pendente / agendado / pago / cancelado)
+- `forma_pagamento` (text nullable)
+- `valor_pago` (numeric 15,2 nullable)
+- `comprovante_path` (text nullable)
+- `pago_por` (uuid nullable), `pago_em` (timestamptz nullable)
+- `motivo_cancelamento` (text nullable)
+- `observacoes` (text nullable)
+- Padrão: id, created_at, updated_at
 
-## 2. Configuração financeira do artista
+**RLS:** 
+- SELECT: Diretor + Financeiro; também o próprio beneficiário (`beneficiario_id = auth.uid()`) quando ordem está paga.
+- INSERT/UPDATE/DELETE: apenas Financeiro.
 
-Editar `src/pages/Artistas.tsx`: adicionar aba **"Configuração Financeira"** (visível só para `diretor`/`gerente`) no modal de detalhe do artista, com 3 seções:
+### Coluna em `weekly_closing_expenses`
+Adicionar `fornecedor_id` (uuid nullable) — vínculo opcional com fornecedor cadastrado.
 
-- **Geral**: % artista + % imposto (form único)
-- **Sócios e parceiros**: tabela CRUD com validação `soma(% sócios) + % artista ≤ 100%` (aviso visual)
-- **Equipe base**: tabela CRUD (nome, função, cachê)
+### Storage
+Bucket `comprovantes-pagamentos` (privado) para anexos de comprovante. Policies: Financeiro INSERT/SELECT/DELETE; Diretor SELECT.
 
-Componente novo: `src/components/artists/FinancialConfigTab.tsx`.
+### Trigger `update_payment_orders_updated_at`
+Reusa `set_updated_at`.
 
-## 3. Página de Fechamentos
+## 2. Cadastro de Fornecedores
 
-**Rota** `/fechamento` (lazy) registrada em `src/App.tsx`. Adicionar item **"Fechamentos"** no menu (`AppLayout.tsx`) entre Financeiro e Relatórios, ícone `Wallet`/`FileSpreadsheet`, roles `["diretor", "gerente", "financeiro"]`.
+**Página `/fornecedores`** (`src/pages/Fornecedores.tsx`) — visível para Diretor/Financeiro.
+- Tabela com filtro por tipo + busca
+- Dialog CRUD (`FornecedorDialog.tsx`) com todos os campos
+- Toggle Ativo/Inativo
 
-### Tela 1 — Lista (`src/pages/Fechamento.tsx`)
+**Menu lateral** (`AppLayout.tsx`): item "Fornecedores" com ícone `Building2`, roles `["diretor", "financeiro"]`.
 
-- Filtros: artista, período (date range)
-- Tabela: artista, semana (DD/MM–DD/MM), status (badge), total bruto, sobra, criado por, data
-- Botão **"Novo fechamento"** abre dialog passo 1
+**Integração na tabela C** (Despesas em `FechamentoDetalhe.tsx`):
+- Quando `responsavel = "produtora"`, mostrar dropdown adicional "Fornecedor" filtrado pelo tipo da despesa (categoria → tipo do fornecedor).
+- Persistir em `weekly_closing_expenses.fornecedor_id`.
 
-### Tela 2 — Criar (dialog `NewClosingDialog.tsx`)
+## 3. Geração automática das ordens
 
-- Select artista
-- Date picker da semana (auto-snap para segunda → domingo via `date-fns/startOfWeek`/`endOfWeek` com `weekStartsOn: 1`)
-- Preview: lista de shows confirmados encontrados na semana
-- Confirmar → cria `weekly_closings` + popula `weekly_closing_shows` (do shows confirmados, com cache do show e comissão = 10% padrão ou cache do vendedor) + popula `weekly_closing_crew` a partir de `artist_crew` ativos com `shows_participados = total_shows`
-- Redireciona para Tela 3
+**Lib `src/lib/paymentOrders.ts`**: função `generatePaymentOrdersForClosing(closingId)`:
+1. Carrega closing + shows + crew + expenses + clipe + investments + distribution + config + partners + fornecedores.
+2. Calcula `data_sugerida` = próxima quarta-feira após `semana_fim` (usando `date-fns`).
+3. Monta lista de ordens conforme regras:
+   - **Artista**: 1 ordem com valor da distribuição tipo `artista`.
+   - **Sócios**: 1 por sócio ativo, valor = `valor_bruto` da distribuição, descrição inclui `(-) Investimento: ...` quando `investimento_valor > 0`. Valor final = `valor_bruto - investimento_valor`.
+   - **Equipe**: 1 por membro com `total_receber > 0`.
+   - **Vendedores**: agrupar shows por `vendedor` e somar `comissao_vendedor`.
+   - **Despesas**: 1 por despesa com `responsavel = produtora` e `incluir_no_calculo = true`. Beneficiário = nome do fornecedor (se vinculado) ou descrição.
+   - **Clipe**: 1 por profissional com `quantidade × valor_por_clipe`.
+4. Estratégia de upsert:
+   - **Primeira finalização**: insere todas.
+   - **Reabertura/edição**: só atualiza ordens com status `pendente`/`agendado`. As `pago`/`cancelado` permanecem; coletar contagem de `pago` para retornar como aviso.
+   - Estratégia: deletar pendentes/agendadas existentes do closing, reinserir nova lista (excluindo as já pagas/canceladas para evitar duplicar; matchar por `tipo + beneficiario_nome + descricao` é frágil — manter uma chave estável `chave_origem` opcional? Para piloto: deletar pendentes/agendadas e reinserir.)
 
-### Tela 3 — Editar fechamento (`/fechamento/:id` → `FechamentoDetalhe.tsx`)
+**Hook no fluxo de finalizar** em `FechamentoDetalhe.tsx` (`handleFinalize`): após persistir distribution, chamar `generatePaymentOrdersForClosing` e exibir toast com aviso se houver ordens já pagas.
 
-5 seções editáveis com cálculo reativo:
+## 4. Página /pagamentos
 
-- **A. Shows**: tabela editável (toggle incluir, valor, comissão)
-- **B. Equipe**: tabela editável + botão adicionar; total = `cache_por_show × shows_participados`
-- **C. Despesas**: tabela CRUD com categorias (Van/Clipe/Equipamento/Figurino/Ensaio/Outros) e flag "Incluir no cálculo"
-- **D. Cálculo automático** (read-only, `useMemo`):
-  ```
-  bruto = Σ shows incluídos
-  comissoes = Σ comissão vendedor (shows incluídos)
-  equipe = Σ total_receber
-  despesas = Σ valor (incluir_no_calculo = true)
-  sobra = bruto - comissoes - equipe - despesas
-  
-  Para cada participante (artista + sócios ativos):
-    bruto_p = sobra × (% / 100)
-    imposto_p = bruto_p × (imposto% / 100)
-    liquido_p = bruto_p - imposto_p
-  
-  Diferença para 100% → linha "Produtora" automática
-  ```
-- **E. Observações**: textarea
+**`src/pages/Pagamentos.tsx`** — Financeiro full / Diretor read-only.
 
-**Ações:**
-- **Salvar rascunho** — upsert em todas as tabelas filhas
-- **Finalizar** — confirm dialog → status `finalizado`, persiste distribuição calculada em `weekly_closing_distribution`, registra `finalizado_por`/`finalizado_em`
-- **Exportar PDF** — sempre disponível
-- Quando status = `finalizado` e usuário não é diretor/gerente → tudo readonly. Botão "Reabrir" para diretor/gerente.
+### Filtros (topo)
+- Artista (dropdown)
+- Período (date range — filtra `data_sugerida`)
+- Status (Todos/Pendente/Agendado/Pago/Cancelado)
+- Tipo (Todos/Artista/Sócio/Equipe/Vendedor/Despesa/Clipe)
 
-### PDF (`src/lib/closingPdf.ts`)
+### Cards de resumo
+- Total a pagar (pendente+agendado)
+- Total pago
+- Qtd ordens pendentes
+- Qtd ordens pagas
 
-Reusa `jsPDF + autotable` (igual `exporters.ts`). Layout:
+### Listagem agrupada por fechamento
+Cada grupo: header com artista + período + totais; tabela interna com linhas das ordens (checkbox, tipo badge colorido, beneficiário, valor, data sugerida, status badge, ações).
 
-- Cabeçalho: ARTISTA | MÊS | SEMANA N | ANO
-- Tabela 1 — Shows (colunas conforme planilha original)
-- Tabela 2 — Equipe (nome, função, cachê, shows, total)
-- Despesas (lista)
-- Distribuição: para cada participante `NOME [X%]: BRUTO Rx | IMPOSTO Ry | LÍQUIDO Rz`
-- Rodapé com totais consolidados
+### Badges
+- Tipo: artista verde-escuro, socio roxo, equipe azul, vendedor laranja, despesa cinza, clipe rosa.
+- Status: pendente amarelo, agendado azul-claro, pago verde ✅, cancelado vermelho.
 
-## 4. Permissões e detalhes técnicos
+### Ações por linha (Financeiro)
+- **Agendar** (`SchedulePaymentDialog`): data + obs → status `agendado`.
+- **Marcar como pago** (`MarkAsPaidDialog`): valor_pago, data, forma, upload comprovante (bucket `comprovantes-pagamentos`), obs → status `pago`, registra `pago_por`/`pago_em`. Cria notificação se `beneficiario_id` definido.
+- **Cancelar** (`CancelPaymentDialog`): motivo → status `cancelado`.
 
-- `diretor`/`gerente`: full
-- `financeiro`: visualizar + exportar PDF (botões create/edit ocultos)
-- `vendedor`/`artista`: sem rota (proteção via `ProtectedRoute` + check de role na página)
+### Ação em lote
+Checkbox por linha + topbar com botão "Marcar selecionadas como pagas" (abre dialog único com data/forma; mantém valor original de cada).
 
-Hook utilitário `useFinancialConfig(artistId)` para buscar config + sócios + crew.
+## 5. Dashboard Financeiro
+
+Em `src/components/dashboard/FinanceiroAgenda.tsx` (ou novo bloco no Dashboard p/ role financeiro):
+- **Card "Pagamentos desta semana"**: ordens com `data_pagamento` (ou `data_sugerida` se não agendado) na semana atual, status ≠ pago/cancelado. Soma + qtd + link `/pagamentos?semana=atual`.
+- **Card "Pagamentos atrasados"** (vermelho): ordens com `data_pagamento < hoje` e status ≠ pago/cancelado.
+
+## 6. Notificações
+
+Quando ordem marcada como paga e `beneficiario_id IS NOT NULL`:
+- Inserir em `notifications` (user_id = beneficiario_id, tipo = `pagamento_confirmado`, título "Pagamento confirmado", mensagem "Seu pagamento de R$ X foi confirmado: [descrição]").
+
+Mapear `beneficiario_id` na geração das ordens:
+- Artista: pegar `user_roles` com role `artista` e `artist_id` correspondente (primeiro encontrado).
+- Vendedor: lookup por nome em `profiles.nome` (best-effort; nullable).
+- Outros: nullable.
+
+## 7. Permissões
+
+Em `src/lib/permissions.ts` adicionar:
+- `canManagePaymentOrders(roles)` → financeiro
+- `canViewPaymentOrders(roles)` → diretor || financeiro
+- `canManageFornecedores(roles)` → diretor || financeiro
+
+## 8. Roteamento
+
+`src/App.tsx`: rotas lazy `/pagamentos` e `/fornecedores` com `ProtectedRoute`.
+`src/components/AppLayout.tsx`: itens no menu entre Fechamentos e Relatórios (Pagamentos) e dentro do bloco gestão (Fornecedores).
 
 ## Arquivos
 
 **Novos:**
-- `supabase/migrations/<ts>_weekly_closings.sql`
-- `src/pages/Fechamento.tsx`
-- `src/pages/FechamentoDetalhe.tsx`
-- `src/components/fechamento/NewClosingDialog.tsx`
-- `src/components/fechamento/ShowsSection.tsx`
-- `src/components/fechamento/CrewSection.tsx`
-- `src/components/fechamento/ExpensesSection.tsx`
-- `src/components/fechamento/CalculationPanel.tsx`
-- `src/components/artists/FinancialConfigTab.tsx`
-- `src/lib/closingCalc.ts` (lógica pura de cálculo, com testes)
-- `src/lib/closingPdf.ts`
+- `supabase/migrations/<ts>_payment_orders.sql`
+- `src/pages/Fornecedores.tsx`
+- `src/pages/Pagamentos.tsx`
+- `src/components/fornecedores/FornecedorDialog.tsx`
+- `src/components/pagamentos/SchedulePaymentDialog.tsx`
+- `src/components/pagamentos/MarkAsPaidDialog.tsx`
+- `src/components/pagamentos/CancelPaymentDialog.tsx`
+- `src/components/pagamentos/BulkPayDialog.tsx`
+- `src/components/pagamentos/PaymentOrdersGroup.tsx`
+- `src/lib/paymentOrders.ts`
 
 **Editados:**
-- `src/App.tsx` (rotas)
-- `src/components/AppLayout.tsx` (menu + prefetch)
-- `src/pages/Artistas.tsx` (nova aba)
+- `src/App.tsx`
+- `src/components/AppLayout.tsx`
+- `src/lib/permissions.ts`
+- `src/pages/FechamentoDetalhe.tsx` (dropdown fornecedor + chamada de geração no finalizar)
+- `src/pages/Dashboard.tsx` ou `src/components/dashboard/FinanceiroAgenda.tsx` (cards de alerta)
