@@ -41,6 +41,7 @@ const nav = [
   { to: "/financeiro", label: "Financeiro", icon: DollarSign, roles: ["diretor", "gerente", "equipe", "artista", "financeiro"] },
   { to: "/fechamento", label: "Fechamentos", icon: FileSpreadsheet, roles: ["diretor", "financeiro", "artista"] },
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet, roles: ["diretor", "financeiro"] },
+  { to: "/financeiro-produtora", label: "Financeiro da Produtora", icon: Briefcase, roles: ["diretor", "financeiro"] },
   { to: "/fornecedores", label: "Fornecedores", icon: Truck, roles: ["diretor", "financeiro"] },
   { to: "/contratantes", label: "Contratantes", icon: Building2, roles: ["diretor", "gerente", "equipe", "vendedor", "financeiro"] },
   { to: "/diretoria", label: "Diretoria", icon: Crown, roles: ["diretor"] },
