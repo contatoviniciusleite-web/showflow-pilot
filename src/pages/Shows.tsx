@@ -812,6 +812,23 @@ export default function Shows() {
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
                     <h3 className="font-semibold truncate">{s.artist_nome ?? "—"}</h3>
                     <StatusBadge status={s.status} />
+                    {s.status === "aprovada" && !s.contratante_nome && !s.contratante_link_token && (
+                      <Badge variant="outline" className="text-xs">⏳ Aguardando dados</Badge>
+                    )}
+                    {s.status === "aprovada" && s.contratante_link_token && !s.contratante_link_preenchido && (
+                      <Badge variant="outline" className="text-xs">📩 Link enviado</Badge>
+                    )}
+                    {s.status === "aprovada" && s.contratante_nome && s.condicao_pagamento && (
+                      <Badge variant="outline" className="text-xs">✅ Dados completos</Badge>
+                    )}
+                    {s.status === "aguardando_pagamento" && s.comprovante_url && (
+                      <Badge variant="outline" className="text-xs">📎 Comprovante enviado</Badge>
+                    )}
+                    {s.status === "aguardando_pagamento" && s.prazo_comprovante_em &&
+                      new Date(s.prazo_comprovante_em).getTime() - Date.now() < 12 * 3600 * 1000 &&
+                      new Date(s.prazo_comprovante_em).getTime() > Date.now() && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500">⚠️ Vence em breve</Badge>
+                      )}
                     {(s.remarcado_count ?? 0) > 0 && (
                       <Badge className="bg-amber-500 hover:bg-amber-500 text-white">REMARCADO</Badge>
                     )}
