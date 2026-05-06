@@ -535,7 +535,7 @@ export default function Shows() {
       //  - nova minuta: create
       let action: "create" | "update" | "complete_data";
       if (!editing) action = "create";
-      else if (editing.status === "aguardando_dados" || editing.status === "aguardando_contratante") action = "complete_data";
+      else if (["aprovada", "aguardando_dados", "aguardando_contratante"].includes(editing.status)) action = "complete_data";
       else action = "update";
 
       const { data: saveData, error } = await supabase.functions.invoke("shows-admin", {
