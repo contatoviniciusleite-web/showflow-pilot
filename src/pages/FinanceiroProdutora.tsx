@@ -226,6 +226,27 @@ export default function FinanceiroProdutora() {
     load();
   };
 
+  const deleteExpense = async (x: any) => {
+    if (x.parcela_grupo_id) {
+      const total = expenses.filter((e) => e.parcela_grupo_id === x.parcela_grupo_id).length;
+      const all = confirm(
+        `Esta despesa faz parte de um parcelamento (${total} parcelas).\n\n` +
+        `OK = excluir TODAS as ${total} parcelas\nCancelar = manter`
+      );
+      if (!all) return;
+      const { error } = await supabase.from("producer_expenses" as any)
+        .delete().eq("parcela_grupo_id", x.parcela_grupo_id);
+      if (error) return toast.error(error.message);
+      toast.success(`${total} parcelas excluídas`);
+    } else {
+      if (!confirm("Excluir esta despesa?")) return;
+      const { error } = await supabase.from("producer_expenses" as any).delete().eq("id", x.id);
+      if (error) return toast.error(error.message);
+      toast.success("Despesa excluída");
+    }
+    load();
+  };
+
   const deleteRevenue = async (id: string) => {
     if (!confirm("Excluir esta receita?")) return;
     const { error } = await supabase.from("producer_revenues" as any).delete().eq("id", id);
