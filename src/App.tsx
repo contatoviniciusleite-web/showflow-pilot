@@ -36,6 +36,7 @@ const FechamentoDetalhe = lazy(() => import("./pages/FechamentoDetalhe"));
 const Pagamentos = lazy(() => import("./pages/Pagamentos"));
 const Fornecedores = lazy(() => import("./pages/Fornecedores"));
 const FinanceiroProdutora = lazy(() => import("./pages/FinanceiroProdutora"));
+const WhatsappTest = lazy(() => import("./pages/admin/WhatsappTest"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
