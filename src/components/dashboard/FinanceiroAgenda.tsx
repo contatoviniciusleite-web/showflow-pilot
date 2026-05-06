@@ -1,26 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Clock, MapPin } from "lucide-react";
 import { ptBR } from "date-fns/locale";
 import { format } from "date-fns";
-import { Clock, MapPin } from "lucide-react";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
-import { cn } from "@/lib/utils";
-import { lazy, Suspense } from "react";
-const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 import { ExportMenu } from "@/components/ExportMenu";
 import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
+import { MonthCalendar, STATUS_COLORS, type AgendaEvent } from "@/components/agenda/MonthCalendar";
+
+const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 
 interface FShow {
   id: string;
   artist_id: string;
   artist_nome?: string | null;
   artist_cor?: string | null;
-  artist_cache_minimo?: number | null;
   data_show: string;
   horario: string | null;
   local: string | null;
@@ -29,14 +30,8 @@ interface FShow {
   status: string;
   vendedor: string | null;
   created_by: string | null;
-  confirmado_por_nome?: string | null;
-  confirmado_em?: string | null;
-  contratante_nome?: string | null;
   prazo_comprovante_em?: string | null;
 }
-
-function ymd(d: Date) { return format(d, "yyyy-MM-dd"); }
-function toKey(v?: string | null) { return v ? v.slice(0, 10) : ""; }
 
 function effectiveStatus(s: FShow): string {
   if (s.status === "aguardando_pagamento" && s.prazo_comprovante_em && new Date(s.prazo_comprovante_em) < new Date()) {
@@ -46,14 +41,17 @@ function effectiveStatus(s: FShow): string {
 }
 
 const EXTRA_LABEL: Record<string, string> = { atrasado: "ATRASADO" };
-const EXTRA_CLASS: Record<string, string> = { atrasado: "bg-red-600 hover:bg-red-600 text-white" };
+const EXTRA_CLASS: Record<string, string> = { atrasado: "bg-red-700 hover:bg-red-700 text-white" };
 
 export function FinanceiroAgenda() {
+  const isMobile = useIsMobile();
   const [shows, setShows] = useState<FShow[]>([]);
-  const [selected, setSelected] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<FShow | null>(null);
+  const [openDay, setOpenDay] = useState<Date | null>(null);
+  const [filterArtist, setFilterArtist] = useState<string>("all");
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -71,29 +69,52 @@ export function FinanceiroAgenda() {
     onEvent: load,
   });
 
-  const byDay = useMemo(() => {
-    const m = new Map<string, FShow[]>();
-    for (const s of shows) {
-      const k = toKey(s.data_show);
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(s);
-    }
-    return m;
+  const artistOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of shows) if (s.artist_id) m.set(s.artist_id, s.artist_nome ?? "—");
+    return Array.from(m.entries()).map(([id, nome]) => ({ id, nome }));
   }, [shows]);
 
-  const occupied = useMemo(() => Array.from(byDay.keys()).map((d) => {
-    const [y, m, dd] = d.split("-").map(Number);
-    return new Date(y, m - 1, dd);
-  }), [byDay]);
-
-  const dayItems = selected ? (byDay.get(ymd(selected)) ?? []) : [];
+  const filtered = useMemo(() => {
+    return shows.filter((s) => {
+      if (filterArtist !== "all" && s.artist_id !== filterArtist) return false;
+      if (filterStatuses.length > 0 && !filterStatuses.includes(effectiveStatus(s))) return false;
+      return true;
+    });
+  }, [shows, filterArtist, filterStatuses]);
 
   const monthShows = useMemo(() => {
     const ym = format(month, "yyyy-MM");
-    return shows
+    return filtered
       .filter((s) => s.data_show?.startsWith(ym))
       .sort((a, b) => a.data_show.localeCompare(b.data_show));
-  }, [shows, month]);
+  }, [filtered, month]);
+
+  const events: AgendaEvent[] = useMemo(
+    () =>
+      filtered.map((s) => ({
+        id: s.id,
+        date: s.data_show,
+        time: s.horario,
+        label: s.artist_nome ?? "—",
+        status: effectiveStatus(s),
+        artistColor: s.artist_cor,
+        onClick: () => setActive(s),
+      })),
+    [filtered],
+  );
+
+  const dayShows = useMemo(() => {
+    if (!openDay) return [];
+    const k = format(openDay, "yyyy-MM-dd");
+    return filtered.filter((s) => s.data_show?.startsWith(k));
+  }, [filtered, openDay]);
+
+  const stats = useMemo(() => {
+    const conf = monthShows.filter((s) => effectiveStatus(s) === "confirmado").length;
+    const pend = monthShows.filter((s) => ["pendente", "aguardando_pagamento", "aprovada"].includes(effectiveStatus(s))).length;
+    return { total: monthShows.length, conf, pend };
+  }, [monthShows]);
 
   const exportMonth = (kind: "pdf" | "csv") => {
     const cols: Column[] = [
@@ -102,13 +123,10 @@ export function FinanceiroAgenda() {
       { header: "Artista", key: (r: FShow) => r.artist_nome ?? "—" },
       { header: "Local", key: (r: FShow) => [r.local, r.cidade].filter(Boolean).join(" · ") || "—" },
       { header: "Cachê", key: (r: FShow) => Number(r.cache_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), align: "right" },
-      {
-        header: "Status",
-        key: (r: FShow) => {
-          const eff = effectiveStatus(r);
-          return (STATUS_LABEL as any)[eff] ?? EXTRA_LABEL[eff] ?? eff;
-        },
-      },
+      { header: "Status", key: (r: FShow) => {
+        const eff = effectiveStatus(r);
+        return (STATUS_LABEL as any)[eff] ?? EXTRA_LABEL[eff] ?? eff;
+      } },
       { header: "Vendedor", key: (r: FShow) => r.vendedor ?? "—" },
     ];
     const total = monthShows.reduce((a, r) => a + Number(r.cache_total || 0), 0);
@@ -126,82 +144,121 @@ export function FinanceiroAgenda() {
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-[auto,1fr] gap-6">
-        <Card className="p-4 shadow-soft">
-          <Calendar
-            mode="single"
-            selected={selected}
-            onSelect={setSelected}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <Select value={filterArtist} onValueChange={setFilterArtist}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Artista" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os artistas</SelectItem>
+            {artistOptions.map((a) => (
+              <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex flex-wrap gap-1">
+          {Object.entries(STATUS_COLORS)
+            .filter(([k]) => !["rejeitada", "outro"].includes(k))
+            .map(([k, v]) => {
+              const active = filterStatuses.includes(k);
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() =>
+                    setFilterStatuses((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
+                  }
+                  className="text-xs rounded-full px-2 py-1 border transition"
+                  style={{
+                    background: active ? v.bg : "transparent",
+                    color: active ? "white" : undefined,
+                    borderColor: v.bg,
+                  }}
+                >
+                  {v.label}
+                </button>
+              );
+            })}
+          {filterStatuses.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setFilterStatuses([])}>Limpar</Button>
+          )}
+        </div>
+        <div className="ml-auto">
+          <ExportMenu
+            label={`Exportar ${format(month, "MMM/yy", { locale: ptBR })}`}
+            disabled={monthShows.length === 0}
+            onExportPDF={() => exportMonth("pdf")}
+            onExportCSV={() => exportMonth("csv")}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <Card className="p-3">
+          <p className="text-xs text-muted-foreground">Total no mês</p>
+          <p className="text-2xl font-bold">{stats.total}</p>
+        </Card>
+        <Card className="p-3 border-green-600/30">
+          <p className="text-xs text-muted-foreground">Confirmados</p>
+          <p className="text-2xl font-bold text-green-600">{stats.conf}</p>
+        </Card>
+        <Card className="p-3 border-yellow-500/30">
+          <p className="text-xs text-muted-foreground">Pendentes / Aguardando</p>
+          <p className="text-2xl font-bold text-yellow-600">{stats.pend}</p>
+        </Card>
+      </div>
+
+      <Card className="p-4 shadow-soft">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : (
+          <MonthCalendar
             month={month}
             onMonthChange={setMonth}
-            locale={ptBR}
-            weekStartsOn={1}
-            modifiers={{ occupied }}
-            modifiersClassNames={{ occupied: "relative font-semibold text-foreground after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary" }}
-            className={cn("p-3 pointer-events-auto")}
+            events={events}
+            onSelectDay={setOpenDay}
+            isMobile={isMobile}
           />
-          <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-yellow-500" /> Aguardando pagamento</div>
-            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-orange-500" /> Comprovante enviado</div>
-            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-600" /> Confirmado</div>
-            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-600" /> Atrasado</div>
-          </div>
-        </Card>
+        )}
+      </Card>
 
-        <Card className="p-6 shadow-soft">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold">
-                {selected ? format(selected, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione uma data"}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {dayItems.length === 0 ? "Nenhum show neste dia." : `${dayItems.length} show(s) neste dia.`}
-              </p>
-            </div>
-            <ExportMenu
-              label={`Exportar ${format(month, "MMM/yy", { locale: ptBR })}`}
-              disabled={monthShows.length === 0}
-              onExportPDF={() => exportMonth("pdf")}
-              onExportCSV={() => exportMonth("csv")}
-            />
-          </div>
-
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Carregando…</p>
-          ) : dayItems.length === 0 ? (
-            <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Sem agenda neste dia.
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {dayItems.map((s) => {
+      <Sheet open={!!openDay} onOpenChange={(o) => !o && setOpenDay(null)}>
+        <SheetContent className="w-full sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle className="capitalize">
+              {openDay ? format(openDay, "EEEE, d 'de' MMMM", { locale: ptBR }) : ""}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-3">
+            {dayShows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum show neste dia.</p>
+            ) : (
+              dayShows.map((s) => {
                 const eff = effectiveStatus(s);
                 const cls = (STATUS_CLASS as any)[eff] ?? EXTRA_CLASS[eff] ?? "";
                 const label = (STATUS_LABEL as any)[eff] ?? EXTRA_LABEL[eff] ?? eff;
                 return (
-                  <li key={s.id} className="border rounded-md p-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: s.artist_cor ?? "hsl(var(--primary))" }} />
-                        <p className="font-medium truncate">{s.artist_nome ?? "—"}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                        {s.horario && <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{s.horario.slice(0, 5)}</span>}
-                        {s.local && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{s.local}{s.cidade ? ` · ${s.cidade}` : ""}</span>}
-                        <span>{Number(s.cache_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
-                      </p>
-                    </div>
+                  <div key={s.id} className="border rounded-md p-3">
                     <div className="flex items-center gap-2">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: s.artist_cor ?? "hsl(var(--primary))" }} />
+                      <p className="font-medium truncate flex-1">{s.artist_nome ?? "—"}</p>
                       <Badge className={cls}>{label}</Badge>
-                      <Button size="sm" variant="ghost" onClick={() => setActive(s)}>Abrir</Button>
                     </div>
-                  </li>
+                    <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                      {s.horario && <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{s.horario.slice(0, 5)}</span>}
+                      {s.local && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{s.local}{s.cidade ? ` · ${s.cidade}` : ""}</span>}
+                      <span>{Number(s.cache_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <Button size="sm" variant="outline" onClick={() => { setActive(s); setOpenDay(null); }}>
+                        Ver detalhes
+                      </Button>
+                    </div>
+                  </div>
                 );
-              })}
-            </ul>
-          )}
-        </Card>
-      </div>
+              })
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {active && (
         <Suspense fallback={null}>
