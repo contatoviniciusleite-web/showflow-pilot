@@ -59,16 +59,13 @@ export function MarkExpensePaidDialog({
       const { error } = await supabase.from("producer_expenses" as any).update({
         status: "pago",
         valor_pago: valor,
-        data_vencimento: undefined,
         forma_pagamento: forma,
         pago_por: user?.id ?? null,
-        pago_em: new Date().toISOString(),
+        pago_em: new Date(data + "T12:00:00").toISOString(),
         observacoes: obs || null,
         ...(path ? { comprovante_path: path } : {}),
       }).eq("id", expense.id);
       if (error) throw error;
-
-      // Atualiza data_pagamento via update separado já que coluna não existe; usaremos pago_em.
       toast.success("Despesa marcada como paga");
       onDone();
       onOpenChange(false);
