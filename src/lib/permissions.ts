@@ -28,3 +28,10 @@ export const canViewConfirmedBy = (roles: AppRole[]) =>
   roles.includes("gerente") || roles.includes("vendedor") || roles.includes("financeiro") || roles.includes("equipe") || roles.includes("diretor");
 export const canSeeAttachmentsTab = (roles: AppRole[]) => !roles.includes("artista") || roles.length > 1;
 export const canViewFinanceiroAgenda = (roles: AppRole[]) => roles.includes("financeiro");
+
+// Pagamentos / Fornecedores
+export const canManagePaymentOrders = (roles: AppRole[]) => roles.includes("financeiro");
+export const canViewPaymentOrders = (roles: AppRole[]) =>
+  roles.includes("financeiro") || roles.includes("diretor");
+export const canManageFornecedores = (roles: AppRole[]) =>
+  roles.includes("financeiro") || roles.includes("diretor");
