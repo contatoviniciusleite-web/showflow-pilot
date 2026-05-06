@@ -123,7 +123,7 @@ export default function Relatorios() {
       const r = m.get(k)!;
       r.total += 1;
       r.volume += Number(s.cache_total);
-      if (s.status === "confirmado" || s.status === "aguardando_pagamento" || s.status === "comprovante_enviado" || s.status === "aprovada") r.aprovados += 1;
+      if (s.status === "confirmado" || s.status === "aguardando_pagamento" || s.status === "aprovada") r.aprovados += 1;
       if (s.status === "cancelada") r.cancelados += 1;
     }
     return Array.from(m.values()).sort((a, b) => b.volume - a.volume);
