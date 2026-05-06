@@ -2,15 +2,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
 import { VendedorDashboard } from "@/components/dashboard/VendedorDashboard";
 import { ArtistaDashboard } from "@/components/dashboard/ArtistaDashboard";
-import { GerenciaDashboard } from "@/components/dashboard/GerenciaDashboard";
+import { DiretorDashboard } from "@/components/dashboard/DiretorDashboard";
+import { FinanceiroDashboard } from "@/components/dashboard/FinanceiroDashboard";
 
 export default function Dashboard() {
   // Usa "effective roles" para que o gerente em Modo Vendedor veja o dashboard de vendedor.
   const roles = useEffectiveRoles();
   const { roles: realRoles } = useAuth();
 
-  if (roles.includes("gerente") || roles.includes("equipe") || roles.includes("financeiro")) {
-    return <GerenciaDashboard />;
+  if (roles.includes("diretor") || roles.includes("gerente") || roles.includes("equipe")) {
+    return <DiretorDashboard />;
+  }
+  if (roles.includes("financeiro")) {
+    return <FinanceiroDashboard />;
   }
   if (roles.includes("artista")) {
     return <ArtistaDashboard />;
