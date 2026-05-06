@@ -31,7 +31,7 @@ export function RecurringExpenseDialog({
   recurring: Recurring | null;
   onDone: () => void;
 }) {
-  const [categoria, setCategoria] = useState("aluguel");
+  const [categoria, setCategoria] = useState("funcionamento");
   const [descricao, setDescricao] = useState("");
   const [beneficiario, setBeneficiario] = useState("");
   const [valor, setValor] = useState(0);
