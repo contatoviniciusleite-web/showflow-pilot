@@ -10,7 +10,7 @@ import { DashboardHeader } from "./DashboardHeader";
 import { WeekTimeline, type TimelineShow } from "./WeekTimeline";
 import { PendingActions, type PendingItem } from "./PendingActions";
 import { NextShowsList } from "./NextShowsList";
-import { fmtBRL, getMonthRange, getWeekRange, inRange, sumCache } from "@/lib/dashboard";
+import { fmtBRL, getMonthRange, getWeekRange, inRange } from "@/lib/dashboard";
 
 const ShowDetailsModal = lazy(() => import("@/components/shows/ShowDetailsModal").then(m => ({ default: m.ShowDetailsModal })));
 
@@ -18,6 +18,7 @@ interface ShowFull extends TimelineShow {
   created_at: string;
   prazo_comprovante_em: string | null;
   comprovante_enviado_em?: string | null;
+  total_pago?: number | string | null;
 }
 
 export function FinanceiroDashboard() {
