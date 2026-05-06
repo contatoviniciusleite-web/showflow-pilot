@@ -815,7 +815,6 @@ Deno.serve(async (req) => {
             comprovante_url = coalesce(comprovante_url, ${body.path}),
             comprovante_enviado_em = coalesce(comprovante_enviado_em, now()),
             comprovante_enviado_por = coalesce(comprovante_enviado_por, ${userId}),
-            status = case when status = 'aguardando_pagamento'::show_status then 'comprovante_enviado'::show_status else status end,
             updated_at = now()
           where id = ${body.show_id}
         `;
