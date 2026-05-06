@@ -52,7 +52,7 @@ export function FinanceiroAgenda() {
   const [active, setActive] = useState<FShow | null>(null);
   const [openDay, setOpenDay] = useState<Date | null>(null);
   const [filterArtist, setFilterArtist] = useState<string>("all");
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   const load = async () => {
     setLoading(true);
