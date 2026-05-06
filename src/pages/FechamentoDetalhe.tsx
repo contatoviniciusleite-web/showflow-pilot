@@ -760,6 +760,18 @@ export default function FechamentoDetalhe() {
       .eq("id", closing.id);
     setSaving(false);
     if (error) return toast.error(error.message);
+
+    // Cancelar ordens pendentes ao reabrir
+    try {
+      await supabase
+        .from("payment_orders")
+        .update({ status: "cancelado", motivo_cancelamento: "Fechamento reaberto para edição" })
+        .eq("closing_id", closing.id)
+        .in("status", ["pendente", "agendado"]);
+    } catch (e) {
+      console.error("cancelar ordens", e);
+    }
+
     toast.success("Fechamento reaberto");
     load();
   };
