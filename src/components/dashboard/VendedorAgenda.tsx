@@ -91,16 +91,16 @@ export function VendedorAgenda() {
     for (const s of own) {
       if (s.status === "cancelada") continue;
       if (!pass(s.artist_id)) continue;
-      if (filterStatuses.length && !filterStatuses.includes(s.status)) continue;
+      if (filterStatus !== "all" && filterStatus !== s.status) continue;
       items.push({ kind: "own", data: s });
     }
     for (const s of outras) {
       if (!pass(s.artist_id)) continue;
-      if (filterStatuses.length && !filterStatuses.includes("outro")) continue;
+      if (filterStatus !== "all" && filterStatus !== "outro") continue;
       items.push({ kind: "other", data: s });
     }
     return items;
-  }, [own, outras, filterArtist, filterStatuses]);
+  }, [own, outras, filterArtist, filterStatus]);
 
   const events: AgendaEvent[] = useMemo(
     () =>
