@@ -1319,7 +1319,7 @@ export default function Shows() {
 
             <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              {(!editing || editing.status === "pendente" || editing.status === "aguardando_contratante") && (
+              {(!editing || editing.status === "pendente" || editing.status === "aprovada") && (
                 <Button
                   type="button"
                   variant="secondary"
