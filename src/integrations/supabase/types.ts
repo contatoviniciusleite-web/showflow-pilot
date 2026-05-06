@@ -1201,6 +1201,54 @@ export type Database = {
         }
         Relationships: []
       }
+      show_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          changed_by_nome: string | null
+          id: string
+          motivo: string | null
+          show_id: string
+          status_anterior: string | null
+          status_novo: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_nome?: string | null
+          id?: string
+          motivo?: string | null
+          show_id: string
+          status_anterior?: string | null
+          status_novo: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_nome?: string | null
+          id?: string
+          motivo?: string | null
+          show_id?: string
+          status_anterior?: string | null
+          status_novo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_status_history_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "show_status_history_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows_public_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shows: {
         Row: {
           aprovado_em: string | null
