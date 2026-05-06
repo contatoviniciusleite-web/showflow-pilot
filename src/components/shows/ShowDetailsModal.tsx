@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { AttachmentsTab } from "./AttachmentsTab";
+import { StatusHistoryTab } from "./StatusHistoryTab";
 import { PaymentsTab } from "./PaymentsTab";
 import { PaymentScheduleEditor } from "./PaymentScheduleEditor";
 import { useAuth } from "@/contexts/AuthContext";
