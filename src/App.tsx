@@ -41,12 +41,12 @@ const WhatsappTest = lazy(() => import("./pages/admin/WhatsappTest"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Dados considerados "frescos" por 30s — evita refetches duplicados ao trocar de aba/foco
-      staleTime: 30_000,
-      // Mantém em cache 5 min após sair da tela (volta instantâneo)
-      gcTime: 5 * 60_000,
+      // Dados considerados "frescos" por 60s — evita refetches duplicados ao trocar de aba/foco
+      staleTime: 60_000,
+      // Mantém em cache 10 min após sair da tela (volta instantâneo)
+      gcTime: 10 * 60_000,
       refetchOnWindowFocus: false,
-      retry: 1,
+      retry: 2,
     },
   },
 });
