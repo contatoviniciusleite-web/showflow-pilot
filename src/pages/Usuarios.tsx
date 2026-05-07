@@ -56,7 +56,9 @@ async function getFunctionErrorMessage(error: unknown, fallback = "Erro ao proce
 }
 
 export default function Usuarios() {
-  const { user: me } = useAuth();
+  const { user: me, roles: myRoles } = useAuth();
+  const canManageRoles = myRoles.includes("diretor") || myRoles.includes("gerente");
+  const canDelete = canManageRoles;
   const [users, setUsers] = useState<AppUser[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,16 +141,18 @@ export default function Usuarios() {
         body: { action: "update_profile", user_id: editing.id, nome: editForm.nome.trim() },
       });
       if (e1) throw e1;
-      const { error: e2 } = await supabase.functions.invoke("users-admin", {
-        body: {
-          action: "set_roles",
-          user_id: editing.id,
-          roles: editForm.roles,
-          vendedor_artist_ids: editForm.roles.some((r) => r.role === "vendedor") ? editForm.vendedor_artist_ids : [],
-          socio_artist_ids: editForm.roles.some((r) => r.role === "socio") ? editForm.socio_artist_ids : [],
-        },
-      });
-      if (e2) throw e2;
+      if (canManageRoles) {
+        const { error: e2 } = await supabase.functions.invoke("users-admin", {
+          body: {
+            action: "set_roles",
+            user_id: editing.id,
+            roles: editForm.roles,
+            vendedor_artist_ids: editForm.roles.some((r) => r.role === "vendedor") ? editForm.vendedor_artist_ids : [],
+            socio_artist_ids: editForm.roles.some((r) => r.role === "socio") ? editForm.socio_artist_ids : [],
+          },
+        });
+        if (e2) throw e2;
+      }
       toast.success("Usuário atualizado");
       setEditing(null);
       load();
@@ -248,9 +252,11 @@ export default function Usuarios() {
                         <Button size="sm" variant="ghost" onClick={() => openEdit(u)} title="Editar">
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => remove(u)} className="text-destructive hover:text-destructive" title="Remover">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canDelete && (
+                          <Button size="sm" variant="ghost" onClick={() => remove(u)} className="text-destructive hover:text-destructive" title="Remover">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -381,6 +387,7 @@ export default function Usuarios() {
                 <Label>E-mail</Label>
                 <Input value={editing.email ?? ""} disabled />
               </div>
+              {canManageRoles && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Papéis</Label>
@@ -411,7 +418,11 @@ export default function Usuarios() {
                   </div>
                 ))}
               </div>
-              {editForm.roles.some((r) => r.role === "vendedor") && (
+              )}
+              {!canManageRoles && (
+                <p className="text-xs text-muted-foreground">Apenas Diretor ou Gerente podem alterar papéis e permissões.</p>
+              )}
+              {canManageRoles && editForm.roles.some((r) => r.role === "vendedor") && (
                 <div className="space-y-1.5">
                   <Label>Artistas que pode vender</Label>
                   <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
@@ -438,7 +449,7 @@ export default function Usuarios() {
                   <p className="text-xs text-muted-foreground">O vendedor só verá a agenda e poderá vender shows dos artistas marcados.</p>
                 </div>
               )}
-              {editForm.roles.some((r) => r.role === "socio") && (
+              {canManageRoles && editForm.roles.some((r) => r.role === "socio") && (
                 <div className="space-y-1.5">
                   <Label>Artistas vinculados ao sócio</Label>
                   <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
