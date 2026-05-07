@@ -422,7 +422,7 @@ export default function Usuarios() {
               {!canManageRoles && (
                 <p className="text-xs text-muted-foreground">Apenas Diretor ou Gerente podem alterar papéis e permissões.</p>
               )}
-              {editForm.roles.some((r) => r.role === "vendedor") && (
+              {canManageRoles && editForm.roles.some((r) => r.role === "vendedor") && (
                 <div className="space-y-1.5">
                   <Label>Artistas que pode vender</Label>
                   <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
