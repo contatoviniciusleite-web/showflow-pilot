@@ -279,16 +279,14 @@ export default function Shows() {
     queryFn: async () => {
       const res = await supabase.functions.invoke("shows-admin", { body: { action: "bootstrap" } });
       if (res.error) throw new Error(res.error.message);
-      return {
-        shows: (res.data?.shows ?? []) as Show[],
-        outras: (res.data?.outras_aprovadas ?? []) as ShowPublic[],
-        artists: (res.data?.artists ?? []) as ArtistLite[],
-      };
+    return {
+      shows: (res.data?.shows ?? []) as Show[],
+      artists: (res.data?.artists ?? []) as ArtistLite[],
+    };
     },
     enabled: !!user?.id,
   });
   const shows = showsQuery.data?.shows ?? [];
-  const outras = showsQuery.data?.outras ?? [];
   const artists = showsQuery.data?.artists ?? [];
   const loading = showsQuery.isLoading;
 
@@ -958,32 +956,6 @@ export default function Shows() {
               </div>
             </Card>
           ))}
-        </div>
-      )}
-
-      {/* Vendedor: shows aprovados de outros vendedores (apenas data/horário/local) */}
-      {isVendedor && !isEditor && outras.length > 0 && (
-        <div className="mt-10">
-          <h2 className="text-lg font-semibold mb-3">Shows aprovados (outros vendedores)</h2>
-          <p className="text-xs text-muted-foreground mb-4">Apenas informações básicas: artista, data, horário, local, cidade e vendedor responsável.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {outras.map((s) => (
-              <Card key={s.id} className="p-4 shadow-soft">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
-                  <h3 className="font-medium truncate">{s.artist_nome ?? "—"}</h3>
-                  <Badge className={`ml-auto ${(STATUS_CLASS as any)[s.status] ?? "bg-muted text-muted-foreground"}`}>
-                    {(STATUS_LABEL as any)[s.status] ?? s.status}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {fmtDate(s.data_show)}{s.horario ? ` · ${s.horario.slice(0, 5)}` : ""}
-                </p>
-                <p className="text-sm mt-1 truncate">{s.local ?? "—"}{s.cidade ? ` — ${s.cidade}` : ""}</p>
-                {s.vendedor && <p className="text-xs text-muted-foreground mt-1">Vendedor: {s.vendedor}</p>}
-              </Card>
-            ))}
-          </div>
         </div>
       )}
 
