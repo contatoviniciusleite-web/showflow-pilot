@@ -208,7 +208,7 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
     if (!data) return toast.error("Informe a data");
     if (!attachmentId && !obs.trim()) return toast.error("Anexe um comprovante ou preencha as observações.");
     setSaving(true);
-    const { error } = await supabase.functions.invoke("shows-admin", {
+    const { data: resp, error } = await supabase.functions.invoke("shows-admin", {
       body: {
         action: "register_payment",
         show_id: showId,
@@ -225,7 +225,14 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
       });
       return toast.error(error.message);
     }
-    toast.success("Baixa registrada");
+    const novoSaldo = Number(resp?.saldo_aberto ?? 0);
+    if (resp?.quitado) {
+      toast.success("✅ Pagamento quitado! Show confirmado.");
+    } else if (resp?.confirmado) {
+      toast.success(`✅ Sinal confirmado! Show confirmado. Saldo restante: ${formatCurrencyBRL(novoSaldo)}`);
+    } else {
+      toast.success(`Baixa registrada. Saldo restante: ${formatCurrencyBRL(novoSaldo)}`);
+    }
     setObs(""); setConta(""); setAttachmentId(null); setAttachmentName(null);
     await load();
     onChanged?.();

@@ -1195,7 +1195,10 @@ Deno.serve(async (req) => {
       const novoSaldo = Number(pos.saldo_aberto ?? 0);
       const quitado = novoSaldo <= 0.005 && cacheTotal > 0;
 
-      if (quitado && sh.status !== "confirmado") {
+      // Sinal confirma o show: ao registrar o primeiro pagamento (ou quitar),
+      // se o show está em aguardando_pagamento, muda para confirmado.
+      const deveConfirmar = sh.status === "aguardando_pagamento";
+      if (deveConfirmar) {
         await sql`
           update public.shows set
             status = 'confirmado'::show_status,
@@ -1206,15 +1209,17 @@ Deno.serve(async (req) => {
           where id = ${body.show_id}
         `;
         const local = sh.local ?? "local não informado";
-        const msgQ = `Pagamento do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} quitado integralmente. Confirmado por ${finNome}.`;
-        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
-        await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
+        const msgQ = quitado
+          ? `Pagamento do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} quitado integralmente. Confirmado por ${finNome}.`
+          : `Sinal de R$ ${valor.toFixed(2)} confirmado para o show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show}. Show confirmado por ${finNome}. Saldo a receber: R$ ${novoSaldo.toFixed(2)}.`;
+        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_confirmado", quitado ? "Pagamento quitado" : "Sinal confirmado", msgQ, sh.id);
+        await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", quitado ? "Pagamento quitado" : "Sinal confirmado", msgQ, sh.id);
       } else {
         const msg = `${finNome} registrou baixa de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}. Saldo em aberto: R$ ${novoSaldo.toFixed(2)}.`;
         if (sh.created_by) await notify(sql, sh.created_by, "pagamento_registrado", "Baixa registrada", msg, sh.id);
         await notifyByRoles(sql, ["gerente"], "pagamento_registrado", "Baixa registrada", msg, sh.id);
       }
-      return json({ payment: ins[0], total_pago: pos.total_pago ?? "0.00", saldo_aberto: pos.saldo_aberto ?? "0.00", quitado });
+      return json({ payment: ins[0], total_pago: pos.total_pago ?? "0.00", saldo_aberto: pos.saldo_aberto ?? "0.00", quitado, confirmado: deveConfirmar });
     }
 
     if (action === "delete_payment") {
@@ -1231,19 +1236,23 @@ Deno.serve(async (req) => {
 
       await sql`delete from public.show_payments where id = ${body.id}`;
 
-      // Recalcula saldo no banco com precisão
+      // Recalcula saldo e contagem de pagamentos restantes
       const sumRows = await sql`
         select
           coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
           coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0)::numeric(15,2) as total_pago,
-          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0), 0)::numeric(15,2) as saldo_aberto
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0), 0)::numeric(15,2) as saldo_aberto,
+          (select count(*) from public.show_payments where show_id = ${pay.show_id})::int as qtd_pagamentos
         from public.shows s where s.id = ${pay.show_id}
       `;
       const r: any = sumRows[0] ?? {};
       const saldo = Number(r.saldo_aberto ?? 0);
+      const qtd = Number(r.qtd_pagamentos ?? 0);
 
-      // Se reabriu saldo e o show estava confirmado → volta para aguardando_pagamento
-      if (saldo > 0.01 && sh.status === "confirmado") {
+      // Só reverte para aguardando_pagamento se NÃO sobrar nenhuma baixa.
+      // Se ainda há outras baixas, o show continua confirmado e o saldo a receber é apenas recalculado.
+      const reverter = qtd === 0 && sh.status === "confirmado";
+      if (reverter) {
         await sql`
           update public.shows set
             status = 'aguardando_pagamento'::show_status,
@@ -1254,7 +1263,7 @@ Deno.serve(async (req) => {
           where id = ${pay.show_id}
         `;
         const local = sh.local ?? "local não informado";
-        const msg = `Atenção: uma baixa do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} foi estornada. Saldo em aberto: R$ ${saldo.toFixed(2).replace(".", ",")}. O show voltou ao status Aguardando Pagamento.`;
+        const msg = `Atenção: a única baixa do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} foi estornada. O show voltou ao status Aguardando Pagamento.`;
         if (sh.created_by) await notify(sql, sh.created_by, "baixa_estornada", "Baixa estornada", msg, sh.id);
         await notifyByRoles(sql, ["gerente"], "baixa_estornada", "Baixa estornada", msg, sh.id);
       }
@@ -1264,7 +1273,7 @@ Deno.serve(async (req) => {
         cache_total: r.cache_total ?? "0.00",
         total_pago: r.total_pago ?? "0.00",
         saldo_aberto: r.saldo_aberto ?? "0.00",
-        reaberto: saldo > 0.01 && sh.status === "confirmado",
+        reaberto: reverter,
       });
     }
 
