@@ -26,9 +26,12 @@ export type ClosingInvestmentInput = {
   valor_descontado: number;
 };
 
+export type DescontoDe = "todos" | "socios" | "artista";
+
 export type ClosingClipeInput = {
   quantidade: number;
   valor_por_clipe: number;
+  desconto_de?: DescontoDe;
 };
 
 export type ClosingConfigInput = {
@@ -45,6 +48,7 @@ export type DistributionRow = {
   valor_bruto: number;        // % * sobra
   imposto_valor: number;      // % * total bruto cachês * imposto%
   investimento_valor: number; // só para sócios/parceiros
+  despesas_semanais_valor?: number; // despesas semanais alocadas (artista ou sócios)
   valor_liquido: number;
 };
 
@@ -55,7 +59,10 @@ export type ClosingTotals = {
   totalVan: number;
   totalDespesasShows: number;
   totalEquipe: number;
-  totalClipe: number;
+  totalClipe: number; // total geral (todos + sócios + artista) — compat
+  totalDespesasSemanaisTodos: number;
+  totalDespesasSemanaisSocios: number;
+  totalDespesasSemanaisArtista: number;
   totalCustos: number;
   sobra: number;
   sobraDistribuir: number;
@@ -89,15 +96,29 @@ export function computeClosing(
   const totalVan = round2(incluidos.reduce((a, s) => a + Number(s.van || 0), 0));
   const totalDespesasShows = round2(incluidos.reduce((a, s) => a + Number(s.despesas_show || 0), 0));
   const totalEquipe = round2(crew.reduce((a, c) => a + computeCrewTotal(c), 0));
-  const totalClipe = round2(clipes.reduce((a, c) => a + computeClipeTotal(c), 0));
-  // Custos operacionais (SEM imposto): comissão + equipe + van + despesas + clipe
-  const totalCustos = round2(totalComissoes + totalEquipe + totalVan + totalDespesasShows + totalClipe);
+
+  const sumByTipo = (tipo: DescontoDe) =>
+    round2(
+      clipes
+        .filter((c) => (c.desconto_de ?? "todos") === tipo)
+        .reduce((a, c) => a + computeClipeTotal(c), 0),
+    );
+  const totalDespesasSemanaisTodos = sumByTipo("todos");
+  const totalDespesasSemanaisSocios = sumByTipo("socios");
+  const totalDespesasSemanaisArtista = sumByTipo("artista");
+  const totalClipe = round2(
+    totalDespesasSemanaisTodos + totalDespesasSemanaisSocios + totalDespesasSemanaisArtista,
+  );
+
+  // Custos operacionais antes da distribuição (apenas "todos" entram aqui)
+  const totalCustos = round2(
+    totalComissoes + totalEquipe + totalVan + totalDespesasShows + totalDespesasSemanaisTodos,
+  );
 
   const totalInvestimentos = round2(investments.reduce((a, i) => a + Number(i.valor_descontado || 0), 0));
 
   const impostoPct = Number(config.imposto_percentual || 0) / 100;
   const totalImpostos = round2(totalBruto * impostoPct);
-  // Sobra para distribuir = bruto - custos operacionais - imposto sobre o bruto
   const sobraDistribuir = round2(totalBruto - totalCustos - totalImpostos);
   const sobra = sobraDistribuir;
   const partners = (config.partners ?? []).filter((p) => p.ativo !== false);
@@ -114,13 +135,23 @@ export function computeClosing(
     percentual: number,
   ) => {
     const valor_bruto = round2((sobraDistribuir * percentual) / 100);
-    const imposto_valor = 0; // imposto já descontado antes da sobra
     let investimento_valor = 0;
+    let despesas_semanais_valor = 0;
     if ((tipo === "socio" || tipo === "parceiro") && somaSocios > 0) {
       investimento_valor = round2((totalInvestimentos * percentual) / somaSocios);
+      despesas_semanais_valor = round2((totalDespesasSemanaisSocios * percentual) / somaSocios);
     }
-    const valor_liquido = round2(valor_bruto - investimento_valor);
-    rows.push({ beneficiario, tipo, percentual, valor_bruto, imposto_valor, investimento_valor, valor_liquido });
+    if (tipo === "artista") {
+      despesas_semanais_valor = totalDespesasSemanaisArtista;
+    }
+    const valor_liquido = round2(valor_bruto - investimento_valor - despesas_semanais_valor);
+    rows.push({
+      beneficiario, tipo, percentual,
+      valor_bruto, imposto_valor: 0,
+      investimento_valor,
+      despesas_semanais_valor,
+      valor_liquido,
+    });
   };
 
   pushRow(config.artista_nome || "Artista", "artista", Number(config.artista_percentual || 0));
@@ -137,11 +168,12 @@ export function computeClosing(
     const diff = round2(sobraDistribuir - somaBruto);
     if (Math.abs(diff) > 0 && Math.abs(diff) <= 0.05) {
       rows[0].valor_bruto = round2(rows[0].valor_bruto + diff);
-      rows[0].valor_liquido = round2(rows[0].valor_bruto - rows[0].investimento_valor);
+      rows[0].valor_liquido = round2(
+        rows[0].valor_bruto - rows[0].investimento_valor - (rows[0].despesas_semanais_valor ?? 0),
+      );
     }
   }
 
-  // totalImpostos já calculado acima
   const totalLiquido = round2(rows.reduce((a, r) => a + r.valor_liquido, 0));
 
   return {
@@ -152,6 +184,9 @@ export function computeClosing(
     totalDespesasShows,
     totalEquipe,
     totalClipe,
+    totalDespesasSemanaisTodos,
+    totalDespesasSemanaisSocios,
+    totalDespesasSemanaisArtista,
     totalCustos,
     sobra,
     sobraDistribuir,
