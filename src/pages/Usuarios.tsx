@@ -23,6 +23,7 @@ interface AppUser {
   pendente: boolean;
   roles: RoleEntry[];
   vendedor_artist_ids: string[];
+  socio_artist_ids: string[];
 }
 interface Artist {
   id: string;
