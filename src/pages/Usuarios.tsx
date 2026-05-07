@@ -250,9 +250,11 @@ export default function Usuarios() {
                         <Button size="sm" variant="ghost" onClick={() => openEdit(u)} title="Editar">
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => remove(u)} className="text-destructive hover:text-destructive" title="Remover">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canDelete && (
+                          <Button size="sm" variant="ghost" onClick={() => remove(u)} className="text-destructive hover:text-destructive" title="Remover">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
