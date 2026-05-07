@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
         and s.prazo_comprovante_em is not null
         and s.prazo_comprovante_em > now()
         and s.prazo_comprovante_em <= ${limite}
+        and (s.confirmado_sem_pagamento is null or s.confirmado_sem_pagamento = false)
     `;
 
     let avisos = 0;
