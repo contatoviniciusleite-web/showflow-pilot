@@ -272,6 +272,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "set_roles") {
+      if (!canManageRoles) return json({ error: "Sem permissão para alterar papéis" }, 403);
       const userId = body.user_id;
       const roles: Array<{ role: Role; artist_id?: string | null }> = body.roles ?? [];
       if (typeof userId !== "string") return json({ error: "Usuário inválido" }, 400);
