@@ -1195,7 +1195,10 @@ Deno.serve(async (req) => {
       const novoSaldo = Number(pos.saldo_aberto ?? 0);
       const quitado = novoSaldo <= 0.005 && cacheTotal > 0;
 
-      if (quitado && sh.status !== "confirmado") {
+      // Sinal confirma o show: ao registrar o primeiro pagamento (ou quitar),
+      // se o show está em aguardando_pagamento, muda para confirmado.
+      const deveConfirmar = sh.status === "aguardando_pagamento";
+      if (deveConfirmar) {
         await sql`
           update public.shows set
             status = 'confirmado'::show_status,
@@ -1206,15 +1209,17 @@ Deno.serve(async (req) => {
           where id = ${body.show_id}
         `;
         const local = sh.local ?? "local não informado";
-        const msgQ = `Pagamento do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} quitado integralmente. Confirmado por ${finNome}.`;
-        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
-        await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", "Pagamento quitado", msgQ, sh.id);
+        const msgQ = quitado
+          ? `Pagamento do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} quitado integralmente. Confirmado por ${finNome}.`
+          : `Sinal de R$ ${valor.toFixed(2)} confirmado para o show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show}. Show confirmado por ${finNome}. Saldo a receber: R$ ${novoSaldo.toFixed(2)}.`;
+        if (sh.created_by) await notify(sql, sh.created_by, "pagamento_confirmado", quitado ? "Pagamento quitado" : "Sinal confirmado", msgQ, sh.id);
+        await notifyByRoles(sql, ["gerente"], "pagamento_confirmado", quitado ? "Pagamento quitado" : "Sinal confirmado", msgQ, sh.id);
       } else {
         const msg = `${finNome} registrou baixa de R$ ${valor.toFixed(2)} para o show de ${sh.artist_nome ?? "—"} em ${sh.data_show}. Saldo em aberto: R$ ${novoSaldo.toFixed(2)}.`;
         if (sh.created_by) await notify(sql, sh.created_by, "pagamento_registrado", "Baixa registrada", msg, sh.id);
         await notifyByRoles(sql, ["gerente"], "pagamento_registrado", "Baixa registrada", msg, sh.id);
       }
-      return json({ payment: ins[0], total_pago: pos.total_pago ?? "0.00", saldo_aberto: pos.saldo_aberto ?? "0.00", quitado });
+      return json({ payment: ins[0], total_pago: pos.total_pago ?? "0.00", saldo_aberto: pos.saldo_aberto ?? "0.00", quitado, confirmado: deveConfirmar });
     }
 
     if (action === "delete_payment") {
