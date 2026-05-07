@@ -17,7 +17,7 @@ const schema = z
       .string()
       .min(10, "Informe um WhatsApp válido (mínimo 10 dígitos)")
       .max(11, "Telefone inválido"),
-    password: z.string().min(6, "Senha deve ter ao menos 6 caracteres").max(72),
+    password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres.").max(72),
     confirm: z.string(),
   })
   .refine((d) => d.password === d.confirm, {
