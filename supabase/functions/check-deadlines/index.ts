@@ -109,6 +109,7 @@ Deno.serve(async (req) => {
       where s.status::text = 'aguardando_pagamento'
         and s.prazo_comprovante_em is not null
         and s.prazo_comprovante_em < now()
+        and (s.confirmado_sem_pagamento is null or s.confirmado_sem_pagamento = false)
     `;
 
     let cancelados = 0;
