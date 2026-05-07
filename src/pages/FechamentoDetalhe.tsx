@@ -551,7 +551,11 @@ export default function FechamentoDetalhe() {
           imposto_percentual: config.imposto_percentual,
           partners,
         },
-        clipes.map((c) => ({ quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0) })),
+        clipes.map((c) => ({
+          quantidade: Number(c.quantidade || 0),
+          valor_por_clipe: Number(c.valor_por_clipe || 0),
+          desconto_de: c.desconto_de,
+        })),
       );
     },
     [shows, showExpensesByShow, vanByShow, crewCostByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
