@@ -12,7 +12,7 @@ import { z } from "zod";
 
 const schema = z.object({
   email: z.string().trim().email("E-mail inválido").max(255),
-  password: z.string().min(6, "Mínimo 6 caracteres").max(72),
+  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres.").max(72),
   nome: z.string().trim().min(1, "Informe seu nome").max(100).optional(),
 });
 
