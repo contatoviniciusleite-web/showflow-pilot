@@ -90,6 +90,8 @@ interface Show {
   contratante_link_preenchido?: boolean | null;
   comprovante_url?: string | null;
   prazo_comprovante_em?: string | null;
+  confirmado_sem_pagamento?: boolean | null;
+  confirmado_sem_pagamento_motivo?: string | null;
 }
 interface ShowPublic {
   id: string;
@@ -814,6 +816,11 @@ export default function Shows() {
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.artist_cor ?? "#888" }} />
                     <h3 className="font-semibold truncate">{s.artist_nome ?? "—"}</h3>
                     <StatusBadge status={s.status} />
+                    {s.confirmado_sem_pagamento && (isDiretor || isFinanceiro) && (
+                      <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-700 dark:text-yellow-400" title={s.confirmado_sem_pagamento_motivo ?? ""}>
+                        🤝 Sem pagamento
+                      </Badge>
+                    )}
                     {s.status === "aprovada" && !s.contratante_nome && !s.contratante_link_token && (
                       <Badge variant="outline" className="text-xs">⏳ Aguardando dados</Badge>
                     )}

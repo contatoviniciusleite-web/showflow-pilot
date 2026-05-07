@@ -58,6 +58,8 @@ interface ShowLite {
   autorizado_por_nome?: string | null;
   autorizado_em?: string | null;
   autorizado_por?: string | null;
+  confirmado_sem_pagamento?: boolean | null;
+  confirmado_sem_pagamento_motivo?: string | null;
 }
 
 interface Props {
@@ -81,6 +83,8 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   const [reschedTime, setReschedTime] = useState("");
   const [reschedMotivo, setReschedMotivo] = useState("");
   const [showResched, setShowResched] = useState(false);
+  const [showConfirmNoPay, setShowConfirmNoPay] = useState(false);
+  const [confirmNoPayMotivo, setConfirmNoPayMotivo] = useState("");
 
   if (!show) return null;
   const isArtista = roles.includes("artista") && roles.length === 1;
@@ -139,6 +143,13 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
     if (!reschedDate || !reschedMotivo.trim()) return toast.error("Informe nova data e motivo");
     await callAction("reschedule", { data_nova: reschedDate, horario_novo: reschedTime || null, motivo: reschedMotivo });
   };
+  const confirmWithoutPayment = async () => {
+    if (!confirmNoPayMotivo.trim()) return toast.error("Informe o motivo");
+    await callAction("confirm_without_payment", { motivo: confirmNoPayMotivo });
+  };
+
+  const canConfirmWithoutPayment = (isDiretor || isFinanceiro) &&
+    (show.status === "aprovada" || show.status === "aguardando_pagamento");
 
   const exportMinuta = () => {
     const transp: string[] = [];
@@ -266,6 +277,27 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </p>
             )}
 
+            {show.confirmado_sem_pagamento && (isDiretor || isFinanceiro) && (
+              <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-sm space-y-1">
+                <p className="font-medium text-yellow-700 dark:text-yellow-400">
+                  ✓ Confirmado sem pagamento
+                </p>
+                {show.confirmado_sem_pagamento_motivo && (
+                  <p className="text-muted-foreground text-xs">
+                    <strong>Motivo:</strong> {show.confirmado_sem_pagamento_motivo}
+                  </p>
+                )}
+                {show.confirmado_por_nome && (
+                  <p className="text-muted-foreground text-xs">
+                    Por {show.confirmado_por_nome}
+                    {show.confirmado_em && (
+                      <> em {format(new Date(show.confirmado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
+
             {canManageActions && show.status !== "cancelada" && (
               <div className="border-t pt-3 space-y-2">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -310,6 +342,48 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
                     <Label>Motivo</Label>
                     <Textarea rows={2} value={reschedMotivo} onChange={(e) => setReschedMotivo(e.target.value)} />
                     <Button size="sm" onClick={reschedule} disabled={busy}>Confirmar remarcação</Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {canConfirmWithoutPayment && !show.confirmado_sem_pagamento && (
+              <div className="border-t pt-3 space-y-2">
+                {!showConfirmNoPay ? (
+                  <Button size="sm" variant="outline" onClick={() => setShowConfirmNoPay(true)} disabled={busy}>
+                    Confirmar sem pagamento
+                  </Button>
+                ) : (
+                  <div className="space-y-2 rounded-md border border-yellow-500/50 bg-yellow-500/5 p-3">
+                    <p className="font-medium text-sm">Confirmar show sem pagamento?</p>
+                    <div className="rounded-md bg-yellow-500/10 border border-yellow-500/40 px-3 py-2 text-xs flex gap-2 items-start">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                      <span>
+                        Atenção: esta ação confirma o show sem registro de pagamento ou comprovante.
+                        Use apenas para parceiros ou acordos comerciais especiais.
+                      </span>
+                    </div>
+                    <div>
+                      <Label>Motivo *</Label>
+                      <Textarea
+                        rows={2}
+                        placeholder="Ex: Parceiro comercial, permuta, acordo especial..."
+                        value={confirmNoPayMotivo}
+                        onChange={(e) => setConfirmNoPayMotivo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Autorizado por</Label>
+                      <Input value={user?.user_metadata?.nome ?? user?.email ?? ""} disabled />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setShowConfirmNoPay(false); setConfirmNoPayMotivo(""); }} disabled={busy}>
+                        Cancelar
+                      </Button>
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={confirmWithoutPayment} disabled={busy}>
+                        Confirmar mesmo assim
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>

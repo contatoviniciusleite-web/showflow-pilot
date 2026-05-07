@@ -897,6 +897,60 @@ Deno.serve(async (req) => {
       return json({ show: updated[0] });
     }
 
+    if (action === "confirm_without_payment") {
+      if (!isFinanceiro && !isDiretor) {
+        return json({ error: "Apenas Diretor ou Financeiro podem confirmar sem pagamento" }, 403);
+      }
+      if (typeof body.id !== "string") return json({ error: "Show inválido" }, 400);
+      const motivo = txt(body.motivo, 1000);
+      if (!motivo) return json({ error: "Motivo é obrigatório" }, 400);
+
+      const found = await sql`
+        select s.*, a.nome as artist_nome from public.shows s
+        left join public.artists a on a.id = s.artist_id
+        where s.id = ${body.id}
+      `;
+      if (!found.length) return json({ error: "Show não encontrado" }, 404);
+      const show: any = found[0];
+      if (!["aprovada", "aguardando_pagamento"].includes(show.status)) {
+        return json({ error: "Status do show não permite esta ação" }, 400);
+      }
+
+      const profRows = await sql`select nome from public.profiles where id = ${userId}`;
+      const userNome = (profRows[0] as any)?.nome ?? "Usuário";
+
+      const updated = await sql`
+        update public.shows set
+          status = 'confirmado'::show_status,
+          confirmado_por = ${userId},
+          confirmado_por_nome = ${userNome},
+          confirmado_em = now(),
+          confirmado_sem_pagamento = true,
+          confirmado_sem_pagamento_motivo = ${motivo},
+          updated_at = now()
+        where id = ${body.id}
+        returning *
+      `;
+
+      const local = show.local ?? "local não informado";
+      const msgVend = `✅ Show confirmado! ${show.artist_nome ?? "—"} em ${local} - ${show.data_show}. Confirmado por ${userNome} sem comprovante.`;
+      if (show.created_by) {
+        await notify(sql, show.created_by, "show_confirmado_sem_pagamento", "Show confirmado", msgVend, show.id);
+      }
+      // Artistas vinculados
+      const artistaUsers = await sql`
+        select user_id from public.user_roles
+        where role::text = 'artista' and artist_id = ${show.artist_id}
+      `;
+      const msgArt = `✅ Seu show foi confirmado! ${local} - ${show.data_show}`;
+      for (const u of artistaUsers as Array<{ user_id: string }>) {
+        await notify(sql, u.user_id, "show_confirmado_sem_pagamento", "Show confirmado", msgArt, show.id);
+      }
+      await notifyByRoles(sql, ["gerente"], "show_confirmado_sem_pagamento", "Show confirmado sem pagamento", msgVend, show.id);
+
+      return json({ show: updated[0] });
+    }
+
     // ============================================================
     // ANEXOS (múltiplos comprovantes / documentos)
     // ============================================================
