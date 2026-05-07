@@ -96,19 +96,20 @@ export default function Usuarios() {
         role: inviteForm.role,
         artist_id: inviteForm.role === "artista" ? inviteForm.artist_id : null,
         vendedor_artist_ids: inviteForm.role === "vendedor" ? inviteForm.vendedor_artist_ids : [],
+        socio_artist_ids: inviteForm.role === "socio" ? inviteForm.socio_artist_ids : [],
       },
     });
     setSaving(false);
     if (error) return toast.error(await getFunctionErrorMessage(error, "Erro ao enviar convite"));
     toast.success("Convite enviado");
     setInviteOpen(false);
-    setInviteForm({ nome: "", email: "", role: "vendedor", artist_id: "", vendedor_artist_ids: [] });
+    setInviteForm({ nome: "", email: "", role: "vendedor", artist_id: "", vendedor_artist_ids: [], socio_artist_ids: [] });
     load();
   };
 
   const openEdit = (u: AppUser) => {
     setEditing(u);
-    setEditForm({ nome: u.nome ?? "", roles: u.roles.length ? [...u.roles] : [], vendedor_artist_ids: [...(u.vendedor_artist_ids ?? [])] });
+    setEditForm({ nome: u.nome ?? "", roles: u.roles.length ? [...u.roles] : [], vendedor_artist_ids: [...(u.vendedor_artist_ids ?? [])], socio_artist_ids: [...(u.socio_artist_ids ?? [])] });
   };
 
   const addRole = () => {
