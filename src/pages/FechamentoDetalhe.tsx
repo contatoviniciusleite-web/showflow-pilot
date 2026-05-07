@@ -1545,6 +1545,12 @@ export default function FechamentoDetalhe() {
                     {d.investimento_valor > 0 && (
                       <div className="flex justify-between"><span>(-) Investimentos</span><span>{fmtBRL(d.investimento_valor)}</span></div>
                     )}
+                    {(d.despesas_semanais_valor ?? 0) > 0 && (
+                      <div className="flex justify-between">
+                        <span>(-) {d.tipo === "artista" ? "Desp. pessoais" : "Desp. semanais"}</span>
+                        <span>{fmtBRL(d.despesas_semanais_valor ?? 0)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
