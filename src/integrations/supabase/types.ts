@@ -2271,6 +2271,7 @@ export type Database = {
         Returns: boolean
       }
       is_business_day_br: { Args: { d: string }; Returns: boolean }
+      is_socio_of: { Args: { _artist_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
