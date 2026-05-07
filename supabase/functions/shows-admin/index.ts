@@ -1236,19 +1236,23 @@ Deno.serve(async (req) => {
 
       await sql`delete from public.show_payments where id = ${body.id}`;
 
-      // Recalcula saldo no banco com precisão
+      // Recalcula saldo e contagem de pagamentos restantes
       const sumRows = await sql`
         select
           coalesce(s.cache_total, 0)::numeric(15,2) as cache_total,
           coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0)::numeric(15,2) as total_pago,
-          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0), 0)::numeric(15,2) as saldo_aberto
+          greatest(coalesce(s.cache_total, 0) - coalesce((select sum(valor) from public.show_payments where show_id = ${pay.show_id}), 0), 0)::numeric(15,2) as saldo_aberto,
+          (select count(*) from public.show_payments where show_id = ${pay.show_id})::int as qtd_pagamentos
         from public.shows s where s.id = ${pay.show_id}
       `;
       const r: any = sumRows[0] ?? {};
       const saldo = Number(r.saldo_aberto ?? 0);
+      const qtd = Number(r.qtd_pagamentos ?? 0);
 
-      // Se reabriu saldo e o show estava confirmado → volta para aguardando_pagamento
-      if (saldo > 0.01 && sh.status === "confirmado") {
+      // Só reverte para aguardando_pagamento se NÃO sobrar nenhuma baixa.
+      // Se ainda há outras baixas, o show continua confirmado e o saldo a receber é apenas recalculado.
+      const reverter = qtd === 0 && sh.status === "confirmado";
+      if (reverter) {
         await sql`
           update public.shows set
             status = 'aguardando_pagamento'::show_status,
@@ -1259,7 +1263,7 @@ Deno.serve(async (req) => {
           where id = ${pay.show_id}
         `;
         const local = sh.local ?? "local não informado";
-        const msg = `Atenção: uma baixa do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} foi estornada. Saldo em aberto: R$ ${saldo.toFixed(2).replace(".", ",")}. O show voltou ao status Aguardando Pagamento.`;
+        const msg = `Atenção: a única baixa do show ${sh.artist_nome ?? "—"} em ${local} dia ${sh.data_show} foi estornada. O show voltou ao status Aguardando Pagamento.`;
         if (sh.created_by) await notify(sql, sh.created_by, "baixa_estornada", "Baixa estornada", msg, sh.id);
         await notifyByRoles(sql, ["gerente"], "baixa_estornada", "Baixa estornada", msg, sh.id);
       }
@@ -1269,7 +1273,7 @@ Deno.serve(async (req) => {
         cache_total: r.cache_total ?? "0.00",
         total_pago: r.total_pago ?? "0.00",
         saldo_aberto: r.saldo_aberto ?? "0.00",
-        reaberto: saldo > 0.01 && sh.status === "confirmado",
+        reaberto: reverter,
       });
     }
 
