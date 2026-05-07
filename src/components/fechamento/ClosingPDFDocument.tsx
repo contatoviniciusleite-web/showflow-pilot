@@ -363,7 +363,7 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
 
       {/* SEÇÃO E — CLIPE */}
       {clipes.length > 0 && (
-        <Section bg={C.black} title="🎬 E. Clipe" badge={`${clipes.length} ${clipes.length === 1 ? "lançamento" : "lançamentos"}`} badgeBg="#fff" badgeFg={C.black}>
+        <Section bg={C.black} title="🎬 E. Despesas Semanais" badge={`${clipes.length} ${clipes.length === 1 ? "lançamento" : "lançamentos"}`} badgeBg="#fff" badgeFg={C.black}>
           <table style={S.table}>
             <thead>
               <tr style={{ background: C.totalBg }}>
@@ -410,7 +410,7 @@ const ClosingPDFDocument = forwardRef<HTMLDivElement, ClosingPdfDocumentProps>(f
             <ResumoLine label="(-) Custo equipe" value={`-${fmtBRL(totals.totalEquipe)}`} negativo />
             <ResumoLine label="(-) Van" value={`-${fmtBRL(totals.totalVan)}`} negativo />
             <ResumoLine label="(-) Despesas dos shows" value={`-${fmtBRL(totals.totalDespesasShows)}`} negativo />
-            <ResumoLine label="(-) Custo clipe" value={`-${fmtBRL(totals.totalClipe)}`} negativo />
+            <ResumoLine label="(-) Despesas semanais" value={`-${fmtBRL(totals.totalClipe)}`} negativo />
             <div style={{ borderTop: `1px solid ${C.border}`, marginTop: "8px", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <strong style={{ fontSize: "11px" }}>SOBRA PARA DISTRIBUIR</strong>
               <strong style={{ fontSize: "13px" }}>{fmtBRL(totals.sobraDistribuir)}</strong>

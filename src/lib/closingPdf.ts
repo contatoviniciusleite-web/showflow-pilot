@@ -396,7 +396,7 @@ export function exportClosingPDF(input: ClosingPdfInput) {
   drawResumo("(-) Custo equipe:", `-${fmtBRL(input.totals.totalEquipe)}`);
   drawResumo("(-) Van:", `-${fmtBRL(input.totals.totalVan)}`);
   drawResumo("(-) Despesas dos shows:", `-${fmtBRL(input.totals.totalDespesasShows)}`);
-  drawResumo("(-) Custo clipe:", `-${fmtBRL(input.totals.totalClipe)}`);
+  drawResumo("(-) Despesas semanais:", `-${fmtBRL(input.totals.totalClipe)}`);
   drawResumo("(-) Investimentos sócios:", `-${fmtBRL(input.totals.totalInvestimentos)}`);
   ly += 1;
   drawResumo("SOBRA PARA DISTRIBUIR:", fmtBRL(input.totals.sobra), { bold: true, bigger: true, sep: true });
