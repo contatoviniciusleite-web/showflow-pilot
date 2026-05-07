@@ -244,6 +244,24 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Vínculos de artistas (sócio)
+      const socioArtIds = Array.isArray(body.socio_artist_ids)
+        ? body.socio_artist_ids.filter((s: unknown): s is string => typeof s === "string")
+        : null;
+      if (role === "socio" && socioArtIds) {
+        await retry("limpar vínculos sócio", () =>
+          admin.from("socio_artists").delete().eq("socio_id", userId)
+        );
+        if (socioArtIds.length) {
+          const { error: sErr } = await retry("salvar vínculos sócio", () =>
+            admin.from("socio_artists").insert(
+              socioArtIds.map((a) => ({ socio_id: userId, artist_id: a }))
+            )
+          );
+          if (sErr) throw sErr;
+        }
+      }
+
       return json({ ok: true, user_id: userId });
     }
 
