@@ -90,6 +90,8 @@ interface Show {
   contratante_link_preenchido?: boolean | null;
   comprovante_url?: string | null;
   prazo_comprovante_em?: string | null;
+  confirmado_sem_pagamento?: boolean | null;
+  confirmado_sem_pagamento_motivo?: string | null;
 }
 interface ShowPublic {
   id: string;
