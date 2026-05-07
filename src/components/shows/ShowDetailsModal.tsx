@@ -347,6 +347,48 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </div>
             )}
 
+            {canConfirmWithoutPayment && !show.confirmado_sem_pagamento && (
+              <div className="border-t pt-3 space-y-2">
+                {!showConfirmNoPay ? (
+                  <Button size="sm" variant="outline" onClick={() => setShowConfirmNoPay(true)} disabled={busy}>
+                    Confirmar sem pagamento
+                  </Button>
+                ) : (
+                  <div className="space-y-2 rounded-md border border-yellow-500/50 bg-yellow-500/5 p-3">
+                    <p className="font-medium text-sm">Confirmar show sem pagamento?</p>
+                    <div className="rounded-md bg-yellow-500/10 border border-yellow-500/40 px-3 py-2 text-xs flex gap-2 items-start">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                      <span>
+                        Atenção: esta ação confirma o show sem registro de pagamento ou comprovante.
+                        Use apenas para parceiros ou acordos comerciais especiais.
+                      </span>
+                    </div>
+                    <div>
+                      <Label>Motivo *</Label>
+                      <Textarea
+                        rows={2}
+                        placeholder="Ex: Parceiro comercial, permuta, acordo especial..."
+                        value={confirmNoPayMotivo}
+                        onChange={(e) => setConfirmNoPayMotivo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Autorizado por</Label>
+                      <Input value={user?.user_metadata?.nome ?? user?.email ?? ""} disabled />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setShowConfirmNoPay(false); setConfirmNoPayMotivo(""); }} disabled={busy}>
+                        Cancelar
+                      </Button>
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={confirmWithoutPayment} disabled={busy}>
+                        Confirmar mesmo assim
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {canDeleteShow && (
               <div className="border-t pt-3">
                 <Button size="sm" variant="destructive" onClick={deleteMinuta} disabled={busy}>
