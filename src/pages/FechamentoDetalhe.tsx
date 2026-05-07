@@ -109,6 +109,24 @@ type GeneralExpense = {
   _dirty?: boolean;
 };
 
+type DescontoDe = "todos" | "socios" | "artista";
+
+const CATEGORIAS_DESPESA_SEMANAL = [
+  "Clipe",
+  "Assessoria de imprensa",
+  "Marketing / Publicidade",
+  "Viagem / Transporte pessoal",
+  "Hospedagem pessoal",
+  "Equipamento pessoal",
+  "Outros",
+];
+
+const DESCONTO_DE_LABEL: Record<DescontoDe, string> = {
+  todos: "Todos proporcionalmente",
+  socios: "Somente sócios",
+  artista: "Somente artista",
+};
+
 type ClipeRow = {
   id: string;
   profissional: string;
@@ -117,6 +135,8 @@ type ClipeRow = {
   quantidade: number;
   valor_por_clipe: number;
   ordem: number;
+  desconto_de: DescontoDe;
+  categoria: string;
   _new?: boolean;
   _dirty?: boolean;
 };
@@ -196,6 +216,8 @@ export default function FechamentoDetalhe() {
       id: x.id, profissional: x.profissional ?? "", funcao: x.funcao ?? "",
       clipe: x.clipe ?? "", quantidade: Number(x.quantidade ?? 0),
       valor_por_clipe: Number(x.valor_por_clipe ?? 0), ordem: x.ordem ?? 0,
+      desconto_de: ((x.desconto_de as DescontoDe) ?? "todos"),
+      categoria: x.categoria ?? "Clipe",
     })));
     setGeneralExpenses(((ge.data as any[]) ?? []).map((e) => ({
       id: e.id,
@@ -425,7 +447,11 @@ export default function FechamentoDetalhe() {
   const addClipe = () =>
     setClipes((arr) => [
       ...arr,
-      { id: crypto.randomUUID(), profissional: "", funcao: "", clipe: "", quantidade: 1, valor_por_clipe: 0, ordem: arr.length, _new: true },
+      {
+        id: crypto.randomUUID(), profissional: "", funcao: "", clipe: "",
+        quantidade: 1, valor_por_clipe: 0, ordem: arr.length,
+        desconto_de: "todos" as DescontoDe, categoria: "Clipe", _new: true,
+      },
     ]);
   const updateClipe = (rowId: string, patch: Partial<ClipeRow>) =>
     setClipes((arr) => arr.map((c) => (c.id === rowId ? { ...c, ...patch, _dirty: true } : c)));
@@ -525,7 +551,11 @@ export default function FechamentoDetalhe() {
           imposto_percentual: config.imposto_percentual,
           partners,
         },
-        clipes.map((c) => ({ quantidade: Number(c.quantidade || 0), valor_por_clipe: Number(c.valor_por_clipe || 0) })),
+        clipes.map((c) => ({
+          quantidade: Number(c.quantidade || 0),
+          valor_por_clipe: Number(c.valor_por_clipe || 0),
+          desconto_de: c.desconto_de,
+        })),
       );
     },
     [shows, showExpensesByShow, vanByShow, crewCostByShow, crew, investments, partners, config, artistName, totalDespesasGeraisCalc, clipes],
@@ -673,6 +703,7 @@ export default function FechamentoDetalhe() {
           closing_id: closing.id,
           profissional: c.profissional, funcao: c.funcao, clipe: c.clipe,
           quantidade: c.quantidade, valor_por_clipe: c.valor_por_clipe, ordem: idx,
+          desconto_de: c.desconto_de, categoria: c.categoria,
         };
         if (c._new) await supabase.from("weekly_closing_clipe" as any).insert(payload);
         else if (c._dirty) await supabase.from("weekly_closing_clipe" as any).update(payload).eq("id", c.id);
@@ -1382,57 +1413,67 @@ export default function FechamentoDetalhe() {
         </div>
       </Card>
 
-      {/* Seção E — Clipe */}
+      {/* Seção E — Despesas Semanais */}
       <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#DB2777] animate-fade-in">
         <div className="px-4 py-3 bg-pink-50/70 dark:bg-pink-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
             <h2 className="font-semibold flex items-center gap-2">
-              <span>🎬</span> E. Clipe
+              <span>🎬</span> E. Despesas Semanais
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Pagamentos por clipe à equipe. Descontado do bruto antes da distribuição (afeta todos os participantes proporcionalmente).
+              Despesas adicionais da semana (clipe, marketing, viagens etc.). Use "Desconto de" para definir quem paga.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#DB2777] text-white">
-              {clipes.length} {clipes.length === 1 ? "profissional" : "profissionais"} · {fmtBRL(totals.totalClipe)}
+              {clipes.length} {clipes.length === 1 ? "lançamento" : "lançamentos"} · {fmtBRL(totals.totalClipe)}
             </span>
             {!readonly && (
               <Button size="sm" variant="outline" onClick={addClipe}>
-                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
+                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa semanal
               </Button>
             )}
           </div>
         </div>
         <div className="p-4">
         {clipes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum lançamento de clipe nesta semana.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma despesa semanal lançada.</p>
         ) : (
           <div className="space-y-2">
-            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <div className="col-span-3">Profissional</div>
-              <div className="col-span-2">Função</div>
-              <div className="col-span-2">Clipe</div>
-              <div className="col-span-1 text-center">Qtd</div>
-              <div className="col-span-2 text-right">Valor/clipe</div>
-              <div className="col-span-1 text-right">Total</div>
+            <div className="grid grid-cols-14 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
+              <div className="col-span-3">Profissional / Beneficiário</div>
+              <div className="col-span-3">Descrição</div>
+              <div className="col-span-2">Categoria</div>
+              <div className="col-span-2 text-right">Valor</div>
+              <div className="col-span-3">Desconto de</div>
               <div className="col-span-1" />
             </div>
             {clipes.map((c) => (
-              <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
+              <div key={c.id} className="grid gap-2 items-center rounded-md border p-2" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
                 <Input className="col-span-3 h-8" placeholder="Nome" value={c.profissional} disabled={readonly}
                   onChange={(e) => updateClipe(c.id, { profissional: e.target.value })} />
-                <Input className="col-span-2 h-8" placeholder="Função" value={c.funcao} disabled={readonly}
-                  onChange={(e) => updateClipe(c.id, { funcao: e.target.value })} />
-                <Input className="col-span-2 h-8" placeholder="Nome do clipe" value={c.clipe} disabled={readonly}
+                <Input className="col-span-3 h-8" placeholder="Descrição" value={c.clipe} disabled={readonly}
                   onChange={(e) => updateClipe(c.id, { clipe: e.target.value })} />
-                <Input className="col-span-1 h-8 text-center" type="number" min={0} value={c.quantidade} disabled={readonly}
-                  onChange={(e) => updateClipe(c.id, { quantidade: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
-                <CurrencyInput className="col-span-2 h-8 text-right" value={c.valor_por_clipe} disabled={readonly}
-                  onValueChange={(v) => updateClipe(c.id, { valor_por_clipe: v })} />
-                <div className="col-span-1 text-right text-sm font-medium">
-                  {fmtBRL(Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0))}
-                </div>
+                <Select value={c.categoria} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { categoria: v })}>
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIAS_DESPESA_SEMANAL.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CurrencyInput className="col-span-2 h-8 text-right" value={Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0)} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { quantidade: 1, valor_por_clipe: v })} />
+                <Select value={c.desconto_de} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { desconto_de: v as DescontoDe })}>
+                  <SelectTrigger className="col-span-3 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(DESCONTO_DE_LABEL) as DescontoDe[]).map((k) => (
+                      <SelectItem key={k} value={k}>{DESCONTO_DE_LABEL[k]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {!readonly && (
                   <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
                     onClick={() => removeClipe(c.id)}>
@@ -1442,7 +1483,7 @@ export default function FechamentoDetalhe() {
               </div>
             ))}
             <div className="flex justify-end pt-2 text-sm font-medium">
-              TOTAL CLIPE: {fmtBRL(totals.totalClipe)}
+              TOTAL DESPESAS SEMANAIS: {fmtBRL(totals.totalClipe)}
             </div>
           </div>
         )}
@@ -1460,7 +1501,13 @@ export default function FechamentoDetalhe() {
             <Linha label="(-) Custo equipe" value={-totals.totalEquipe} />
             <Linha label="(-) Van" value={-totals.totalVan} />
             <Linha label="(-) Despesas dos shows" value={-totals.totalDespesasShows} />
-            <Linha label="(-) Custo clipe" value={-totals.totalClipe} />
+            <Linha label="(-) Despesas semanais (todos)" value={-totals.totalDespesasSemanaisTodos} />
+            {totals.totalDespesasSemanaisSocios > 0 && (
+              <Linha label="(-) Desp. semanais (sócios)" value={-totals.totalDespesasSemanaisSocios} />
+            )}
+            {totals.totalDespesasSemanaisArtista > 0 && (
+              <Linha label="(-) Desp. semanais (artista)" value={-totals.totalDespesasSemanaisArtista} />
+            )}
             <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobraDistribuir)}</span>
@@ -1497,6 +1544,12 @@ export default function FechamentoDetalhe() {
                     <div className="flex justify-between"><span>Bruto (% da sobra)</span><span>{fmtBRL(d.valor_bruto)}</span></div>
                     {d.investimento_valor > 0 && (
                       <div className="flex justify-between"><span>(-) Investimentos</span><span>{fmtBRL(d.investimento_valor)}</span></div>
+                    )}
+                    {(d.despesas_semanais_valor ?? 0) > 0 && (
+                      <div className="flex justify-between">
+                        <span>(-) {d.tipo === "artista" ? "Desp. pessoais" : "Desp. semanais"}</span>
+                        <span>{fmtBRL(d.despesas_semanais_valor ?? 0)}</span>
+                      </div>
                     )}
                   </div>
                 </div>

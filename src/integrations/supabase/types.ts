@@ -1762,9 +1762,11 @@ export type Database = {
       }
       weekly_closing_clipe: {
         Row: {
+          categoria: string
           clipe: string | null
           closing_id: string
           created_at: string
+          desconto_de: string
           funcao: string | null
           id: string
           ordem: number
@@ -1773,9 +1775,11 @@ export type Database = {
           valor_por_clipe: number
         }
         Insert: {
+          categoria?: string
           clipe?: string | null
           closing_id: string
           created_at?: string
+          desconto_de?: string
           funcao?: string | null
           id?: string
           ordem?: number
@@ -1784,9 +1788,11 @@ export type Database = {
           valor_por_clipe?: number
         }
         Update: {
+          categoria?: string
           clipe?: string | null
           closing_id?: string
           created_at?: string
+          desconto_de?: string
           funcao?: string | null
           id?: string
           ordem?: number
