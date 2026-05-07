@@ -1678,6 +1678,35 @@ export type Database = {
           },
         ]
       }
+      socio_artists: {
+        Row: {
+          artist_id: string
+          created_at: string
+          id: string
+          socio_id: string
+        }
+        Insert: {
+          artist_id: string
+          created_at?: string
+          id?: string
+          socio_id: string
+        }
+        Update: {
+          artist_id?: string
+          created_at?: string
+          id?: string
+          socio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "socio_artists_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -2271,6 +2300,7 @@ export type Database = {
         Returns: boolean
       }
       is_business_day_br: { Args: { d: string }; Returns: boolean }
+      is_socio_of: { Args: { _artist_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -2297,6 +2327,7 @@ export type Database = {
         | "vendedor"
         | "financeiro"
         | "diretor"
+        | "socio"
       deposito_status: "ok" | "pendente"
       estrutura_tipo: "aberta" | "fechada"
       show_status:
@@ -2443,6 +2474,7 @@ export const Constants = {
         "vendedor",
         "financeiro",
         "diretor",
+        "socio",
       ],
       deposito_status: ["ok", "pendente"],
       estrutura_tipo: ["aberta", "fechada"],

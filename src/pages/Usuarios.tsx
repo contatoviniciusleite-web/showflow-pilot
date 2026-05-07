@@ -23,6 +23,7 @@ interface AppUser {
   pendente: boolean;
   roles: RoleEntry[];
   vendedor_artist_ids: string[];
+  socio_artist_ids: string[];
 }
 interface Artist {
   id: string;
@@ -36,8 +37,9 @@ const ROLE_LABEL: Record<AppRole, string> = {
   artista: "Artista",
   vendedor: "Vendedor",
   financeiro: "Financeiro",
+  socio: "Sócio",
 };
-const ALL_ROLES: AppRole[] = ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"];
+const ALL_ROLES: AppRole[] = ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro", "socio"];
 
 async function getFunctionErrorMessage(error: unknown, fallback = "Erro ao processar solicitação") {
   const err = error as { message?: string; context?: unknown } | null;
@@ -59,11 +61,11 @@ export default function Usuarios() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ nome: "", email: "", role: "vendedor" as AppRole, artist_id: "", vendedor_artist_ids: [] as string[] });
+  const [inviteForm, setInviteForm] = useState({ nome: "", email: "", role: "vendedor" as AppRole, artist_id: "", vendedor_artist_ids: [] as string[], socio_artist_ids: [] as string[] });
   const [saving, setSaving] = useState(false);
 
   const [editing, setEditing] = useState<AppUser | null>(null);
-  const [editForm, setEditForm] = useState({ nome: "", roles: [] as RoleEntry[], vendedor_artist_ids: [] as string[] });
+  const [editForm, setEditForm] = useState({ nome: "", roles: [] as RoleEntry[], vendedor_artist_ids: [] as string[], socio_artist_ids: [] as string[] });
 
   const load = async () => {
     setLoading(true);
@@ -94,19 +96,20 @@ export default function Usuarios() {
         role: inviteForm.role,
         artist_id: inviteForm.role === "artista" ? inviteForm.artist_id : null,
         vendedor_artist_ids: inviteForm.role === "vendedor" ? inviteForm.vendedor_artist_ids : [],
+        socio_artist_ids: inviteForm.role === "socio" ? inviteForm.socio_artist_ids : [],
       },
     });
     setSaving(false);
     if (error) return toast.error(await getFunctionErrorMessage(error, "Erro ao enviar convite"));
     toast.success("Convite enviado");
     setInviteOpen(false);
-    setInviteForm({ nome: "", email: "", role: "vendedor", artist_id: "", vendedor_artist_ids: [] });
+    setInviteForm({ nome: "", email: "", role: "vendedor", artist_id: "", vendedor_artist_ids: [], socio_artist_ids: [] });
     load();
   };
 
   const openEdit = (u: AppUser) => {
     setEditing(u);
-    setEditForm({ nome: u.nome ?? "", roles: u.roles.length ? [...u.roles] : [], vendedor_artist_ids: [...(u.vendedor_artist_ids ?? [])] });
+    setEditForm({ nome: u.nome ?? "", roles: u.roles.length ? [...u.roles] : [], vendedor_artist_ids: [...(u.vendedor_artist_ids ?? [])], socio_artist_ids: [...(u.socio_artist_ids ?? [])] });
   };
 
   const addRole = () => {
@@ -142,6 +145,7 @@ export default function Usuarios() {
           user_id: editing.id,
           roles: editForm.roles,
           vendedor_artist_ids: editForm.roles.some((r) => r.role === "vendedor") ? editForm.vendedor_artist_ids : [],
+          socio_artist_ids: editForm.roles.some((r) => r.role === "socio") ? editForm.socio_artist_ids : [],
         },
       });
       if (e2) throw e2;
@@ -322,6 +326,33 @@ export default function Usuarios() {
                 <p className="text-xs text-muted-foreground">O vendedor só verá a agenda e poderá vender shows dos artistas marcados.</p>
               </div>
             )}
+            {inviteForm.role === "socio" && (
+              <div className="space-y-1.5">
+                <Label>Artistas vinculados ao sócio</Label>
+                <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
+                  {artists.length === 0 && <p className="text-xs text-muted-foreground">Nenhum artista cadastrado.</p>}
+                  {artists.map((a) => {
+                    const checked = inviteForm.socio_artist_ids.includes(a.id);
+                    return (
+                      <label key={a.id} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...inviteForm.socio_artist_ids, a.id]
+                              : inviteForm.socio_artist_ids.filter((x) => x !== a.id);
+                            setInviteForm({ ...inviteForm, socio_artist_ids: next });
+                          }}
+                        />
+                        {a.nome}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">O sócio verá apenas a agenda, fechamentos e financeiro dos artistas marcados.</p>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
               Um e-mail será enviado com um link para a pessoa definir a própria senha.
             </p>
@@ -405,6 +436,33 @@ export default function Usuarios() {
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground">O vendedor só verá a agenda e poderá vender shows dos artistas marcados.</p>
+                </div>
+              )}
+              {editForm.roles.some((r) => r.role === "socio") && (
+                <div className="space-y-1.5">
+                  <Label>Artistas vinculados ao sócio</Label>
+                  <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
+                    {artists.length === 0 && <p className="text-xs text-muted-foreground">Nenhum artista cadastrado.</p>}
+                    {artists.map((a) => {
+                      const checked = editForm.socio_artist_ids.includes(a.id);
+                      return (
+                        <label key={a.id} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...editForm.socio_artist_ids, a.id]
+                                : editForm.socio_artist_ids.filter((x) => x !== a.id);
+                              setEditForm({ ...editForm, socio_artist_ids: next });
+                            }}
+                          />
+                          {a.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">O sócio só verá a agenda, fechamentos e financeiro dos artistas marcados.</p>
                 </div>
               )}
               <DialogFooter>

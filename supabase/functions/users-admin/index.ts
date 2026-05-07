@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ROLES = ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"] as const;
+const ROLES = ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro", "socio"] as const;
 type Role = (typeof ROLES)[number];
 
 function json(body: unknown, status = 200) {
@@ -136,15 +136,17 @@ Deno.serve(async (req) => {
     const action = body.action ?? "list";
 
     if (action === "list") {
-      const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, authUsers, { data: vendArt, error: vendArtError }] = await Promise.all([
+      const [{ data: profiles, error: profilesError }, { data: roles, error: rolesError }, authUsers, { data: vendArt, error: vendArtError }, { data: socioArt, error: socioArtError }] = await Promise.all([
         retry("listar perfis", () => admin.from("profiles").select("id,nome").order("nome", { ascending: true, nullsFirst: false })),
         retry("listar papéis", () => admin.from("user_roles").select("user_id,role,artist_id").order("created_at", { ascending: true })),
         listAllAuthUsers(admin),
         retry("listar permissões vendedor", () => admin.from("vendedor_artists").select("vendedor_id,artist_id")),
+        retry("listar vínculos sócio", () => admin.from("socio_artists").select("socio_id,artist_id")),
       ]);
       if (profilesError) throw profilesError;
       if (rolesError) throw rolesError;
       if (vendArtError) throw vendArtError;
+      if (socioArtError) throw socioArtError;
 
       const roleMap = new Map<string, Array<{ role: string; artist_id: string | null }>>();
       for (const r of roles ?? []) {
@@ -158,6 +160,12 @@ Deno.serve(async (req) => {
         list.push(v.artist_id);
         vendMap.set(v.vendedor_id, list);
       }
+      const socioMap = new Map<string, string[]>();
+      for (const v of (socioArt ?? []) as Array<{ socio_id: string; artist_id: string }>) {
+        const list = socioMap.get(v.socio_id) ?? [];
+        list.push(v.artist_id);
+        socioMap.set(v.socio_id, list);
+      }
       const emailMap = new Map(authUsers.map((u) => [u.id, { email: u.email, last_sign_in_at: u.last_sign_in_at, invited: !u.email_confirmed_at && !u.last_sign_in_at }]));
       const users = (profiles ?? []).map((p) => ({
         id: p.id,
@@ -167,6 +175,7 @@ Deno.serve(async (req) => {
         pendente: emailMap.get(p.id)?.invited ?? false,
         roles: roleMap.get(p.id) ?? [],
         vendedor_artist_ids: vendMap.get(p.id) ?? [],
+        socio_artist_ids: socioMap.get(p.id) ?? [],
       }));
       return json({ users });
     }
@@ -235,6 +244,24 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Vínculos de artistas (sócio)
+      const socioArtIds = Array.isArray(body.socio_artist_ids)
+        ? body.socio_artist_ids.filter((s: unknown): s is string => typeof s === "string")
+        : null;
+      if (role === "socio" && socioArtIds) {
+        await retry("limpar vínculos sócio", () =>
+          admin.from("socio_artists").delete().eq("socio_id", userId)
+        );
+        if (socioArtIds.length) {
+          const { error: sErr } = await retry("salvar vínculos sócio", () =>
+            admin.from("socio_artists").insert(
+              socioArtIds.map((a) => ({ socio_id: userId, artist_id: a }))
+            )
+          );
+          if (sErr) throw sErr;
+        }
+      }
+
       return json({ ok: true, user_id: userId });
     }
 
@@ -285,6 +312,29 @@ Deno.serve(async (req) => {
             )
           );
           if (vErr) throw vErr;
+        }
+      }
+
+      // Sincroniza vínculos de artistas (sócio)
+      const isSocio = roles.some((r) => r.role === "socio");
+      const socioArtIds = Array.isArray(body.socio_artist_ids)
+        ? body.socio_artist_ids.filter((s: unknown): s is string => typeof s === "string")
+        : null;
+      if (!isSocio) {
+        await retry("limpar vínculos sócio", () =>
+          admin.from("socio_artists").delete().eq("socio_id", userId)
+        );
+      } else if (socioArtIds) {
+        await retry("limpar vínculos sócio", () =>
+          admin.from("socio_artists").delete().eq("socio_id", userId)
+        );
+        if (socioArtIds.length) {
+          const { error: sErr } = await retry("salvar vínculos sócio", () =>
+            admin.from("socio_artists").insert(
+              socioArtIds.map((a) => ({ socio_id: userId, artist_id: a }))
+            )
+          );
+          if (sErr) throw sErr;
         }
       }
 
