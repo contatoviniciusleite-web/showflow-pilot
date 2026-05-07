@@ -96,7 +96,7 @@ export function AppLayout() {
   };
   const onHover = (to: string) => { prefetchRoute(to); prefetchData(to); };
 
-  // Keep-alive: ping a cada 4 minutos para evitar cold start na Edge Function.
+  // Keep-alive: ping a cada 2 minutos para evitar cold start na Edge Function.
   // Pausa quando a aba está em background para não consumir recursos à toa.
   useEffect(() => {
     if (!user) return;
@@ -105,7 +105,7 @@ export function AppLayout() {
       if (interval) return;
       interval = setInterval(() => {
         supabase.functions.invoke("shows-admin", { body: { action: "ping" } }).catch(() => {});
-      }, 4 * 60 * 1000);
+      }, 2 * 60 * 1000);
     };
     const stop = () => {
       if (interval) {
@@ -116,6 +116,8 @@ export function AppLayout() {
     const onVisibility = () => {
       if (document.hidden) stop(); else start();
     };
+    // Ping imediato ao logar
+    supabase.functions.invoke("shows-admin", { body: { action: "ping" } }).catch(() => {});
     if (!document.hidden) start();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
