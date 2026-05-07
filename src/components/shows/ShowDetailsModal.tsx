@@ -58,6 +58,8 @@ interface ShowLite {
   autorizado_por_nome?: string | null;
   autorizado_em?: string | null;
   autorizado_por?: string | null;
+  confirmado_sem_pagamento?: boolean | null;
+  confirmado_sem_pagamento_motivo?: string | null;
 }
 
 interface Props {
