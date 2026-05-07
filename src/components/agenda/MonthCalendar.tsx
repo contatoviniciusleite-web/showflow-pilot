@@ -32,7 +32,6 @@ export const STATUS_COLORS: Record<string, { bg: string; label: string }> = {
   cancelada: { bg: "#DC2626", label: "Cancelado" },
   rejeitada: { bg: "#DC2626", label: "Rejeitada" },
   atrasado: { bg: "#991B1B", label: "Atrasado" },
-  outro: { bg: "#94A3B8", label: "Outro vendedor" },
 };
 
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
