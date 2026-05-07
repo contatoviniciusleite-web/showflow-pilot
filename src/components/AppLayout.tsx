@@ -96,7 +96,7 @@ export function AppLayout() {
   };
   const onHover = (to: string) => { prefetchRoute(to); prefetchData(to); };
 
-  // Keep-alive: ping a cada 4 minutos para evitar cold start na Edge Function.
+  // Keep-alive: ping a cada 2 minutos para evitar cold start na Edge Function.
   // Pausa quando a aba está em background para não consumir recursos à toa.
   useEffect(() => {
     if (!user) return;
