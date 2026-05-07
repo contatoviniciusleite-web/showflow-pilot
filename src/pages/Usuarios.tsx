@@ -36,8 +36,9 @@ const ROLE_LABEL: Record<AppRole, string> = {
   artista: "Artista",
   vendedor: "Vendedor",
   financeiro: "Financeiro",
+  socio: "Sócio",
 };
-const ALL_ROLES: AppRole[] = ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro"];
+const ALL_ROLES: AppRole[] = ["diretor", "gerente", "equipe", "artista", "vendedor", "financeiro", "socio"];
 
 async function getFunctionErrorMessage(error: unknown, fallback = "Erro ao processar solicitação") {
   const err = error as { message?: string; context?: unknown } | null;
