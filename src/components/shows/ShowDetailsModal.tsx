@@ -83,6 +83,8 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   const [reschedTime, setReschedTime] = useState("");
   const [reschedMotivo, setReschedMotivo] = useState("");
   const [showResched, setShowResched] = useState(false);
+  const [showConfirmNoPay, setShowConfirmNoPay] = useState(false);
+  const [confirmNoPayMotivo, setConfirmNoPayMotivo] = useState("");
 
   if (!show) return null;
   const isArtista = roles.includes("artista") && roles.length === 1;
