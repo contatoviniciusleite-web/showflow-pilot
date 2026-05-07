@@ -216,6 +216,8 @@ export default function FechamentoDetalhe() {
       id: x.id, profissional: x.profissional ?? "", funcao: x.funcao ?? "",
       clipe: x.clipe ?? "", quantidade: Number(x.quantidade ?? 0),
       valor_por_clipe: Number(x.valor_por_clipe ?? 0), ordem: x.ordem ?? 0,
+      desconto_de: ((x.desconto_de as DescontoDe) ?? "todos"),
+      categoria: x.categoria ?? "Clipe",
     })));
     setGeneralExpenses(((ge.data as any[]) ?? []).map((e) => ({
       id: e.id,
