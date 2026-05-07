@@ -143,6 +143,13 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
     if (!reschedDate || !reschedMotivo.trim()) return toast.error("Informe nova data e motivo");
     await callAction("reschedule", { data_nova: reschedDate, horario_novo: reschedTime || null, motivo: reschedMotivo });
   };
+  const confirmWithoutPayment = async () => {
+    if (!confirmNoPayMotivo.trim()) return toast.error("Informe o motivo");
+    await callAction("confirm_without_payment", { motivo: confirmNoPayMotivo });
+  };
+
+  const canConfirmWithoutPayment = (isDiretor || isFinanceiro) &&
+    (show.status === "aprovada" || show.status === "aguardando_pagamento");
 
   const exportMinuta = () => {
     const transp: string[] = [];
