@@ -703,6 +703,7 @@ export default function FechamentoDetalhe() {
           closing_id: closing.id,
           profissional: c.profissional, funcao: c.funcao, clipe: c.clipe,
           quantidade: c.quantidade, valor_por_clipe: c.valor_por_clipe, ordem: idx,
+          desconto_de: c.desconto_de, categoria: c.categoria,
         };
         if (c._new) await supabase.from("weekly_closing_clipe" as any).insert(payload);
         else if (c._dirty) await supabase.from("weekly_closing_clipe" as any).update(payload).eq("id", c.id);
