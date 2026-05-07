@@ -96,7 +96,7 @@ export function VendedorAgenda() {
     }
     for (const s of outras) {
       if (!pass(s.artist_id)) continue;
-      if (filterStatus !== "all" && filterStatus !== "outro") continue;
+      if (filterStatus !== "all" && filterStatus !== s.status) continue;
       items.push({ kind: "other", data: s });
     }
     return items;
@@ -111,10 +111,11 @@ export function VendedorAgenda() {
           date: s.data_show,
           time: s.horario,
           label: s.artist_nome ?? "Show",
-          status: it.kind === "other" ? "outro" : (s as OwnShow).status,
+          status: s.status,
           artistColor: s.artist_cor,
           onClick: () => {
             if (it.kind === "own") navigate("/shows");
+            else setOpenDay(new Date(`${s.data_show}T00:00:00`));
           },
         };
       }),
@@ -262,7 +263,7 @@ export function VendedorAgenda() {
                       <div className="flex items-center gap-2">
                         <span className="inline-block w-2.5 h-2.5 rounded-full opacity-70" style={{ background: s.artist_cor ?? "hsl(var(--primary))" }} />
                         <p className="font-medium truncate flex-1">{s.artist_nome ?? "Show"}</p>
-                        <Badge variant="outline" className="text-[10px]"><Users className="h-3 w-3 mr-1" />Outro vendedor</Badge>
+                        <Badge className={STATUS_CLASS[s.status] ?? ""}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
                         {s.horario && <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{s.horario.slice(0, 5)}</span>}
