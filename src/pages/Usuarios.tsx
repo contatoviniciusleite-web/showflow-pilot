@@ -449,7 +449,7 @@ export default function Usuarios() {
                   <p className="text-xs text-muted-foreground">O vendedor só verá a agenda e poderá vender shows dos artistas marcados.</p>
                 </div>
               )}
-              {editForm.roles.some((r) => r.role === "socio") && (
+              {canManageRoles && editForm.roles.some((r) => r.role === "socio") && (
                 <div className="space-y-1.5">
                   <Label>Artistas vinculados ao sócio</Label>
                   <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
