@@ -1501,7 +1501,13 @@ export default function FechamentoDetalhe() {
             <Linha label="(-) Custo equipe" value={-totals.totalEquipe} />
             <Linha label="(-) Van" value={-totals.totalVan} />
             <Linha label="(-) Despesas dos shows" value={-totals.totalDespesasShows} />
-            <Linha label="(-) Custo clipe" value={-totals.totalClipe} />
+            <Linha label="(-) Despesas semanais (todos)" value={-totals.totalDespesasSemanaisTodos} />
+            {totals.totalDespesasSemanaisSocios > 0 && (
+              <Linha label="(-) Desp. semanais (sócios)" value={-totals.totalDespesasSemanaisSocios} />
+            )}
+            {totals.totalDespesasSemanaisArtista > 0 && (
+              <Linha label="(-) Desp. semanais (artista)" value={-totals.totalDespesasSemanaisArtista} />
+            )}
             <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
               <span>(=) SOBRA PARA DISTRIBUIR</span>
               <span>{fmtBRL(totals.sobraDistribuir)}</span>
