@@ -1678,6 +1678,35 @@ export type Database = {
           },
         ]
       }
+      socio_artists: {
+        Row: {
+          artist_id: string
+          created_at: string
+          id: string
+          socio_id: string
+        }
+        Insert: {
+          artist_id: string
+          created_at?: string
+          id?: string
+          socio_id: string
+        }
+        Update: {
+          artist_id?: string
+          created_at?: string
+          id?: string
+          socio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "socio_artists_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
