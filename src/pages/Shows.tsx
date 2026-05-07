@@ -93,18 +93,6 @@ interface Show {
   confirmado_sem_pagamento?: boolean | null;
   confirmado_sem_pagamento_motivo?: string | null;
 }
-interface ShowPublic {
-  id: string;
-  artist_id: string;
-  artist_nome: string | null;
-  artist_cor: string | null;
-  data_show: string;
-  horario: string | null;
-  local: string | null;
-  cidade: string | null;
-  vendedor: string | null;
-  status: ShowStatus;
-}
 
 const emptyForm = {
   artist_id: "",
