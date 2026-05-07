@@ -52,10 +52,12 @@ export function NotificationBell() {
   };
 
   const invokeNotif = async (body: any) => {
-    if (!session?.access_token) return { data: null, error: new Error("no-session") };
+    const { data: { session: fresh } } = await supabase.auth.getSession();
+    const token = fresh?.access_token ?? session?.access_token;
+    if (!token) return { data: null, error: new Error("no-session") };
     return supabase.functions.invoke("notifications", {
       body,
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
   };
 
