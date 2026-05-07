@@ -126,11 +126,17 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    const { data: managerRows, error: managerError } = await retry("verificar gerente", () =>
-      admin.from("user_roles").select("id").eq("user_id", callerId).eq("role", "gerente").limit(1)
+    const { data: callerRoleRows, error: managerError } = await retry("verificar papéis", () =>
+      admin.from("user_roles").select("role").eq("user_id", callerId)
     );
     if (managerError) throw managerError;
-    if (!managerRows?.length) return json({ error: "Acesso negado" }, 403);
+    const callerRoles = new Set((callerRoleRows ?? []).map((r: { role: string }) => r.role));
+    const isManager = callerRoles.has("gerente");
+    const isDiretor = callerRoles.has("diretor");
+    const isFinanceiro = callerRoles.has("financeiro");
+    if (!isManager && !isDiretor && !isFinanceiro) return json({ error: "Acesso negado" }, 403);
+    const canManageRoles = isManager || isDiretor;
+    const canDelete = isManager || isDiretor;
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
