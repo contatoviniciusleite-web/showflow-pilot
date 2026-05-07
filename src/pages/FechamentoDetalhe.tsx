@@ -109,6 +109,24 @@ type GeneralExpense = {
   _dirty?: boolean;
 };
 
+type DescontoDe = "todos" | "socios" | "artista";
+
+const CATEGORIAS_DESPESA_SEMANAL = [
+  "Clipe",
+  "Assessoria de imprensa",
+  "Marketing / Publicidade",
+  "Viagem / Transporte pessoal",
+  "Hospedagem pessoal",
+  "Equipamento pessoal",
+  "Outros",
+];
+
+const DESCONTO_DE_LABEL: Record<DescontoDe, string> = {
+  todos: "Todos proporcionalmente",
+  socios: "Somente sócios",
+  artista: "Somente artista",
+};
+
 type ClipeRow = {
   id: string;
   profissional: string;
@@ -117,6 +135,8 @@ type ClipeRow = {
   quantidade: number;
   valor_por_clipe: number;
   ordem: number;
+  desconto_de: DescontoDe;
+  categoria: string;
   _new?: boolean;
   _dirty?: boolean;
 };
