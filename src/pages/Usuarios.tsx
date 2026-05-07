@@ -56,7 +56,9 @@ async function getFunctionErrorMessage(error: unknown, fallback = "Erro ao proce
 }
 
 export default function Usuarios() {
-  const { user: me } = useAuth();
+  const { user: me, roles: myRoles } = useAuth();
+  const canManageRoles = myRoles.includes("diretor") || myRoles.includes("gerente");
+  const canDelete = canManageRoles;
   const [users, setUsers] = useState<AppUser[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
