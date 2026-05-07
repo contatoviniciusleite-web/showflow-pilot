@@ -1473,6 +1473,8 @@ export type Database = {
           confirmado_em: string | null
           confirmado_por: string | null
           confirmado_por_nome: string | null
+          confirmado_sem_pagamento: boolean
+          confirmado_sem_pagamento_motivo: string | null
           contratante_cep: string | null
           contratante_cidade: string | null
           contratante_documento: string | null
@@ -1544,6 +1546,8 @@ export type Database = {
           confirmado_em?: string | null
           confirmado_por?: string | null
           confirmado_por_nome?: string | null
+          confirmado_sem_pagamento?: boolean
+          confirmado_sem_pagamento_motivo?: string | null
           contratante_cep?: string | null
           contratante_cidade?: string | null
           contratante_documento?: string | null
@@ -1615,6 +1619,8 @@ export type Database = {
           confirmado_em?: string | null
           confirmado_por?: string | null
           confirmado_por_nome?: string | null
+          confirmado_sem_pagamento?: boolean
+          confirmado_sem_pagamento_motivo?: string | null
           contratante_cep?: string | null
           contratante_cidade?: string | null
           contratante_documento?: string | null
