@@ -29,9 +29,11 @@ Deno.serve(async (req) => {
     const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: auth } } });
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    const { data: u } = await userClient.auth.getUser();
-    if (!u?.user) return json({ error: "Não autenticado" }, 401);
-    const userId = u.user.id;
+    const token = auth.replace(/^Bearer\s+/i, "");
+    if (!token) return json({ error: "Não autenticado" }, 401);
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims?.sub) return json({ error: "Não autenticado" }, 401);
+    const userId = claimsData.claims.sub as string;
 
     const { data: rolesRows } = await admin.from("user_roles").select("role").eq("user_id", userId);
     const roles = new Set((rolesRows ?? []).map((r: any) => r.role));
