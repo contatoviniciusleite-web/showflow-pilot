@@ -1413,57 +1413,67 @@ export default function FechamentoDetalhe() {
         </div>
       </Card>
 
-      {/* Seção E — Clipe */}
+      {/* Seção E — Despesas Semanais */}
       <Card className="shadow-soft overflow-hidden border-l-[3px] border-l-[#DB2777] animate-fade-in">
         <div className="px-4 py-3 bg-pink-50/70 dark:bg-pink-950/20 border-b flex items-center justify-between flex-wrap gap-2">
           <div>
             <h2 className="font-semibold flex items-center gap-2">
-              <span>🎬</span> E. Clipe
+              <span>🎬</span> E. Despesas Semanais
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Pagamentos por clipe à equipe. Descontado do bruto antes da distribuição (afeta todos os participantes proporcionalmente).
+              Despesas adicionais da semana (clipe, marketing, viagens etc.). Use "Desconto de" para definir quem paga.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#DB2777] text-white">
-              {clipes.length} {clipes.length === 1 ? "profissional" : "profissionais"} · {fmtBRL(totals.totalClipe)}
+              {clipes.length} {clipes.length === 1 ? "lançamento" : "lançamentos"} · {fmtBRL(totals.totalClipe)}
             </span>
             {!readonly && (
               <Button size="sm" variant="outline" onClick={addClipe}>
-                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar profissional de clipe
+                <Plus className="h-3.5 w-3.5 mr-1" />Adicionar despesa semanal
               </Button>
             )}
           </div>
         </div>
         <div className="p-4">
         {clipes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum lançamento de clipe nesta semana.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma despesa semanal lançada.</p>
         ) : (
           <div className="space-y-2">
-            <div className="grid grid-cols-12 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <div className="col-span-3">Profissional</div>
-              <div className="col-span-2">Função</div>
-              <div className="col-span-2">Clipe</div>
-              <div className="col-span-1 text-center">Qtd</div>
-              <div className="col-span-2 text-right">Valor/clipe</div>
-              <div className="col-span-1 text-right">Total</div>
+            <div className="grid grid-cols-14 gap-2 px-2 text-xs text-muted-foreground uppercase tracking-wider" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
+              <div className="col-span-3">Profissional / Beneficiário</div>
+              <div className="col-span-3">Descrição</div>
+              <div className="col-span-2">Categoria</div>
+              <div className="col-span-2 text-right">Valor</div>
+              <div className="col-span-3">Desconto de</div>
               <div className="col-span-1" />
             </div>
             {clipes.map((c) => (
-              <div key={c.id} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2">
+              <div key={c.id} className="grid gap-2 items-center rounded-md border p-2" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
                 <Input className="col-span-3 h-8" placeholder="Nome" value={c.profissional} disabled={readonly}
                   onChange={(e) => updateClipe(c.id, { profissional: e.target.value })} />
-                <Input className="col-span-2 h-8" placeholder="Função" value={c.funcao} disabled={readonly}
-                  onChange={(e) => updateClipe(c.id, { funcao: e.target.value })} />
-                <Input className="col-span-2 h-8" placeholder="Nome do clipe" value={c.clipe} disabled={readonly}
+                <Input className="col-span-3 h-8" placeholder="Descrição" value={c.clipe} disabled={readonly}
                   onChange={(e) => updateClipe(c.id, { clipe: e.target.value })} />
-                <Input className="col-span-1 h-8 text-center" type="number" min={0} value={c.quantidade} disabled={readonly}
-                  onChange={(e) => updateClipe(c.id, { quantidade: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
-                <CurrencyInput className="col-span-2 h-8 text-right" value={c.valor_por_clipe} disabled={readonly}
-                  onValueChange={(v) => updateClipe(c.id, { valor_por_clipe: v })} />
-                <div className="col-span-1 text-right text-sm font-medium">
-                  {fmtBRL(Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0))}
-                </div>
+                <Select value={c.categoria} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { categoria: v })}>
+                  <SelectTrigger className="col-span-2 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIAS_DESPESA_SEMANAL.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CurrencyInput className="col-span-2 h-8 text-right" value={Number(c.quantidade || 0) * Number(c.valor_por_clipe || 0)} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { quantidade: 1, valor_por_clipe: v })} />
+                <Select value={c.desconto_de} disabled={readonly}
+                  onValueChange={(v) => updateClipe(c.id, { desconto_de: v as DescontoDe })}>
+                  <SelectTrigger className="col-span-3 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(DESCONTO_DE_LABEL) as DescontoDe[]).map((k) => (
+                      <SelectItem key={k} value={k}>{DESCONTO_DE_LABEL[k]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {!readonly && (
                   <Button size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive"
                     onClick={() => removeClipe(c.id)}>
@@ -1473,7 +1483,7 @@ export default function FechamentoDetalhe() {
               </div>
             ))}
             <div className="flex justify-end pt-2 text-sm font-medium">
-              TOTAL CLIPE: {fmtBRL(totals.totalClipe)}
+              TOTAL DESPESAS SEMANAIS: {fmtBRL(totals.totalClipe)}
             </div>
           </div>
         )}
