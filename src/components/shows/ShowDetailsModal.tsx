@@ -277,6 +277,27 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
               </p>
             )}
 
+            {show.confirmado_sem_pagamento && (isDiretor || isFinanceiro) && (
+              <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-sm space-y-1">
+                <p className="font-medium text-yellow-700 dark:text-yellow-400">
+                  ✓ Confirmado sem pagamento
+                </p>
+                {show.confirmado_sem_pagamento_motivo && (
+                  <p className="text-muted-foreground text-xs">
+                    <strong>Motivo:</strong> {show.confirmado_sem_pagamento_motivo}
+                  </p>
+                )}
+                {show.confirmado_por_nome && (
+                  <p className="text-muted-foreground text-xs">
+                    Por {show.confirmado_por_nome}
+                    {show.confirmado_em && (
+                      <> em {format(new Date(show.confirmado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
+
             {canManageActions && show.status !== "cancelada" && (
               <div className="border-t pt-3 space-y-2">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">
