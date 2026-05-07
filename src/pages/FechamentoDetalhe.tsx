@@ -447,7 +447,11 @@ export default function FechamentoDetalhe() {
   const addClipe = () =>
     setClipes((arr) => [
       ...arr,
-      { id: crypto.randomUUID(), profissional: "", funcao: "", clipe: "", quantidade: 1, valor_por_clipe: 0, ordem: arr.length, _new: true },
+      {
+        id: crypto.randomUUID(), profissional: "", funcao: "", clipe: "",
+        quantidade: 1, valor_por_clipe: 0, ordem: arr.length,
+        desconto_de: "todos" as DescontoDe, categoria: "Clipe", _new: true,
+      },
     ]);
   const updateClipe = (rowId: string, patch: Partial<ClipeRow>) =>
     setClipes((arr) => arr.map((c) => (c.id === rowId ? { ...c, ...patch, _dirty: true } : c)));
