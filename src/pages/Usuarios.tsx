@@ -145,6 +145,7 @@ export default function Usuarios() {
           user_id: editing.id,
           roles: editForm.roles,
           vendedor_artist_ids: editForm.roles.some((r) => r.role === "vendedor") ? editForm.vendedor_artist_ids : [],
+          socio_artist_ids: editForm.roles.some((r) => r.role === "socio") ? editForm.socio_artist_ids : [],
         },
       });
       if (e2) throw e2;
