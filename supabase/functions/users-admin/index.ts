@@ -378,6 +378,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "delete") {
+      if (!canDelete) return json({ error: "Sem permissão para remover usuários" }, 403);
       const userId = body.user_id;
       if (typeof userId !== "string") return json({ error: "Usuário inválido" }, 400);
       if (userId === callerId) return json({ error: "Você não pode remover a si mesmo" }, 400);
