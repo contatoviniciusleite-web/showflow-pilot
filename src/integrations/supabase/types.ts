@@ -2297,6 +2297,7 @@ export type Database = {
         | "vendedor"
         | "financeiro"
         | "diretor"
+        | "socio"
       deposito_status: "ok" | "pendente"
       estrutura_tipo: "aberta" | "fechada"
       show_status:
@@ -2443,6 +2444,7 @@ export const Constants = {
         "vendedor",
         "financeiro",
         "diretor",
+        "socio",
       ],
       deposito_status: ["ok", "pendente"],
       estrutura_tipo: ["aberta", "fechada"],
