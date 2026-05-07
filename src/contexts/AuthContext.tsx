@@ -3,7 +3,7 @@ import { Session, User } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "diretor" | "gerente" | "equipe" | "artista" | "vendedor" | "financeiro";
+export type AppRole = "diretor" | "gerente" | "equipe" | "artista" | "vendedor" | "financeiro" | "socio";
 
 interface AuthState {
   user: User | null;
