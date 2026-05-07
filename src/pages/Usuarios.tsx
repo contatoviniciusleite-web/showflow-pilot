@@ -141,16 +141,18 @@ export default function Usuarios() {
         body: { action: "update_profile", user_id: editing.id, nome: editForm.nome.trim() },
       });
       if (e1) throw e1;
-      const { error: e2 } = await supabase.functions.invoke("users-admin", {
-        body: {
-          action: "set_roles",
-          user_id: editing.id,
-          roles: editForm.roles,
-          vendedor_artist_ids: editForm.roles.some((r) => r.role === "vendedor") ? editForm.vendedor_artist_ids : [],
-          socio_artist_ids: editForm.roles.some((r) => r.role === "socio") ? editForm.socio_artist_ids : [],
-        },
-      });
-      if (e2) throw e2;
+      if (canManageRoles) {
+        const { error: e2 } = await supabase.functions.invoke("users-admin", {
+          body: {
+            action: "set_roles",
+            user_id: editing.id,
+            roles: editForm.roles,
+            vendedor_artist_ids: editForm.roles.some((r) => r.role === "vendedor") ? editForm.vendedor_artist_ids : [],
+            socio_artist_ids: editForm.roles.some((r) => r.role === "socio") ? editForm.socio_artist_ids : [],
+          },
+        });
+        if (e2) throw e2;
+      }
       toast.success("Usuário atualizado");
       setEditing(null);
       load();
