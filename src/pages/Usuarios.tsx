@@ -387,6 +387,7 @@ export default function Usuarios() {
                 <Label>E-mail</Label>
                 <Input value={editing.email ?? ""} disabled />
               </div>
+              {canManageRoles && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Papéis</Label>
@@ -417,6 +418,10 @@ export default function Usuarios() {
                   </div>
                 ))}
               </div>
+              )}
+              {!canManageRoles && (
+                <p className="text-xs text-muted-foreground">Apenas Diretor ou Gerente podem alterar papéis e permissões.</p>
+              )}
               {editForm.roles.some((r) => r.role === "vendedor") && (
                 <div className="space-y-1.5">
                   <Label>Artistas que pode vender</Label>
