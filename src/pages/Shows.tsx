@@ -777,6 +777,34 @@ export default function Shows() {
         )}
       </div>
 
+      {/* Janela de carregamento (limita o volume vindo do servidor) */}
+      <div className="mb-3 flex flex-wrap items-end gap-2">
+        <div className="min-w-[220px]">
+          <Label className="text-xs">Carregar</Label>
+          <Select value={loadRange} onValueChange={(v) => setLoadRange(v as any)}>
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Últimos 90 dias + próximos 180 dias</SelectItem>
+              <SelectItem value="year">Este ano inteiro</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+              <SelectItem value="all">Todos os shows</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {loadRange === "custom" && (
+          <>
+            <div>
+              <Label className="text-xs">De</Label>
+              <Input type="date" className="h-9 w-[150px]" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Até</Label>
+              <Input type="date" className="h-9 w-[150px]" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            </div>
+          </>
+        )}
+      </div>
+
       {!loading && shows.length > 0 && (
         <ShowsFilters
           filters={filters}
