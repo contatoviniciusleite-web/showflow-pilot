@@ -36,6 +36,7 @@ const FechamentoDetalhe = lazy(() => import("./pages/FechamentoDetalhe"));
 const Pagamentos = lazy(() => import("./pages/Pagamentos"));
 const Fornecedores = lazy(() => import("./pages/Fornecedores"));
 const FinanceiroProdutora = lazy(() => import("./pages/FinanceiroProdutora"));
+const ContractTemplates = lazy(() => import("./pages/ContractTemplates"));
 const WhatsappTest = lazy(() => import("./pages/admin/WhatsappTest"));
 
 const queryClient = new QueryClient({
@@ -157,6 +158,14 @@ const App = () => (
                     element={
                       <ProtectedRoute requireRoles={["diretor", "financeiro"]}>
                         <ErrorBoundary label="FinanceiroProdutora"><FinanceiroProdutora /></ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/app/contratos/templates"
+                    element={
+                      <ProtectedRoute requireRoles={["diretor", "financeiro"]}>
+                        <ErrorBoundary label="ContractTemplates"><ContractTemplates /></ErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
