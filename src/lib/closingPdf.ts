@@ -2,7 +2,7 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { fmtBRL, fmtDateBR } from "@/lib/exporters";
+import { fmtBRL, fmtDateBR } from "@/lib/formatters";
 import type { ClosingTotals, DistributionRow } from "@/lib/closingCalc";
 
 export type ClosingPdfInput = {

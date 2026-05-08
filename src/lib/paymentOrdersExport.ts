@@ -1,7 +1,7 @@
 // Exportação (PDF e CSV) da lista de Ordens de Pagamento agrupadas por fechamento.
 import jsPDF from "jspdf";
 import autoTable, { type RowInput } from "jspdf-autotable";
-import { fmtBRL, fmtDateBR } from "@/lib/exporters";
+import { fmtBRL, fmtDateBR } from "@/lib/formatters";
 import { TIPO_LABEL, STATUS_LABEL } from "@/lib/paymentOrders";
 
 export type PaymentOrderExport = {

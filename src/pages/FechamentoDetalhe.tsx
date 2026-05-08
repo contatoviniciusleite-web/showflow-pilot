@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Loader2, Save, CheckCircle2, FileDown, Plus, Trash2, ArrowLeft, Unlock, Info, ChevronDown, ChevronRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { fmtBRL, fmtDateBR } from "@/lib/exporters";
+import { fmtBRL, fmtDateBR } from "@/lib/formatters";
 import { computeClosing, type ClosingPartnerInput } from "@/lib/closingCalc";
 import { exportClosingDocumentPDF } from "@/lib/closingDocumentPdf";
 import { cn } from "@/lib/utils";

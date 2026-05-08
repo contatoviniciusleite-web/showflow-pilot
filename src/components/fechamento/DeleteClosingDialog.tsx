@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { fmtDateBR } from "@/lib/exporters";
+import { fmtDateBR } from "@/lib/formatters";
 import { toast } from "sonner";
 
 interface Props {
