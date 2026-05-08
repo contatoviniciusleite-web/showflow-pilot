@@ -795,7 +795,7 @@ export default function FechamentoDetalhe() {
       }
 
       setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]); setRemovedClipes([]);
-      await load();
+      await reload();
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
     } finally {
