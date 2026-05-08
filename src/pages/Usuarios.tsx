@@ -76,9 +76,15 @@ export default function Usuarios() {
       supabase.functions.invoke("artists-admin", { body: { action: "list" } }),
     ]);
     if (uErr) toast.error(await getFunctionErrorMessage(uErr));
-    if (aErr) toast.error(await getFunctionErrorMessage(aErr));
+    if (aErr) console.warn("[Usuarios] artists-admin erro:", aErr);
+    console.log("[Usuarios] artistas carregados:", aData?.artists?.length ?? 0);
     setUsers((uData?.users ?? []) as AppUser[]);
-    setArtists(((aData?.artists ?? []) as Artist[]).map((a) => ({ id: a.id, nome: a.nome })));
+    let artistList = ((aData?.artists ?? []) as Artist[]).map((a) => ({ id: a.id, nome: a.nome }));
+    if (artistList.length === 0) {
+      const { data: fb } = await supabase.from("artists").select("id, nome").eq("ativo", true).order("nome");
+      if (fb?.length) artistList = fb as Artist[];
+    }
+    setArtists(artistList);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
