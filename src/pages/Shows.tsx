@@ -587,7 +587,7 @@ export default function Shows() {
 
   // ===== Optimistic update helper =====
   // Aplica patch local imediatamente; em caso de erro, reverte e re-fetch.
-  const showsQueryKey = ["shows", user?.id, roles.join(","), "bootstrap-v1"];
+  const showsQueryKey = ["shows", user?.id, roles.join(","), "bootstrap-v1", loadRange, customFrom, customTo];
   const optimisticUpdate = async (
     showId: string,
     patch: Partial<Show>,
