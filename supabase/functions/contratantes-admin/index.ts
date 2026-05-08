@@ -52,6 +52,26 @@ Deno.serve(async (req) => {
     const action = body.action as string;
 
     if (action === "list") {
+      // Vendedor (sem outro papel privilegiado) só vê contratantes vinculados aos shows que ele criou
+      const isPrivileged = isManager || isFin || roles.has("diretor") || isStaff;
+      if (isVendedor && !isPrivileged) {
+        const { data: meusShows, error: showsErr } = await admin
+          .from("shows")
+          .select("contratante_id")
+          .eq("created_by", userId)
+          .not("contratante_id", "is", null);
+        if (showsErr) throw showsErr;
+        const ids = Array.from(new Set((meusShows ?? []).map((s: any) => s.contratante_id).filter(Boolean)));
+        if (ids.length === 0) return json({ contratantes: [] });
+        const { data, error } = await admin
+          .from("contratantes")
+          .select("*")
+          .in("id", ids)
+          .order("nome", { ascending: true })
+          .limit(1000);
+        if (error) throw error;
+        return json({ contratantes: data ?? [] });
+      }
       const { data, error } = await admin
         .from("contratantes")
         .select("*")
@@ -73,15 +93,26 @@ Deno.serve(async (req) => {
     if (action === "get") {
       const id = txt(body.id, 64);
       if (!id) return json({ error: "ID obrigatório" }, 400);
+      const isPrivileged = isManager || isFin || roles.has("diretor") || isStaff;
+      if (isVendedor && !isPrivileged) {
+        const { count } = await admin
+          .from("shows")
+          .select("id", { count: "exact", head: true })
+          .eq("contratante_id", id)
+          .eq("created_by", userId);
+        if (!count) return json({ error: "Sem permissão" }, 403);
+      }
       const { data: c, error } = await admin.from("contratantes").select("*").eq("id", id).maybeSingle();
       if (error) throw error;
       if (!c) return json({ error: "Contratante não encontrado" }, 404);
-      // histórico de shows vinculados
-      const { data: shows } = await admin
+      // histórico de shows vinculados (vendedor vê apenas os próprios)
+      let showsQuery = admin
         .from("shows")
-        .select("id,data_show,local,cidade,cache_total,status,artist_id,artists(nome)")
+        .select("id,data_show,local,cidade,cache_total,status,artist_id,created_by,artists(nome)")
         .eq("contratante_id", id)
         .order("data_show", { ascending: false });
+      if (isVendedor && !isPrivileged) showsQuery = showsQuery.eq("created_by", userId);
+      const { data: shows } = await showsQuery;
       return json({ contratante: c, shows: shows ?? [] });
     }
 
