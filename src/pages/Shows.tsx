@@ -262,10 +262,28 @@ export default function Shows() {
   const [parcelas, setParcelas] = useState<ScheduleItem[]>([]);
   const [myName, setMyName] = useState<string>("");
 
+  // Janela de carregamento (limita o volume vindo do servidor para evitar travas).
+  // "default" = últimos 90 dias + próximos 180 dias. "year" = ano corrente. "all" = sem limite.
+  const [loadRange, setLoadRange] = useState<"default" | "year" | "all" | "custom">("default");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
+
+  const rangeBody = useMemo(() => {
+    if (loadRange === "all") return { range: "all" as const };
+    if (loadRange === "year") {
+      const y = new Date().getFullYear();
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    }
+    if (loadRange === "custom" && (customFrom || customTo)) {
+      return { from: customFrom || undefined, to: customTo || undefined };
+    }
+    return {}; // default = backend aplica janela padrão
+  }, [loadRange, customFrom, customTo]);
+
   const showsQuery = useQuery({
-    queryKey: ["shows", user?.id, roles.join(","), "bootstrap-v1"],
+    queryKey: ["shows", user?.id, roles.join(","), "bootstrap-v1", loadRange, customFrom, customTo],
     queryFn: async () => {
-      const res = await supabase.functions.invoke("shows-admin", { body: { action: "bootstrap" } });
+      const res = await supabase.functions.invoke("shows-admin", { body: { action: "bootstrap", ...rangeBody } });
       if (res.error) throw new Error(res.error.message);
     return {
       shows: (res.data?.shows ?? []) as Show[],
