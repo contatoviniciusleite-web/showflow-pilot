@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, UserCircle2 } from "lucide-react";
+import { Loader2, UserCircle2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
