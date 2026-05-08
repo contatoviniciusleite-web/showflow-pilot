@@ -81,11 +81,17 @@ Deno.serve(async (req) => {
     if (authError || !userId) return json({ error: "Sessão inválida" }, 401);
 
     sql = postgres(databaseUrl, { prepare: false, max: 1 });
-    const managerRows = await sql`select 1 from public.user_roles where user_id = ${userId} and role = 'gerente' limit 1`;
-    if (managerRows.length === 0) return json({ error: "Acesso negado" }, 403);
+    const roleRows = await sql`select role from public.user_roles where user_id = ${userId}`;
+    const roles = new Set(roleRows.map((r: { role: string }) => r.role));
+    const isManager = roles.has("gerente") || roles.has("diretor");
+    const canList = isManager || roles.has("financeiro") || roles.has("vendedor") || roles.has("equipe") || roles.has("socio");
 
     const body = req.method === "GET" ? { action: "list" } : await req.json().catch(() => ({}));
     const action = body.action ?? "list";
+
+    // Mutations restricted to gerente/diretor; listing allowed for broader set
+    if (action !== "list" && !isManager) return json({ error: "Acesso negado" }, 403);
+    if (action === "list" && !canList) return json({ error: "Acesso negado" }, 403);
 
     if (action === "list") {
       const artists = await sql`
