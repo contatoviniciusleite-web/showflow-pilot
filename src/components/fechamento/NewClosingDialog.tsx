@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { fmtBRL, fmtDateBR } from "@/lib/exporters";
+import { fmtBRL, fmtDateBR } from "@/lib/formatters";
 
 type Props = {
   open: boolean;

@@ -3,7 +3,7 @@
 // Todos os estilos são inline para evitar dependências do tema da app.
 
 import { forwardRef } from "react";
-import { fmtBRL, fmtDateBR } from "@/lib/exporters";
+import { fmtBRL, fmtDateBR } from "@/lib/formatters";
 import type { ClosingTotals } from "@/lib/closingCalc";
 
 export type PdfShow = {

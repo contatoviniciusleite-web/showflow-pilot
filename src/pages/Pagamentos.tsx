@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CalendarClock, CheckCircle2, Ban, Wallet, Download, Clock } from "lucide-react";
-import { fmtBRL, fmtDateBR } from "@/lib/exporters";
+import { fmtBRL, fmtDateBR } from "@/lib/formatters";
 import { useAuth } from "@/contexts/AuthContext";
 import { canManagePaymentOrders, canViewPaymentOrders } from "@/lib/permissions";
 import { ExportPaymentOrdersDialog } from "@/components/pagamentos/ExportPaymentOrdersDialog";
