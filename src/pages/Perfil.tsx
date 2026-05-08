@@ -10,7 +10,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { maskPhone, phoneDigits, toStoredPhone, fromStoredPhone } from "@/lib/phone";
+
+const passwordSchema = z
+  .object({
+    password: z.string().min(6, "A senha deve ter ao menos 6 caracteres").max(72, "Senha muito longa"),
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: "As senhas não coincidem",
+    path: ["confirm"],
+  });
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="new-password"
+        placeholder={placeholder}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((s) => !s)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        tabIndex={-1}
+        aria-label={show ? "Ocultar senha" : "Mostrar senha"}
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
 
 const schema = z.object({
   nome: z
