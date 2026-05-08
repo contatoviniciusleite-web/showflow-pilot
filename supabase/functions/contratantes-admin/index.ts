@@ -52,6 +52,26 @@ Deno.serve(async (req) => {
     const action = body.action as string;
 
     if (action === "list") {
+      // Vendedor (sem outro papel privilegiado) só vê contratantes vinculados aos shows que ele criou
+      const isPrivileged = isManager || isFin || roles.has("diretor") || isStaff;
+      if (isVendedor && !isPrivileged) {
+        const { data: meusShows, error: showsErr } = await admin
+          .from("shows")
+          .select("contratante_id")
+          .eq("created_by", userId)
+          .not("contratante_id", "is", null);
+        if (showsErr) throw showsErr;
+        const ids = Array.from(new Set((meusShows ?? []).map((s: any) => s.contratante_id).filter(Boolean)));
+        if (ids.length === 0) return json({ contratantes: [] });
+        const { data, error } = await admin
+          .from("contratantes")
+          .select("*")
+          .in("id", ids)
+          .order("nome", { ascending: true })
+          .limit(1000);
+        if (error) throw error;
+        return json({ contratantes: data ?? [] });
+      }
       const { data, error } = await admin
         .from("contratantes")
         .select("*")
