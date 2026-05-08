@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2, Crown, FileSpreadsheet, Wallet, Truck, Briefcase, MessageCircle } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Music2, DollarSign, FileText, LogOut, ListMusic, Ban, Building2, Crown, FileSpreadsheet, Wallet, Truck, Briefcase, MessageCircle, FileSignature } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffectiveRoles } from "@/contexts/ManagerModeContext";
@@ -43,6 +43,7 @@ const nav = [
   { to: "/pagamentos", label: "Pagamentos", icon: Wallet, roles: ["diretor", "financeiro"] },
   { to: "/financeiro-produtora", label: "Financeiro da Produtora", icon: Briefcase, roles: ["diretor", "financeiro"] },
   { to: "/fornecedores", label: "Fornecedores", icon: Truck, roles: ["diretor", "financeiro"] },
+  { to: "/app/contratos/templates", label: "Templates de Contrato", icon: FileSignature, roles: ["diretor", "financeiro"] },
   { to: "/contratantes", label: "Contratantes", icon: Building2, roles: ["diretor", "gerente", "equipe", "vendedor", "financeiro"] },
   { to: "/diretoria", label: "Diretoria", icon: Crown, roles: ["diretor"] },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["diretor", "gerente"] },
