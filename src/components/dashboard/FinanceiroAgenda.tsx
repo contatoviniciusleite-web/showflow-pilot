@@ -117,7 +117,7 @@ export function FinanceiroAgenda() {
     return { total: monthShows.length, conf, pend };
   }, [monthShows]);
 
-  const exportMonth = (kind: "pdf" | "csv") => {
+  const exportMonth = async (kind: "pdf" | "csv") => {
     const cols: Column[] = [
       { header: "Data", key: (r: FShow) => r.data_show.split("-").reverse().join("/") },
       { header: "Hora", key: (r: FShow) => (r.horario ? r.horario.slice(0, 5) : "—") },
