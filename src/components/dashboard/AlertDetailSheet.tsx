@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import { fmtBRL, fmtDate } from "@/lib/dashboard";
 import { STATUS_CLASS, STATUS_LABEL, ShowStatus } from "@/lib/showStatus";
 import { ExportMenu } from "@/components/ExportMenu";
-import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
+import type { Column } from "@/lib/exporters";
 
 export interface AlertShow {
   id: string;
