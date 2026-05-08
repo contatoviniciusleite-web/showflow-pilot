@@ -367,8 +367,11 @@ Deno.serve(async (req) => {
     // Aceita filtros opcionais aplicados no SQL (artist_id, from, to, status).
     if (action === "bootstrap") {
       const fArtist = body.artist_id && body.artist_id !== "all" ? txt(body.artist_id, 64) : null;
-      const fFrom = dateOrNull(body.from);
-      const fTo = dateOrNull(body.to);
+      // Janela padrão: últimos 90 dias + próximos 180 dias.
+      // Pode ser sobrescrita pelo cliente passando from/to (ou "all" para desabilitar).
+      const allRange = body.range === "all";
+      const fFrom = dateOrNull(body.from) ?? (allRange ? null : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+      const fTo = dateOrNull(body.to) ?? (allRange ? null : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
       const fStatus = body.status && body.status !== "all" ? txt(body.status, 30) : null;
 
       const filterSql = sql`
