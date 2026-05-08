@@ -16,7 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { canRegisterPayment, canDeletePayment, canViewConfirmedBy } from "@/lib/permissions";
 import { formatCurrencyBRL } from "@/lib/masks";
 import { ExportMenu } from "@/components/ExportMenu";
-import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
+import type { Column } from "@/lib/exporters";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Payment {
