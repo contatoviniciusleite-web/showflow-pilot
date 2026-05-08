@@ -277,6 +277,115 @@ export type Database = {
           },
         ]
       }
+      contract_templates: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contracts: {
+        Row: {
+          content_snapshot: string
+          created_at: string
+          created_by: string
+          docusign_envelope_id: string | null
+          docusign_envelope_url: string | null
+          expires_at: string | null
+          id: string
+          sent_at: string | null
+          show_id: string
+          signed_at: string | null
+          signed_pdf_url: string | null
+          sold_by: string
+          status: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          content_snapshot: string
+          created_at?: string
+          created_by: string
+          docusign_envelope_id?: string | null
+          docusign_envelope_url?: string | null
+          expires_at?: string | null
+          id?: string
+          sent_at?: string | null
+          show_id: string
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          sold_by: string
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content_snapshot?: string
+          created_at?: string
+          created_by?: string
+          docusign_envelope_id?: string | null
+          docusign_envelope_url?: string | null
+          expires_at?: string | null
+          id?: string
+          sent_at?: string | null
+          show_id?: string
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          sold_by?: string
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows_public_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contratantes: {
         Row: {
           cep: string | null
