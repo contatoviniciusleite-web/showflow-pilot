@@ -139,8 +139,13 @@ export function FinanceiroAgenda() {
         { label: "Cachê total", value: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
       ],
     };
-    if (kind === "pdf") exportPDF(monthShows, cols, meta);
-    else exportCSV(monthShows, cols, meta);
+    if (kind === "pdf") {
+      const { exportPDF } = await import("@/lib/exporters");
+      exportPDF(monthShows, cols, meta);
+    } else {
+      const { exportCSV } = await import("@/lib/exporters");
+      exportCSV(monthShows, cols, meta);
+    }
   };
 
   return (
