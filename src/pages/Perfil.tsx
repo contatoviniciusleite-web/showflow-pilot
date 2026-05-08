@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, UserCircle2 } from "lucide-react";
+import { Loader2, UserCircle2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { maskPhone, phoneDigits, toStoredPhone, fromStoredPhone } from "@/lib/phone";
+
+const passwordSchema = z
+  .object({
+    password: z.string().min(6, "A senha deve ter ao menos 6 caracteres").max(72, "Senha muito longa"),
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: "As senhas não coincidem",
+    path: ["confirm"],
+  });
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="new-password"
+        placeholder={placeholder}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((s) => !s)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        tabIndex={-1}
+        aria-label={show ? "Ocultar senha" : "Mostrar senha"}
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
 
 const schema = z.object({
   nome: z
@@ -31,6 +78,28 @@ export default function Perfil() {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsed = passwordSchema.safeParse({ password: newPassword, confirm: confirmPassword });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0].message);
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+    setChangingPassword(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setNewPassword("");
+    setConfirmPassword("");
+    toast.success("Senha alterada com sucesso!");
+  };
 
   useEffect(() => {
     if (profile) {
@@ -147,6 +216,47 @@ export default function Perfil() {
             </div>
           </form>
         )}
+      </Card>
+
+      <Card className="p-6 mt-6">
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-accent" />
+            <h2 className="text-lg font-semibold">Alterar senha</h2>
+          </div>
+          <Separator />
+          <div className="space-y-1.5">
+            <Label htmlFor="new-password">Nova senha</Label>
+            <PasswordInput
+              id="new-password"
+              value={newPassword}
+              onChange={setNewPassword}
+              placeholder="Mínimo 6 caracteres"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+            <PasswordInput
+              id="confirm-password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="Repita a nova senha"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Após salvar, você continuará logado normalmente.
+          </p>
+          <div className="pt-2">
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={!newPassword || changingPassword}
+            >
+              {changingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Alterar senha
+            </Button>
+          </div>
+        </form>
       </Card>
     </div>
   );
