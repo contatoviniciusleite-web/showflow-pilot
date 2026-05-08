@@ -825,7 +825,7 @@ export default function FechamentoDetalhe() {
     }
 
     toast.success("Fechamento reaberto");
-    load();
+    reload();
   };
 
   const handleExportPDF = async () => {
