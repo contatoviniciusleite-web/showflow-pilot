@@ -11,6 +11,7 @@ import { AttachmentsTab } from "./AttachmentsTab";
 import { StatusHistoryTab } from "./StatusHistoryTab";
 import { PaymentsTab } from "./PaymentsTab";
 import { PaymentScheduleEditor } from "./PaymentScheduleEditor";
+import { ContractTab } from "./ContractTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import * as Sentry from "@sentry/react";
@@ -99,6 +100,8 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   const canDeleteShow = isFinanceiro; // excluir minuta
   const canApproveOrReject = isDiretor; // só diretor aprova/rejeita
   const canSeeAutorizado = isDiretor || isManager || isFinanceiro;
+  // Aba Contrato: diretor/financeiro sempre; vendedor apenas se for o "sold_by" do show (created_by no schema atual)
+  const canSeeContract = isDiretor || isFinanceiro || (roles.includes("vendedor") && !!isOwner);
 
   const cacheMin = Number(show.artist_cache_minimo ?? 0);
   const cacheTotal = Number(show.cache_total ?? 0);
@@ -244,6 +247,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
             {!isArtista && <TabsTrigger value="cronograma">Cronograma</TabsTrigger>}
             {!isArtista && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}
             {!isArtista && <TabsTrigger value="anexos">Anexos</TabsTrigger>}
+            {canSeeContract && <TabsTrigger value="contrato">Contrato</TabsTrigger>}
             {(isManager || isDiretor || isFinanceiro) && <TabsTrigger value="historico">Histórico</TabsTrigger>}
           </TabsList>
 
@@ -442,6 +446,13 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
           {(isManager || isDiretor || isFinanceiro) && (
             <TabsContent value="historico">
               <StatusHistoryTab showId={show.id} />
+            </TabsContent>
+          )}
+          {canSeeContract && (
+            <TabsContent value="contrato">
+              <ErrorBoundary label="ContractTab">
+                <ContractTab show={show} onChanged={onChanged} />
+              </ErrorBoundary>
             </TabsContent>
           )}
         </Tabs>
