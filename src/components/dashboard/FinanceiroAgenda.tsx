@@ -12,7 +12,7 @@ import { ptBR } from "date-fns/locale";
 import { format } from "date-fns";
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/showStatus";
 import { ExportMenu } from "@/components/ExportMenu";
-import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
+import type { Column } from "@/lib/exporters";
 import { MonthCalendar, type AgendaEvent } from "@/components/agenda/MonthCalendar";
 import { StatusFilter } from "@/components/agenda/StatusFilter";
 
@@ -117,7 +117,7 @@ export function FinanceiroAgenda() {
     return { total: monthShows.length, conf, pend };
   }, [monthShows]);
 
-  const exportMonth = (kind: "pdf" | "csv") => {
+  const exportMonth = async (kind: "pdf" | "csv") => {
     const cols: Column[] = [
       { header: "Data", key: (r: FShow) => r.data_show.split("-").reverse().join("/") },
       { header: "Hora", key: (r: FShow) => (r.horario ? r.horario.slice(0, 5) : "—") },
@@ -139,8 +139,13 @@ export function FinanceiroAgenda() {
         { label: "Cachê total", value: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
       ],
     };
-    if (kind === "pdf") exportPDF(monthShows, cols, meta);
-    else exportCSV(monthShows, cols, meta);
+    if (kind === "pdf") {
+      const { exportPDF } = await import("@/lib/exporters");
+      exportPDF(monthShows, cols, meta);
+    } else {
+      const { exportCSV } = await import("@/lib/exporters");
+      exportCSV(monthShows, cols, meta);
+    }
   };
 
   return (

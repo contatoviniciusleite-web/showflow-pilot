@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import { fmtBRL, fmtDate } from "@/lib/dashboard";
 import { STATUS_CLASS, STATUS_LABEL, ShowStatus } from "@/lib/showStatus";
 import { ExportMenu } from "@/components/ExportMenu";
-import { exportCSV, exportPDF, type Column } from "@/lib/exporters";
+import type { Column } from "@/lib/exporters";
 
 export interface AlertShow {
   id: string;
@@ -132,8 +132,14 @@ export function AlertDetailSheet({
             {filtered.length} show(s) · {fmtBRL(total)}
           </span>
           <ExportMenu
-            onExportPDF={() => exportPDF(filtered, exportColumns, buildMeta())}
-            onExportCSV={() => exportCSV(filtered, exportColumns, buildMeta())}
+            onExportPDF={async () => {
+              const { exportPDF } = await import("@/lib/exporters");
+              exportPDF(filtered, exportColumns, buildMeta());
+            }}
+            onExportCSV={async () => {
+              const { exportCSV } = await import("@/lib/exporters");
+              exportCSV(filtered, exportColumns, buildMeta());
+            }}
             disabled={filtered.length === 0}
           />
         </div>

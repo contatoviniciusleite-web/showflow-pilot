@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AlertTriangle, FileDown } from "lucide-react";
-import { exportDocumentPDF } from "@/lib/exporters";
+
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface ShowLite {
@@ -151,7 +151,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
   const canConfirmWithoutPayment = (isDiretor || isFinanceiro) &&
     (show.status === "aprovada" || show.status === "aguardando_pagamento");
 
-  const exportMinuta = () => {
+  const exportMinuta = async () => {
     const transp: string[] = [];
     if (show.transp_aereo) transp.push("Aéreo");
     if (show.transp_van) transp.push("Van");
@@ -162,6 +162,7 @@ export function ShowDetailsModal({ show, open, onClose, onChanged }: Props) {
     if (show.hosp_hospedagem) hosp.push("Hospedagem");
     if (show.hosp_diaria_alimentacao) hosp.push("Diária de alimentação");
 
+    const { exportDocumentPDF } = await import("@/lib/exporters");
     exportDocumentPDF({
       title: `Minuta — ${show.artist_nome ?? "Show"}`,
       subtitle: `${format(new Date(show.data_show + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}${show.horario ? ` às ${show.horario.slice(0, 5)}` : ""}`,
