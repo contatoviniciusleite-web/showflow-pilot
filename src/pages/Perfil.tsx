@@ -78,6 +78,28 @@ export default function Perfil() {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsed = passwordSchema.safeParse({ password: newPassword, confirm: confirmPassword });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0].message);
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+    setChangingPassword(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setNewPassword("");
+    setConfirmPassword("");
+    toast.success("Senha alterada com sucesso!");
+  };
 
   useEffect(() => {
     if (profile) {
