@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AlertTriangle, FileDown } from "lucide-react";
-import { exportDocumentPDF } from "@/lib/exporters";
+
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface ShowLite {
