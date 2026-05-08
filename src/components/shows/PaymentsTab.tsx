@@ -252,7 +252,7 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
   const canExport = roles.includes("financeiro") || roles.includes("gerente") || roles.includes("diretor");
   const showConfirmedBy = canViewConfirmedBy(roles) && status === "confirmado" && confirmadoPorNome;
 
-  const exportExtrato = (kind: "pdf" | "csv") => {
+  const exportExtrato = async (kind: "pdf" | "csv") => {
     const cols: Column[] = [
       { header: "Data", key: (r: Payment) => safeFmt(r.data_pagamento, "dd/MM/yyyy") },
       { header: "Valor", key: (r: Payment) => formatCurrencyBRL(toN(r.valor)), align: "right" },
