@@ -18,6 +18,19 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-ui": ["@radix-ui/react-dialog", "@radix-ui/react-select", "@radix-ui/react-popover", "@radix-ui/react-tabs", "@radix-ui/react-dropdown-menu"],
+          "vendor-charts": ["recharts"],
+          "vendor-sentry": ["@sentry/react"],
+          "vendor-pdf": ["jspdf", "jspdf-autotable", "html2canvas"],
+          "vendor-date": ["date-fns"],
+        },
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
