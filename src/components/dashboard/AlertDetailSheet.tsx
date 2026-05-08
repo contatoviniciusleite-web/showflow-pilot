@@ -132,8 +132,14 @@ export function AlertDetailSheet({
             {filtered.length} show(s) · {fmtBRL(total)}
           </span>
           <ExportMenu
-            onExportPDF={() => exportPDF(filtered, exportColumns, buildMeta())}
-            onExportCSV={() => exportCSV(filtered, exportColumns, buildMeta())}
+            onExportPDF={async () => {
+              const { exportPDF } = await import("@/lib/exporters");
+              exportPDF(filtered, exportColumns, buildMeta());
+            }}
+            onExportCSV={async () => {
+              const { exportCSV } = await import("@/lib/exporters");
+              exportCSV(filtered, exportColumns, buildMeta());
+            }}
             disabled={filtered.length === 0}
           />
         </div>
