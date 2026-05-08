@@ -262,10 +262,28 @@ export default function Shows() {
   const [parcelas, setParcelas] = useState<ScheduleItem[]>([]);
   const [myName, setMyName] = useState<string>("");
 
+  // Janela de carregamento (limita o volume vindo do servidor para evitar travas).
+  // "default" = últimos 90 dias + próximos 180 dias. "year" = ano corrente. "all" = sem limite.
+  const [loadRange, setLoadRange] = useState<"default" | "year" | "all" | "custom">("default");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
+
+  const rangeBody = useMemo(() => {
+    if (loadRange === "all") return { range: "all" as const };
+    if (loadRange === "year") {
+      const y = new Date().getFullYear();
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    }
+    if (loadRange === "custom" && (customFrom || customTo)) {
+      return { from: customFrom || undefined, to: customTo || undefined };
+    }
+    return {}; // default = backend aplica janela padrão
+  }, [loadRange, customFrom, customTo]);
+
   const showsQuery = useQuery({
-    queryKey: ["shows", user?.id, roles.join(","), "bootstrap-v1"],
+    queryKey: ["shows", user?.id, roles.join(","), "bootstrap-v1", loadRange, customFrom, customTo],
     queryFn: async () => {
-      const res = await supabase.functions.invoke("shows-admin", { body: { action: "bootstrap" } });
+      const res = await supabase.functions.invoke("shows-admin", { body: { action: "bootstrap", ...rangeBody } });
       if (res.error) throw new Error(res.error.message);
     return {
       shows: (res.data?.shows ?? []) as Show[],
@@ -569,7 +587,7 @@ export default function Shows() {
 
   // ===== Optimistic update helper =====
   // Aplica patch local imediatamente; em caso de erro, reverte e re-fetch.
-  const showsQueryKey = ["shows", user?.id, roles.join(","), "bootstrap-v1"];
+  const showsQueryKey = ["shows", user?.id, roles.join(","), "bootstrap-v1", loadRange, customFrom, customTo];
   const optimisticUpdate = async (
     showId: string,
     patch: Partial<Show>,
@@ -756,6 +774,34 @@ export default function Shows() {
             <Plus className="h-4 w-4 mr-2" />
             Nova minuta
           </Button>
+        )}
+      </div>
+
+      {/* Janela de carregamento (limita o volume vindo do servidor) */}
+      <div className="mb-3 flex flex-wrap items-end gap-2">
+        <div className="min-w-[220px]">
+          <Label className="text-xs">Carregar</Label>
+          <Select value={loadRange} onValueChange={(v) => setLoadRange(v as any)}>
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Últimos 90 dias + próximos 180 dias</SelectItem>
+              <SelectItem value="year">Este ano inteiro</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+              <SelectItem value="all">Todos os shows</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {loadRange === "custom" && (
+          <>
+            <div>
+              <Label className="text-xs">De</Label>
+              <Input type="date" className="h-9 w-[150px]" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Até</Label>
+              <Input type="date" className="h-9 w-[150px]" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            </div>
+          </>
         )}
       </div>
 

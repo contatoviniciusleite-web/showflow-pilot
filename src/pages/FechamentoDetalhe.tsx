@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -180,9 +181,10 @@ export default function FechamentoDetalhe() {
 
   const readonly = !canEdit || closing?.status === "finalizado";
 
+  const queryClient = useQueryClient();
+
   const load = async () => {
-    if (!id) return;
-    setLoading(true);
+    if (!id) return null;
     const { data: c, error } = await supabase
       .from("weekly_closings")
       .select("*, artists(nome)")
@@ -190,8 +192,7 @@ export default function FechamentoDetalhe() {
       .maybeSingle();
     if (error || !c) {
       toast.error(error?.message || "Fechamento não encontrado");
-      setLoading(false);
-      return;
+      throw new Error(error?.message || "Fechamento não encontrado");
     }
     setClosing(c as any);
     setArtistName((c as any).artists?.nome ?? "");
@@ -274,13 +275,28 @@ export default function FechamentoDetalhe() {
       }));
     setPendingInvestments(pendList);
 
-    setLoading(false);
+    return { ts: Date.now() };
   };
 
+  // React Query: cacheia o carregamento por 30s para evitar refazer as 8 queries
+  // toda vez que abre o fechamento. `load` continua populando os states locais.
+  const fechamentoQuery = useQuery({
+    queryKey: ["fechamento", id],
+    queryFn: load,
+    staleTime: 30_000,
+    enabled: !!id,
+  });
+
+  // Sincroniza loading local com o estado da query
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+    setLoading(fechamentoQuery.isLoading || fechamentoQuery.isFetching);
+  }, [fechamentoQuery.isLoading, fechamentoQuery.isFetching]);
+
+  // Força refetch (invalida cache) — usado após salvar/reabrir
+  const reload = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["fechamento", id] });
+  };
+
 
   useEffect(() => {
     if (closing) {
@@ -779,7 +795,7 @@ export default function FechamentoDetalhe() {
       }
 
       setRemovedCrew([]); setRemovedShowExpenses([]); setRemovedInvestments([]); setRemovedGeneralExpenses([]); setRemovedClipes([]);
-      await load();
+      await reload();
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao salvar");
     } finally {
@@ -809,7 +825,7 @@ export default function FechamentoDetalhe() {
     }
 
     toast.success("Fechamento reaberto");
-    load();
+    reload();
   };
 
   const handleExportPDF = async () => {
