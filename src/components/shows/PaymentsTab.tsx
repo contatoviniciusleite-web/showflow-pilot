@@ -279,8 +279,13 @@ export function PaymentsTab({ showId, status: statusProp, confirmadoPorNome, con
       ],
       filename: `extrato-${(artistNome ?? "show").toLowerCase().replace(/\s+/g, "-")}-${showDate ?? ""}`,
     };
-    if (kind === "pdf") exportPDF(items, cols, meta);
-    else exportCSV(items, cols, meta);
+    if (kind === "pdf") {
+      const { exportPDF } = await import("@/lib/exporters");
+      exportPDF(items, cols, meta);
+    } else {
+      const { exportCSV } = await import("@/lib/exporters");
+      exportCSV(items, cols, meta);
+    }
   };
 
   return (
