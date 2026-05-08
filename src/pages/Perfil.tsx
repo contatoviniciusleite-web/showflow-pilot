@@ -217,6 +217,47 @@ export default function Perfil() {
           </form>
         )}
       </Card>
+
+      <Card className="p-6 mt-6">
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-accent" />
+            <h2 className="text-lg font-semibold">Alterar senha</h2>
+          </div>
+          <Separator />
+          <div className="space-y-1.5">
+            <Label htmlFor="new-password">Nova senha</Label>
+            <PasswordInput
+              id="new-password"
+              value={newPassword}
+              onChange={setNewPassword}
+              placeholder="Mínimo 6 caracteres"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+            <PasswordInput
+              id="confirm-password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="Repita a nova senha"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Após salvar, você continuará logado normalmente.
+          </p>
+          <div className="pt-2">
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={!newPassword || changingPassword}
+            >
+              {changingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Alterar senha
+            </Button>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }
