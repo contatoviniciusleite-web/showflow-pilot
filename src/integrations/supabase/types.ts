@@ -1561,7 +1561,7 @@ export type Database = {
         Row: {
           aprovado_em: string | null
           aprovado_por: string | null
-          artist_id: string
+          artist_id: string | null
           auto_aprovado: boolean
           auto_aprovado_em: string | null
           autorizado_em: string | null
@@ -1634,7 +1634,7 @@ export type Database = {
         Insert: {
           aprovado_em?: string | null
           aprovado_por?: string | null
-          artist_id: string
+          artist_id?: string | null
           auto_aprovado?: boolean
           auto_aprovado_em?: string | null
           autorizado_em?: string | null
@@ -1707,7 +1707,7 @@ export type Database = {
         Update: {
           aprovado_em?: string | null
           aprovado_por?: string | null
-          artist_id?: string
+          artist_id?: string | null
           auto_aprovado?: boolean
           auto_aprovado_em?: string | null
           autorizado_em?: string | null
@@ -2228,7 +2228,7 @@ export type Database = {
       }
       weekly_closings: {
         Row: {
-          artist_id: string
+          artist_id: string | null
           created_at: string
           criado_por: string | null
           finalizado_em: string | null
@@ -2247,7 +2247,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          artist_id: string
+          artist_id?: string | null
           created_at?: string
           criado_por?: string | null
           finalizado_em?: string | null
@@ -2266,7 +2266,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          artist_id?: string
+          artist_id?: string | null
           created_at?: string
           criado_por?: string | null
           finalizado_em?: string | null
