@@ -1,0 +1,5 @@
+CREATE POLICY "Gerente/Diretor gerenciam fechamentos" ON public.weekly_closings FOR ALL TO authenticated USING (has_role(auth.uid(), 'gerente'::app_role) OR has_role(auth.uid(), 'diretor'::app_role)) WITH CHECK (has_role(auth.uid(), 'gerente'::app_role) OR has_role(auth.uid(), 'diretor'::app_role));
+
+CREATE POLICY "Gerente/Diretor gerenciam shows do fechamento" ON public.weekly_closing_shows FOR ALL TO authenticated USING (has_role(auth.uid(), 'gerente'::app_role) OR has_role(auth.uid(), 'diretor'::app_role)) WITH CHECK (has_role(auth.uid(), 'gerente'::app_role) OR has_role(auth.uid(), 'diretor'::app_role));
+
+CREATE POLICY "Gerente/Diretor gerenciam equipe do fechamento" ON public.weekly_closing_crew FOR ALL TO authenticated USING (has_role(auth.uid(), 'gerente'::app_role) OR has_role(auth.uid(), 'diretor'::app_role)) WITH CHECK (has_role(auth.uid(), 'gerente'::app_role) OR has_role(auth.uid(), 'diretor'::app_role));
